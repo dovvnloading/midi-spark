@@ -1,0 +1,6 @@
+{
+  "name": "Midi Spark",
+  "description": "A mathematical MIDI generation tool exploring chord progressions, rhythmic complexity, and dissonance with high quality sounds.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
