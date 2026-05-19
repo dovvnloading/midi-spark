@@ -9,11 +9,10 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "build:pages": "npm run build -- --base \"/$npm_package_name/\"",
-    "build:pages:root": "npm run build -- --base /"
+    "build:pages": "vite build --base=/${npm_package_name}/",
+    "build:pages:root": "vite build --base=/"
   },
   "dependencies": {
-    "@google/genai": "^1.29.0",
     "@tailwindcss/vite": "^4.1.14",
     "@tonaljs/modules": "^4.8.12",
     "@tonaljs/tonal": "^4.10.0",
