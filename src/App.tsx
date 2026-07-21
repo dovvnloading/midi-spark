@@ -5,6 +5,7 @@ import {
   ProgressionData,
   NoteEvent,
   applyVariationToProgression,
+  applySwing,
   detectKeyFromProgression,
 } from "./lib/theory";
 import {
@@ -67,6 +68,7 @@ export default function App() {
   const [noteLength, setNoteLength] = useState(0.25);
   const [snapResolution, setSnapResolution] = useState(0.25);
   const [zoomX, setZoomX] = useState(60);
+  const [swingAmount, setSwingAmount] = useState(0);
 
   // Bumped when a new sequence should re-center the piano roll.
   const [scrollAnchorKey, setScrollAnchorKey] = useState(0);
@@ -307,6 +309,10 @@ export default function App() {
     setSelectedNoteIndices(new Set(pasted.map((_, i) => startIndex + i)));
   }, [progression, currentTick, commit]);
 
+  const handleApplySwing = useCallback(() => {
+    commit((prev) => (prev ? applySwing(prev, swingAmount) : prev));
+  }, [swingAmount, commit]);
+
   const handleDuplicateBar = useCallback(() => {
     const barStart = Math.floor(currentTick / 4) * 4;
     const barEnd = barStart + 4;
@@ -487,13 +493,16 @@ export default function App() {
           noteLength={noteLength}
           snapResolution={snapResolution}
           zoomX={zoomX}
+          swingAmount={swingAmount}
           onToolModeChange={setToolMode}
           onStampTypeChange={setStampType}
           onNoteLengthChange={setNoteLength}
           onSnapResolutionChange={setSnapResolution}
           onZoomChange={setZoomX}
+          onSwingAmountChange={setSwingAmount}
           onChop={handleChopSelected}
           onDuplicateBar={handleDuplicateBar}
+          onApplySwing={handleApplySwing}
         />
 
         <PianoRoll

@@ -5,6 +5,7 @@ import {
   Pencil,
   Scissors,
   Stamp,
+  Waves,
   Zap,
   ZoomIn,
 } from "lucide-react";
@@ -27,13 +28,16 @@ export interface EditToolbarProps {
   noteLength: number;
   snapResolution: number;
   zoomX: number;
+  swingAmount: number;
   onToolModeChange: (mode: ToolMode) => void;
   onStampTypeChange: (stamp: string) => void;
   onNoteLengthChange: (length: number) => void;
   onSnapResolutionChange: (snap: number) => void;
   onZoomChange: (zoom: number) => void;
+  onSwingAmountChange: (amount: number) => void;
   onChop: () => void;
   onDuplicateBar: () => void;
+  onApplySwing: () => void;
 }
 
 const TOOL_BUTTONS: {
@@ -74,13 +78,16 @@ export function EditToolbar({
   noteLength,
   snapResolution,
   zoomX,
+  swingAmount,
   onToolModeChange,
   onStampTypeChange,
   onNoteLengthChange,
   onSnapResolutionChange,
   onZoomChange,
+  onSwingAmountChange,
   onChop,
   onDuplicateBar,
+  onApplySwing,
 }: EditToolbarProps) {
   return (
     <div className="w-full max-w-6xl mx-auto overflow-x-auto scrollbar-hide z-20 relative shrink-0 mb-[-12px]">
@@ -141,6 +148,30 @@ export function EditToolbar({
           >
             <CopyPlus size={14} />
             DUPE BAR
+          </button>
+          <div className="flex items-center gap-2 hardware-display p-1 px-3 w-32 shrink-0">
+            <Waves size={16} className="text-[var(--text-muted)] shrink-0" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] shrink-0">
+              Swing
+            </span>
+            <CustomSlider
+              min={0}
+              max={100}
+              step={1}
+              value={swingAmount}
+              onChange={onSwingAmountChange}
+              className="h-6"
+              fillColor="linear-gradient(90deg, #3b5bdb 0%, #5e7cf6 100%)"
+            />
+          </div>
+          <button
+            onClick={onApplySwing}
+            disabled={swingAmount === 0}
+            className="hardware-btn px-4 py-1.5 h-10 rounded text-[10px] font-bold uppercase tracking-widest text-[var(--accent)] hover:bg-[var(--surface-bg-hover)] flex items-center gap-2 border border-[var(--border-color)] bg-[var(--piano-black)] shrink-0"
+            title="Apply swing: delays every off-beat 8th note by an amount proportional to the Swing slider; downbeats are untouched."
+          >
+            <Waves size={14} />
+            APPLY SWING
           </button>
           <div className="flex items-center gap-2 hardware-display p-1 px-3 shrink-0">
             <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">

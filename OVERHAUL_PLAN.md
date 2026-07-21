@@ -152,13 +152,13 @@ exactly like Phases 0–6.
 
 ### 7.4 — Swing / humanize post-processor toggle
 
-- [ ] New "Swing" slider (0–100%) in the edit toolbar
-- [ ] "Apply Swing" is a non-destructive, explicit action button (not a live
+- [x] New "Swing" slider (0–100%) in the edit toolbar
+- [x] "Apply Swing" is a non-destructive, explicit action button (not a live
       always-on transform) that delays every off-beat 8th/16th note by an amount
       proportional to the slider, leaving downbeats untouched; commits to history
-- [ ] Unit test: 0% swing is a no-op; at 50% only off-beat notes shift, downbeats
+- [x] Unit test: 0% swing is a no-op; at 50% only off-beat notes shift, downbeats
       never move
-- [ ] Gate green; browser-verified audibly/visually on a generated progression
+- [x] Gate green; browser-verified audibly/visually on a generated progression
 
 ### 7.5 — Persist last session to localStorage
 

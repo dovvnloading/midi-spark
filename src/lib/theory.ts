@@ -569,3 +569,41 @@ export function applyVariationToProgression(
     notes: newNotes
   };
 }
+
+/** Grid spacing (in quarters) of an 8th note — the swing unit. */
+const EIGHTH = 0.5;
+/** Tolerance (in quarters) for treating a note as aligned to the 8th-note
+ *  grid despite generation/humanize jitter (up to +/-0.02 quarters). */
+const SWING_GRID_EPS = 0.08;
+/** Max delay (in quarters) applied at 100% swing. Kept under `EIGHTH` so a
+ *  swung off-beat note's new timeStart can never reach — let alone cross —
+ *  the following downbeat. */
+const MAX_SWING_DELAY = 0.45;
+
+/**
+ * Destructive swing/humanize post-processor (applied explicitly, like CHOP,
+ * rather than as a live playback transform — see OVERHAUL_PLAN.md 7.4).
+ * Delays every off-beat 8th note (the "and" of the beat — timeStart an odd
+ * multiple of `EIGHTH`) by an amount proportional to `swingAmount`; downbeats,
+ * and any note not aligned to the 8th-note grid, are left completely
+ * unchanged. `swingAmount` 0 is a guaranteed no-op (same object returned).
+ */
+export function applySwing(
+  progression: ProgressionData,
+  swingAmount: number, // 0-100
+): ProgressionData {
+  const amount = Math.max(0, Math.min(100, swingAmount)) / 100;
+  const delay = amount * MAX_SWING_DELAY;
+  if (delay === 0) return progression;
+
+  const notes = progression.notes.map((n) => {
+    const gridPos = n.timeStart / EIGHTH;
+    const nearestGridPos = Math.round(gridPos);
+    const onGrid = Math.abs(gridPos - nearestGridPos) < SWING_GRID_EPS / EIGHTH;
+    const isOffBeat = onGrid && nearestGridPos % 2 !== 0;
+    if (!isOffBeat) return n;
+    return { ...n, timeStart: n.timeStart + delay };
+  });
+
+  return { ...progression, notes };
+}
