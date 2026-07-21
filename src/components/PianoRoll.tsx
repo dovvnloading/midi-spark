@@ -14,12 +14,15 @@ import {
   FREE_SNAP,
   KEYBOARD_WIDTH,
   MAX_MIDI,
+  MAX_VELOCITY,
   MAX_ZOOM,
   MIDI_RANGE,
+  MIN_VELOCITY,
   MIN_ZOOM,
   NOTE_HEIGHT,
   PIANO_ROLL_HEIGHT,
   SCALE_STAMPS,
+  VELOCITY_LANE_HEIGHT,
   clamp,
 } from "../lib/constants";
 import { ToolMode } from "./EditToolbar";
@@ -75,6 +78,12 @@ interface DragResizeState {
   durationDelta: number;
 }
 
+interface DragVelocityState {
+  notes: { index: number; startVelocity: number }[];
+  startY: number;
+  velocityDelta: number;
+}
+
 interface BoxState {
   startX: number;
   startY: number;
@@ -109,6 +118,7 @@ export function PianoRoll({
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dragDrawState, setDragDrawState] = useState<DragDrawState | null>(null);
   const [dragResizeState, setDragResizeState] = useState<DragResizeState | null>(null);
+  const [dragVelocityState, setDragVelocityState] = useState<DragVelocityState | null>(null);
   const [lassoState, setLassoState] = useState<BoxState | null>(null);
   const [sliceState, setSliceState] = useState<BoxState | null>(null);
   const [containerWidth, setContainerWidth] = useState(1200);
@@ -254,6 +264,19 @@ export function PianoRoll({
         ...progression,
         notes: [...progression.notes, drawnNote(dragDrawState, snapTick, zoomX)],
       };
+    } else if (dragVelocityState) {
+      const newNotes = [...progression.notes];
+      dragVelocityState.notes.forEach((dn) => {
+        newNotes[dn.index] = {
+          ...newNotes[dn.index],
+          velocity: clamp(
+            dn.startVelocity + dragVelocityState.velocityDelta,
+            MIN_VELOCITY,
+            MAX_VELOCITY,
+          ),
+        };
+      });
+      preview = { ...progression, notes: newNotes };
     }
 
     onLivePreview(preview);
@@ -261,6 +284,7 @@ export function PianoRoll({
     dragState,
     dragResizeState,
     dragDrawState,
+    dragVelocityState,
     progression,
     snapTick,
     zoomX,
@@ -412,6 +436,28 @@ export function PianoRoll({
     });
   };
 
+  const handleVelocityBarMouseDown = (e: React.MouseEvent, index: number) => {
+    e.stopPropagation();
+    if (e.button !== 0) return;
+    if (!progression) return;
+
+    let targets: number[] = [index];
+    if (selectedIndices.has(index)) {
+      targets = Array.from(selectedIndices);
+    } else {
+      onSelectionChange(new Set([index]));
+    }
+
+    setDragVelocityState({
+      notes: targets.map((idx) => ({
+        index: idx,
+        startVelocity: progression.notes[idx].velocity,
+      })),
+      startY: e.clientY,
+      velocityDelta: 0,
+    });
+  };
+
   const handleNoteDelete = (targetNote: NoteEvent, index: number) => {
     const wasSelected = selectedIndices.has(index);
     const selected = new Set(selectedIndices);
@@ -451,6 +497,10 @@ export function PianoRoll({
       setDragDrawState((prev) =>
         prev ? { ...prev, currentX: e.clientX } : null,
       );
+    } else if (dragVelocityState) {
+      const dy = dragVelocityState.startY - e.clientY;
+      const velocityDelta = dy / VELOCITY_LANE_HEIGHT;
+      setDragVelocityState((prev) => (prev ? { ...prev, velocityDelta } : null));
     } else if (sliceState || lassoState) {
       const gridRect = gridRef.current?.getBoundingClientRect();
       if (!gridRect) return;
@@ -515,6 +565,26 @@ export function PianoRoll({
         return { ...prev, notes: newNotes };
       });
       setDragResizeState(null);
+    }
+
+    if (dragVelocityState) {
+      const finished = dragVelocityState;
+      commit((prev) => {
+        if (!prev) return prev;
+        const newNotes = [...prev.notes];
+        finished.notes.forEach((dn) => {
+          newNotes[dn.index] = {
+            ...newNotes[dn.index],
+            velocity: clamp(
+              dn.startVelocity + finished.velocityDelta,
+              MIN_VELOCITY,
+              MAX_VELOCITY,
+            ),
+          };
+        });
+        return { ...prev, notes: newNotes };
+      });
+      setDragVelocityState(null);
     }
 
     if (sliceState) {
@@ -860,6 +930,77 @@ export function PianoRoll({
                             <div className="w-[4px] h-[60%] bg-white/80 rounded-[1px] shadow-sm pointer-events-none" />
                           </div>
                         </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Velocity Lane */}
+              <div className="flex sticky bottom-0 z-40">
+                <div
+                  className="sticky left-0 z-40 bg-[#16181d] border-t border-r border-[var(--border-color)] flex-shrink-0 flex items-center justify-center"
+                  style={{
+                    width: `${KEYBOARD_WIDTH}px`,
+                    height: `${VELOCITY_LANE_HEIGHT}px`,
+                  }}
+                >
+                  <span className="text-[8px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
+                    Vel
+                  </span>
+                </div>
+                <div
+                  className="relative bg-[var(--piano-black)] border-t border-[var(--border-color)] flex-1"
+                  style={{
+                    minWidth: `${contentWidth}px`,
+                    height: `${VELOCITY_LANE_HEIGHT}px`,
+                  }}
+                >
+                  {progression.notes.map((n, i) => {
+                    const isVelocityDragging =
+                      dragVelocityState &&
+                      dragVelocityState.notes.some((dn) => dn.index === i);
+
+                    let renderVelocity = n.velocity;
+                    if (isVelocityDragging && dragVelocityState) {
+                      const dn = dragVelocityState.notes.find(
+                        (d) => d.index === i,
+                      );
+                      if (dn) {
+                        renderVelocity = clamp(
+                          dn.startVelocity + dragVelocityState.velocityDelta,
+                          MIN_VELOCITY,
+                          MAX_VELOCITY,
+                        );
+                      }
+                    }
+
+                    const isSelected = selectedIndices.has(i);
+                    const barWidth = Math.max(zoomX / 4, n.duration * zoomX);
+                    const barHeight = renderVelocity * VELOCITY_LANE_HEIGHT;
+
+                    return (
+                      <div
+                        key={`vel-${i}`}
+                        onMouseDown={(e) => handleVelocityBarMouseDown(e, i)}
+                        className="absolute inset-y-0 cursor-ns-resize group"
+                        style={{
+                          left: `${n.timeStart * zoomX}px`,
+                          width: `${barWidth}px`,
+                        }}
+                      >
+                        <div
+                          className={`absolute inset-x-[1px] bottom-0 rounded-t-[2px] border-t shadow-sm transition-colors
+                            ${
+                              isVelocityDragging
+                                ? "bg-emerald-400 border-emerald-300"
+                                : isSelected
+                                  ? "bg-violet-500 border-violet-400"
+                                  : "bg-[var(--accent)] border-blue-400 group-hover:brightness-110"
+                            }
+                          `}
+                          style={{ height: `${barHeight}px` }}
+                        />
                       </div>
                     );
                   })}

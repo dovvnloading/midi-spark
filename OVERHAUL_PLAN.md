@@ -119,15 +119,15 @@ exactly like Phases 0–6.
 
 ### 7.1 — Velocity editing lane
 
-- [ ] Velocity lane strip under the piano roll: one bar per note in view, height
+- [x] Velocity lane strip under the piano roll: one bar per note in view, height
       proportional to velocity (0.1–1.0)
-- [ ] Drag a bar to set that note's velocity; if the note is part of the current
+- [x] Drag a bar to set that note's velocity; if the note is part of the current
       selection, drag scales all selected notes' velocities together (relative
       delta, clamped 0.1–1.0) — mirrors the existing multi-note drag pattern
-- [ ] Commits to undo history on release, not per pixel of drag
-- [ ] Live-audible: changing velocity while a note is sounding is reflected on next
+- [x] Commits to undo history on release, not per pixel of drag
+- [x] Live-audible: changing velocity while a note is sounding is reflected on next
       playback pass (uses the existing live-preview channel)
-- [ ] Gate green; browser-verified: drag lowers/raises velocity, undo restores it
+- [x] Gate green; browser-verified: drag lowers/raises velocity, undo restores it
 
 ### 7.2 — Copy/paste + duplicate-bar tool
 

@@ -5,6 +5,9 @@ export const MAX_MIDI = 127;
 export const NOTE_HEIGHT = 16;
 export const PIANO_ROLL_HEIGHT = MIDI_RANGE * NOTE_HEIGHT;
 export const KEYBOARD_WIDTH = 64;
+export const VELOCITY_LANE_HEIGHT = 80;
+export const MIN_VELOCITY = 0.1;
+export const MAX_VELOCITY = 1.0;
 
 export const MIN_ZOOM = 10;
 export const MAX_ZOOM = 200;
