@@ -24,6 +24,7 @@ import {
   SCALE_STAMPS,
   VELOCITY_LANE_HEIGHT,
   clamp,
+  getTrackColorClasses,
 } from "../lib/constants";
 import { ToolMode } from "./EditToolbar";
 
@@ -131,6 +132,12 @@ export function PianoRoll({
 
   const snapTick = snapResolution > 0 ? snapResolution : FREE_SNAP;
   const scaleChromas = useMemo(() => getScaleChromas(root, mode), [root, mode]);
+  // Only imported multi-track files carry trackIndex; generated/drawn notes
+  // never do, so this keeps single-track rendering byte-for-byte unchanged.
+  const hasTrackColors = useMemo(
+    () => progression?.notes.some((n) => n.trackIndex !== undefined) ?? false,
+    [progression],
+  );
 
   // ----- Derived layout -----
   const maxNoteEndTick =
@@ -905,7 +912,9 @@ export function PianoRoll({
                                 ? "bg-emerald-400 border-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.5)] z-30"
                                 : isSelected
                                   ? "bg-violet-500 border-violet-400 shadow-[0_0_4px_rgba(139,92,246,0.5)] z-20"
-                                  : "bg-[var(--accent)] border-blue-400 group-hover:brightness-110"
+                                  : hasTrackColors && n.trackIndex !== undefined
+                                    ? `${getTrackColorClasses(n.trackIndex)} group-hover:brightness-110`
+                                    : "bg-[var(--accent)] border-blue-400 group-hover:brightness-110"
                             }
                           `}
                         >
@@ -996,7 +1005,9 @@ export function PianoRoll({
                                 ? "bg-emerald-400 border-emerald-300"
                                 : isSelected
                                   ? "bg-violet-500 border-violet-400"
-                                  : "bg-[var(--accent)] border-blue-400 group-hover:brightness-110"
+                                  : hasTrackColors && n.trackIndex !== undefined
+                                    ? `${getTrackColorClasses(n.trackIndex)} group-hover:brightness-110`
+                                    : "bg-[var(--accent)] border-blue-400 group-hover:brightness-110"
                             }
                           `}
                           style={{ height: `${barHeight}px` }}

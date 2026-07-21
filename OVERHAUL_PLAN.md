@@ -178,17 +178,17 @@ Scope decision: full separate-lane rendering with per-track instruments is a muc
 larger architecture change (multi-synth playback, per-track mixer UI). This pass
 does the additive, low-risk half and re-defers the rest.
 
-- [ ] `NoteEvent` gains an optional `trackIndex` (additive field, not a breaking
+- [x] `NoteEvent` gains an optional `trackIndex` (additive field, not a breaking
       shape change)
-- [ ] Import assigns each source MIDI track its own index instead of flattening
+- [x] Import assigns each source MIDI track its own index instead of flattening
       everything into one anonymous list (still merged into one `notes[]`, just
       tagged)
-- [ ] Piano roll colors notes by `trackIndex` from a small fixed palette when a
+- [x] Piano roll colors notes by `trackIndex` from a small fixed palette when a
       progression has more than one track; single-track/generated progressions
       render exactly as before (no visual regression)
-- [ ] Explicitly re-documented as deferred: per-track instrument routing and a
+- [x] Explicitly re-documented as deferred: per-track instrument routing and a
       separate-lanes UI remain future work
-- [ ] Gate green; browser-verified: importing a multi-track file shows distinct
+- [x] Gate green; browser-verified: importing a multi-track file shows distinct
       colors per track; a generated (single "track") progression is unchanged
 
 ## Phase 8 — Integration, verification & ship

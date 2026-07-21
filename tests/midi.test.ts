@@ -82,6 +82,40 @@ describe("parseMidiBuffer", () => {
     expect(progression.notes.map((n) => n.midi).sort()).toEqual([60, 64]);
   });
 
+  it("tags each melodic track with its own contiguous trackIndex, skipping percussion", () => {
+    // Percussion track placed FIRST to prove it doesn't consume an index slot.
+    const midi = new Midi();
+    const drums = midi.addTrack();
+    drums.channel = 9;
+    drums.addNote({ midi: 36, ticks: 0, durationTicks: 120, velocity: 1 });
+    const melodic1 = midi.addTrack();
+    melodic1.addNote({ midi: 60, ticks: 0, durationTicks: 480, velocity: 0.8 });
+    const melodic2 = midi.addTrack();
+    melodic2.addNote({ midi: 64, ticks: 480, durationTicks: 480, velocity: 0.8 });
+    melodic2.addNote({ midi: 67, ticks: 960, durationTicks: 480, velocity: 0.8 });
+
+    const { progression } = parseMidiBuffer(midi.toArray().buffer as ArrayBuffer);
+    const trackIndexByMidi = new Map(
+      progression.notes.map((n) => [n.midi, n.trackIndex]),
+    );
+    expect(trackIndexByMidi.get(60)).toBe(0);
+    expect(trackIndexByMidi.get(64)).toBe(1);
+    expect(trackIndexByMidi.get(67)).toBe(1);
+    expect(new Set(progression.notes.map((n) => n.trackIndex))).toEqual(
+      new Set([0, 1]),
+    );
+  });
+
+  it("tags single-track imports with trackIndex 0 consistently", () => {
+    const midi = new Midi();
+    const track = midi.addTrack();
+    track.addNote({ midi: 60, ticks: 0, durationTicks: 480, velocity: 0.8 });
+    track.addNote({ midi: 62, ticks: 480, durationTicks: 480, velocity: 0.8 });
+
+    const { progression } = parseMidiBuffer(midi.toArray().buffer as ArrayBuffer);
+    expect(progression.notes.every((n) => n.trackIndex === 0)).toBe(true);
+  });
+
   it("handles an empty file without NaN/-Infinity bars", () => {
     const midi = new Midi();
     const { progression } = parseMidiBuffer(midi.toArray().buffer as ArrayBuffer);
