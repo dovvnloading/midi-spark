@@ -7,7 +7,7 @@ Branch: `overhaul/v1` → PR → `main` (Pages auto-deploys from `main`).
 
 - AI Studio export: React 19 + Vite 6 + Tailwind 4 + Tone.js 15 + Tonal.
 - Single 1,807-line `src/App.tsx` containing all UI + interaction logic.
-- Build/typecheck status at baseline: recorded in Phase 0.
+- Build/typecheck status at baseline: both passed (loose tsconfig, no @types/react).
 - Live site: https://dovvnloading.github.io/midi-spark/
 
 ## Phase 0 — Baseline verification
@@ -103,12 +103,12 @@ Branch: `overhaul/v1` → PR → `main` (Pages auto-deploys from `main`).
 - [x] CI workflow: typecheck + lint + test + build on PRs and main pushes
 - [x] README final pass; this plan finalized
 
-## Phase 6 — Ship
+## Phase 6 — Ship (completed 2026-07-21, PR #4)
 
-- [ ] Push branch, open PR with full summary
-- [ ] CI green on PR → merge to `main`
-- [ ] Verify Pages deploy + live-site smoke test
-- [ ] Delete stale merged remote branches (3 old `codex/*` branches)
+- [x] Push branch, open PR with full summary
+- [x] CI green on PR → merge to `main`
+- [x] Verify Pages deploy + live-site smoke test
+- [x] Delete stale merged remote branches (3 old `codex/*` branches)
 
 ## Deferred / future ideas (not this pass)
 
