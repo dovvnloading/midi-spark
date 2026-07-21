@@ -1,4 +1,5 @@
 import {
+  CopyPlus,
   Magnet,
   MousePointer2,
   Pencil,
@@ -32,6 +33,7 @@ export interface EditToolbarProps {
   onSnapResolutionChange: (snap: number) => void;
   onZoomChange: (zoom: number) => void;
   onChop: () => void;
+  onDuplicateBar: () => void;
 }
 
 const TOOL_BUTTONS: {
@@ -78,6 +80,7 @@ export function EditToolbar({
   onSnapResolutionChange,
   onZoomChange,
   onChop,
+  onDuplicateBar,
 }: EditToolbarProps) {
   return (
     <div className="w-full max-w-6xl mx-auto overflow-x-auto scrollbar-hide z-20 relative shrink-0 mb-[-12px]">
@@ -130,6 +133,14 @@ export function EditToolbar({
           >
             <Zap size={14} />
             CHOP
+          </button>
+          <button
+            onClick={onDuplicateBar}
+            className="hardware-btn px-4 py-1.5 h-10 rounded text-[10px] font-bold uppercase tracking-widest text-[var(--accent)] hover:bg-[var(--surface-bg-hover)] flex items-center gap-2 border border-[var(--border-color)] bg-[var(--piano-black)] shrink-0"
+            title="Duplicate the bar the playhead is in, appended immediately after it."
+          >
+            <CopyPlus size={14} />
+            DUPE BAR
           </button>
           <div className="flex items-center gap-2 hardware-display p-1 px-3 shrink-0">
             <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">

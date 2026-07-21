@@ -3,6 +3,7 @@ import { Upload } from "lucide-react";
 import {
   generateSequence,
   ProgressionData,
+  NoteEvent,
   applyVariationToProgression,
   detectKeyFromProgression,
 } from "./lib/theory";
@@ -76,6 +77,9 @@ export default function App() {
   const isPlayingRef = useRef(false);
   const isLoopingRef = useRef(true);
   const isScrubbingRef = useRef(false);
+  // Copied notes, normalized so the earliest timeStart among them is 0. A ref
+  // is fine: it doesn't need to trigger re-renders and isn't itself undoable.
+  const clipboardRef = useRef<NoteEvent[] | null>(null);
 
   const undo = useCallback(() => {
     undoHistory();
@@ -275,6 +279,51 @@ export default function App() {
     }
   }, [progression]);
 
+  const handleCopySelected = useCallback(() => {
+    if (!progression || selectedNoteIndices.size === 0) return;
+    const selected = Array.from(selectedNoteIndices)
+      .map((i) => progression.notes[i])
+      .filter((n): n is NoteEvent => !!n);
+    if (selected.length === 0) return;
+    const earliest = Math.min(...selected.map((n) => n.timeStart));
+    clipboardRef.current = selected.map((n) => ({
+      ...n,
+      timeStart: n.timeStart - earliest,
+    }));
+  }, [progression, selectedNoteIndices]);
+
+  const handlePasteClipboard = useCallback(() => {
+    const clip = clipboardRef.current;
+    if (!progression || !clip || clip.length === 0) return;
+    const pasteTick = currentTick;
+    const startIndex = progression.notes.length;
+    const pasted = clip.map((n) => ({
+      ...n,
+      timeStart: n.timeStart + pasteTick,
+    }));
+    commit((prev) =>
+      prev ? { ...prev, notes: [...prev.notes, ...pasted] } : prev,
+    );
+    setSelectedNoteIndices(new Set(pasted.map((_, i) => startIndex + i)));
+  }, [progression, currentTick, commit]);
+
+  const handleDuplicateBar = useCallback(() => {
+    const barStart = Math.floor(currentTick / 4) * 4;
+    const barEnd = barStart + 4;
+    commit((prev) => {
+      if (!prev) return prev;
+      const barNotes = prev.notes.filter(
+        (n) => n.timeStart >= barStart && n.timeStart < barEnd,
+      );
+      if (barNotes.length === 0) return prev;
+      const duplicated = barNotes.map((n) => ({
+        ...n,
+        timeStart: n.timeStart + 4,
+      }));
+      return { ...prev, notes: [...prev.notes, ...duplicated] };
+    });
+  }, [currentTick, commit]);
+
   // ----- Keyboard shortcuts -----
   // The handler lives in a ref so a single window listener always sees fresh
   // state; the old effect-with-deps version acted on stale history.
@@ -305,6 +354,16 @@ export default function App() {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
       e.preventDefault();
       selectAll();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
+      e.preventDefault();
+      handleCopySelected();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
+      e.preventDefault();
+      handlePasteClipboard();
       return;
     }
     if (e.key === "Delete" || e.key === "Backspace") {
@@ -434,6 +493,7 @@ export default function App() {
           onSnapResolutionChange={setSnapResolution}
           onZoomChange={setZoomX}
           onChop={handleChopSelected}
+          onDuplicateBar={handleDuplicateBar}
         />
 
         <PianoRoll

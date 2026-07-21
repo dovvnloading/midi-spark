@@ -131,13 +131,13 @@ exactly like Phases 0–6.
 
 ### 7.2 — Copy/paste + duplicate-bar tool
 
-- [ ] `Ctrl+C` copies the selected notes (times normalized relative to the earliest
+- [x] `Ctrl+C` copies the selected notes (times normalized relative to the earliest
       `timeStart` in the selection) into in-memory clipboard state
-- [ ] `Ctrl+V` pastes the clipboard at the current playhead tick, selecting the
+- [x] `Ctrl+V` pastes the clipboard at the current playhead tick, selecting the
       newly pasted notes and committing to history
-- [ ] "Duplicate Bar" tool: duplicates all notes whose bar contains the playhead
+- [x] "Duplicate Bar" tool: duplicates all notes whose bar contains the playhead
       immediately after that bar, shifting nothing else (additive, non-destructive)
-- [ ] Gate green; browser-verified: copy at position A, move playhead, paste at B
+- [x] Gate green; browser-verified: copy at position A, move playhead, paste at B
       reproduces the exact relative layout; duplicate-bar doubles bar content
 
 ### 7.3 — Scale-highlighting on piano roll rows
