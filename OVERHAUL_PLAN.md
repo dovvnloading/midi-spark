@@ -110,11 +110,155 @@ Branch: `overhaul/v1` → PR → `main` (Pages auto-deploys from `main`).
 - [x] Verify Pages deploy + live-site smoke test
 - [x] Delete stale merged remote branches (3 old `codex/*` branches)
 
-## Deferred / future ideas (not this pass)
+## Phase 7 — Deferred feature pass (in progress, branch `overhaul/v2-deferred-features`)
 
-- Velocity editing lane (drag to shape velocities)
-- Multi-track import as separate lanes / instrument per track
-- Scale-highlighting on the piano roll rows
-- Copy/paste of selections; duplicate-bar tool
-- Swing/humanize post-processors as toggles
-- Persist last session to localStorage
+Formalizes the six "future ideas" flagged at the end of the v1 pass into concrete,
+independently verifiable stages. Each stage gates on `typecheck` + `lint --max-warnings 0`
++ `test` + `build` before being considered done, and is browser-verified afterward
+exactly like Phases 0–6.
+
+### 7.1 — Velocity editing lane
+
+- [x] Velocity lane strip under the piano roll: one bar per note in view, height
+      proportional to velocity (0.1–1.0)
+- [x] Drag a bar to set that note's velocity; if the note is part of the current
+      selection, drag scales all selected notes' velocities together (relative
+      delta, clamped 0.1–1.0) — mirrors the existing multi-note drag pattern
+- [x] Commits to undo history on release, not per pixel of drag
+- [x] Live-audible: changing velocity while a note is sounding is reflected on next
+      playback pass (uses the existing live-preview channel)
+- [x] Gate green; browser-verified: drag lowers/raises velocity, undo restores it
+
+### 7.2 — Copy/paste + duplicate-bar tool
+
+- [x] `Ctrl+C` copies the selected notes (times normalized relative to the earliest
+      `timeStart` in the selection) into in-memory clipboard state
+- [x] `Ctrl+V` pastes the clipboard at the current playhead tick, selecting the
+      newly pasted notes and committing to history
+- [x] "Duplicate Bar" tool: duplicates all notes whose bar contains the playhead
+      immediately after that bar, shifting nothing else (additive, non-destructive)
+- [x] Gate green; browser-verified: copy at position A, move playhead, paste at B
+      reproduces the exact relative layout; duplicate-bar doubles bar content
+
+### 7.3 — Scale-highlighting on piano roll rows
+
+- [x] Piano-roll keyboard keys and grid rows get a subtle tint when their pitch
+      class is diatonic to the current root/mode (reuses the major/minor interval
+      tables already in `theory.ts`)
+- [x] Recomputes live when root or mode changes — no regeneration required
+- [x] Layered so it never obscures existing black/white key shading, chord
+      markers, or note rendering
+- [x] Gate green; browser-verified: switching root/mode visibly moves the tint
+
+### 7.4 — Swing / humanize post-processor toggle
+
+- [x] New "Swing" slider (0–100%) in the edit toolbar
+- [x] "Apply Swing" is a non-destructive, explicit action button (not a live
+      always-on transform) that delays every off-beat 8th/16th note by an amount
+      proportional to the slider, leaving downbeats untouched; commits to history
+- [x] Unit test: 0% swing is a no-op; at 50% only off-beat notes shift, downbeats
+      never move
+- [x] Gate green; browser-verified audibly/visually on a generated progression
+
+### 7.5 — Persist last session to localStorage
+
+- [x] Debounced autosave of `{ progression, root, mode, bpm, dissonance,
+      complexity, bars, synthType, snapResolution, noteLength, zoomX }` to
+      `localStorage` on change
+- [x] Restored on load when present; corrupt/missing/schema-mismatched data falls
+      back silently to the current empty-state default (never throws)
+- [x] Explicit "Clear saved session" control so users aren't stuck with unwanted
+      persisted state
+- [x] Unit test: save → reload round-trips the exact progression and settings
+- [x] Gate green; browser-verified: hard reload restores the working sequence
+
+### 7.6 — Multi-track MIDI import (scoped v1: tag + color only)
+
+Scope decision: full separate-lane rendering with per-track instruments is a much
+larger architecture change (multi-synth playback, per-track mixer UI). This pass
+does the additive, low-risk half and re-defers the rest.
+
+- [x] `NoteEvent` gains an optional `trackIndex` (additive field, not a breaking
+      shape change)
+- [x] Import assigns each source MIDI track its own index instead of flattening
+      everything into one anonymous list (still merged into one `notes[]`, just
+      tagged)
+- [x] Piano roll colors notes by `trackIndex` from a small fixed palette when a
+      progression has more than one track; single-track/generated progressions
+      render exactly as before (no visual regression)
+- [x] Explicitly re-documented as deferred: per-track instrument routing and a
+      separate-lanes UI remain future work
+- [x] Gate green; browser-verified: importing a multi-track file shows distinct
+      colors per track; a generated (single "track") progression is unchanged
+
+### 7.7 — Adversarial review findings (post-implementation)
+
+Three independent reviewer passes (correctness/regression-risk, spec-compliance/UX,
+code-quality) ran against the full 7.1–7.6 diff. All three, working separately,
+independently converged on the same headline bug — strong signal it was real, not
+a false positive. Confirmed/plausible findings and their resolutions:
+
+- [x] **(blocker, triple-confirmed) 7.6 color regression**: `hasTrackColors` gated on
+      "does any note carry a `trackIndex`" rather than "are there ≥2 distinct
+      tracks" — since import tags every note (single-track files get `trackIndex:
+      0`), importing an ordinary single-track file recolored every note amber
+      instead of the original accent-blue. Fixed to require >1 distinct index;
+      browser-verified both directions (single-track import → unchanged blue;
+      3-track import → 3 distinct colors).
+- [x] **7.2 Ctrl+C regression**: copy shortcut unconditionally called
+      `preventDefault()` even with nothing selected, silently breaking native
+      browser text-copy anywhere else on the page. Fixed to only intercept when
+      `selectedNoteIndices.size > 0`; browser-verified `defaultPrevented` is false
+      with no selection and true with one.
+- [x] **7.4 spec gap**: plan text said swing delays "every off-beat 8th/16th
+      note," but the shipped implementation only handled 8th notes. Extended
+      `applySwing` to also delay off-beat 16th notes (the "e"/"a" of the beat) at
+      a proportionally smaller, independently-capped delay; existing test updated
+      + a new test added for the 16th-note case; browser-verified at 100% swing.
+- [x] **7.1 parity gap**: velocity-lane drag didn't support shift-click to extend
+      selection, unlike the main-grid note drag it was billed as mirroring. Added
+      the same shift-click branch; browser-verified (2 → 4 selected DOM elements
+      across two notes).
+- [x] **Code-quality nits**: `applySwing` now reuses the shared `clamp()` helper
+      instead of hand-rolling one; two filler comments in `persistence.ts` that
+      only restated their function's doc comment were replaced with comments that
+      state actual non-obvious WHY (why no `console.warn`, why the catch must
+      never propagate).
+- Reviewed but not changed (documented, not silently dropped):
+  - 7.2 Duplicate Bar overlays onto an already-occupied following bar rather than
+    inserting/shifting — matches the plan's literal "shifting nothing else"
+    wording; left as-is.
+  - 7.4 swing is not idempotent on repeated "Apply Swing" clicks at the same
+    slider value below ~18% (each click keeps compounding slightly rather than
+    converging) — plausible, not live-reproduced by the reviewer, not part of the
+    original acceptance criteria (only "0% is a no-op" was required); left as a
+    known limitation for a future pass.
+  - 7.4's applied-at-swingAmount-with-no-eligible-notes case records a harmless
+    but semantically-empty undo step — benign, not a data-integrity issue.
+  - Ctrl+C/Ctrl+V discoverability (no README entry, no in-app tooltip) — folded
+    into Phase 8's README update below, not a Phase 7 gap.
+
+## Phase 8 — Integration, verification & ship
+
+- [x] All Phase 7 sub-stages implemented on `overhaul/v2-deferred-features`,
+      each individually gated (typecheck+lint+test+build) before the next started
+- [x] Independent adversarial review pass over the full diff (correctness/
+      regression-risk, spec-compliance, code-quality lenses) — findings fixed or
+      explicitly logged as accepted trade-offs (see 7.7 above)
+- [x] Full browser regression pass: every Phase 0–6 feature re-verified alongside
+      the 6 new ones (generate/vary/chop/undo-redo/draw/drag/resize/lasso/slice/
+      stamp/transport/import-export all still work). Also caught + fixed one
+      stale UI string the review missed: the "Apply Swing" button's tooltip
+      still said "8th note" only, after 7.7 extended swing to cover 16ths too.
+      Zero console errors across the full battery.
+- [x] README updated with new shortcuts/features; this plan's Phase 7 checkboxes
+      finalized
+- [ ] Push branch, open PR, CI green, merge to `main`, verify Pages deploy +
+      live-site smoke test
+
+## Deferred / future ideas (still not this pass)
+
+- Full multi-track lanes with per-track instrument routing/mixing (7.6 above
+  ships only tagging + color, not this)
+- Per-note pan / MPE-style expression
+- Collaborative/shareable session links

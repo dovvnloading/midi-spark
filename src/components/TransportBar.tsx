@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Play, Repeat, Square, Undo2, Redo2 } from "lucide-react";
+import { Play, Repeat, Square, Trash2, Undo2, Redo2 } from "lucide-react";
 import { CustomDropdown } from "./CustomDropdown";
 import { DraggableNumberInput } from "./DraggableNumberInput";
 import { MIN_BPM, MAX_BPM, SYNTH_OPTIONS } from "../lib/constants";
@@ -24,6 +24,7 @@ export interface TransportBarProps {
   onSynthChange: (synth: SynthType) => void;
   onLoadFile: (file: File) => void;
   onExport: () => void;
+  onClearSavedSession: () => void;
 }
 
 export function TransportBar({
@@ -45,6 +46,7 @@ export function TransportBar({
   onSynthChange,
   onLoadFile,
   onExport,
+  onClearSavedSession,
 }: TransportBarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -174,6 +176,14 @@ export function TransportBar({
             className="hardware-btn h-10 px-4 sm:px-6 text-[10px] uppercase tracking-widest flex gap-2 font-bold items-center shrink-0"
           >
             Load MIDI
+          </button>
+          <button
+            onClick={onClearSavedSession}
+            aria-label="Clear saved session"
+            title="Clear the autosaved session from this browser (only affects a future reload, not your current work)"
+            className="hardware-btn w-10 h-10 rounded-full text-[var(--text-muted)] hover:text-red-400 shrink-0"
+          >
+            <Trash2 size={14} />
           </button>
           <button
             onClick={onExport}

@@ -31,6 +31,14 @@ Generate chord progressions from musical parameters:
 * **Stamp** full chords (9 types) or scale guides (7 scales)
 * **Slice** notes with a cut line, **chop** them into fixed-length segments
 * Drag to move (single or multi-selection), grab the right edge to resize
+* **Velocity lane** beneath the grid — drag a bar to reshape a note's velocity
+  (drag a selected note's bar to scale the whole selection together)
+* **Copy/paste** (`Ctrl+C`/`Ctrl+V`) and a **Duplicate Bar** tool for fast
+  repetition
+* **Scale highlighting**: piano-roll rows tint live to show which pitches are
+  diatonic to the current root/mode
+* **Swing**: a slider + "Apply Swing" delays off-beat 8th/16th notes by a
+  proportional amount for a looser, more human groove
 * Right-click (or right-click-drag) to delete
 * Snap grid from 1/4 down to 1/32 or free placement, `Ctrl+wheel` zoom to cursor
 * Full undo/redo history (50 steps)
@@ -46,7 +54,16 @@ live during playback — including while dragging notes.
 * Drag & drop `.mid`/`.midi` files onto the app (or use **Load MIDI**)
 * Import honors the file's own PPQ and tempo, merges melodic tracks, skips
   percussion, and auto-detects the key
+* Multi-track files are tagged per source track and colored distinctly in the
+  piano roll (single-track imports render identically to a generated sequence)
 * Export produces a standard 480-PPQ MIDI file with tempo, ready for any DAW
+
+### Session Persistence
+
+Your last sequence and settings (key, mode, tension, complexity, bars, BPM,
+instrument, snap/note-length, zoom) are autosaved to `localStorage` and
+restored on your next visit. A "Clear saved session" control (next to Load
+MIDI) resets this without touching your current in-progress work.
 
 ## Keyboard Shortcuts
 
@@ -56,10 +73,14 @@ live during playback — including while dragging notes.
 | `Ctrl+Z` / `Ctrl+Shift+Z` | Undo / redo |
 | `Ctrl+Y` | Redo |
 | `Ctrl+A` | Select all notes |
+| `Ctrl+C` / `Ctrl+V` | Copy / paste selected notes (pastes at the playhead) |
 | `Delete` / `Backspace` | Delete selected notes |
 | `Alt+U` | Chop selected notes (all if none selected) |
 | `Ctrl+wheel` | Zoom (anchored at cursor) |
 | `Shift+wheel` | Horizontal scroll |
+
+`Ctrl+C` only intercepts the shortcut when notes are selected — with nothing
+selected, normal browser text-copy still works everywhere on the page.
 
 ## Technology
 
@@ -85,7 +106,7 @@ npm run dev        # dev server on http://localhost:3000
 | `npm run preview` | Preview the production build |
 | `npm run typecheck` | TypeScript strict check |
 | `npm run lint` | ESLint (typescript-eslint + react-hooks) |
-| `npm test` | Vitest unit tests (theory, MIDI round-trip, history) |
+| `npm test` | Vitest unit tests (theory, swing, MIDI round-trip, history, persistence) |
 
 ### Project Structure
 
@@ -104,9 +125,10 @@ src/
   hooks/
     useHistory.ts         reducer-based undo/redo store
   lib/
-    theory.ts             progression generation, dissonance, key detection
+    theory.ts             progression generation, dissonance, key detection, swing
     audio.ts              Tone.js synths, FX racks, transport
     midi.ts               MIDI file import/export (@tonejs/midi)
+    persistence.ts        localStorage session save/load/clear
     constants.ts          musical + layout constants
 tests/                    vitest suites
 ```

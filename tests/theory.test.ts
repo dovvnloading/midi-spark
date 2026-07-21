@@ -3,8 +3,10 @@ import { Chord } from "@tonaljs/tonal";
 import {
   generateSequence,
   applyVariationToProgression,
+  applySwing,
   detectKeyFromProgression,
   ProgressionData,
+  NoteEvent,
 } from "../src/lib/theory";
 
 const MODES = ["major", "minor"] as const;
@@ -94,6 +96,93 @@ describe("applyVariationToProgression", () => {
         expect(n.duration).toBeGreaterThan(0);
         expect(n.timeStart).toBeGreaterThanOrEqual(0);
       }
+    }
+  });
+});
+
+describe("applySwing", () => {
+  const makeProgression = (times: number[]): ProgressionData => ({
+    notes: times.map((t, i) => ({
+      midi: 60 + i,
+      name: "C4",
+      timeStart: t,
+      duration: 0.4,
+      velocity: 0.8,
+    })),
+    chords: [],
+    totalBars: 2,
+  });
+
+  it("is a no-op at 0% swing (identical output)", () => {
+    const prog = makeProgression([0, 0.5, 1, 1.5, 2, 0.25]);
+    const result = applySwing(prog, 0);
+    expect(result).toBe(prog);
+    result.notes.forEach((n, i) => {
+      expect(n.timeStart).toBe(prog.notes[i].timeStart);
+    });
+  });
+
+  it("never moves downbeat notes, at any swing amount", () => {
+    const prog = makeProgression([0, 1, 2, 3]);
+    for (const amount of [10, 50, 90, 100]) {
+      const result = applySwing(prog, amount);
+      result.notes.forEach((n: NoteEvent, i: number) => {
+        expect(n.timeStart).toBe(prog.notes[i].timeStart);
+      });
+    }
+  });
+
+  it("delays odd-8th ('and') notes, monotonically with swing, without crossing into the next beat", () => {
+    // index 0/2: downbeats, 1/3: off-beat 8ths ("and")
+    const prog = makeProgression([0, 0.5, 1, 1.5]);
+    let prevDelayAt0_5 = 0;
+    let prevDelayAt1_5 = 0;
+    for (const amount of [10, 30, 60, 100]) {
+      const result = applySwing(prog, amount);
+
+      expect(result.notes[0].timeStart).toBe(0);
+      expect(result.notes[2].timeStart).toBe(1);
+
+      const delayAt0_5 = result.notes[1].timeStart - 0.5;
+      const delayAt1_5 = result.notes[3].timeStart - 1.5;
+      expect(delayAt0_5).toBeGreaterThan(0);
+      expect(delayAt1_5).toBeGreaterThan(0);
+      expect(delayAt0_5).toBeGreaterThan(prevDelayAt0_5);
+      expect(delayAt1_5).toBeGreaterThan(prevDelayAt1_5);
+      // Never crosses into the following beat's territory.
+      expect(result.notes[1].timeStart).toBeLessThan(1);
+      expect(result.notes[3].timeStart).toBeLessThan(2);
+
+      prevDelayAt0_5 = delayAt0_5;
+      prevDelayAt1_5 = delayAt1_5;
+    }
+  });
+
+  it("delays odd-16th ('e'/'a') notes too, more subtly than 8ths, without crossing into the next 8th", () => {
+    // index 0: downbeat, 1: 16th off-beat ("e"), 2: 8th off-beat ("and"), 3: 16th off-beat ("a")
+    const prog = makeProgression([0, 0.25, 0.5, 0.75]);
+    let prevDelayAt0_25 = 0;
+    let prevDelayAt0_75 = 0;
+    for (const amount of [10, 30, 60, 100]) {
+      const result = applySwing(prog, amount);
+
+      expect(result.notes[0].timeStart).toBe(0);
+
+      const delayAt0_25 = result.notes[1].timeStart - 0.25;
+      const delayAt0_75 = result.notes[3].timeStart - 0.75;
+      expect(delayAt0_25).toBeGreaterThan(0);
+      expect(delayAt0_75).toBeGreaterThan(0);
+      expect(delayAt0_25).toBeGreaterThan(prevDelayAt0_25);
+      expect(delayAt0_75).toBeGreaterThan(prevDelayAt0_75);
+      // Never crosses into the following 8th-note position.
+      expect(result.notes[1].timeStart).toBeLessThan(0.5);
+      expect(result.notes[3].timeStart).toBeLessThan(1);
+      // 16th swing is always more subtle than 8th swing at the same amount.
+      const delayAt0_5 = result.notes[2].timeStart - 0.5;
+      expect(delayAt0_25).toBeLessThan(delayAt0_5);
+
+      prevDelayAt0_25 = delayAt0_25;
+      prevDelayAt0_75 = delayAt0_75;
     }
   });
 });

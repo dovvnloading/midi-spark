@@ -1,4 +1,5 @@
 import { Chord, Progression, Note } from "@tonaljs/tonal";
+import { clamp } from "./constants";
 
 export interface NoteEvent {
   midi: number;
@@ -6,6 +7,13 @@ export interface NoteEvent {
   timeStart: number;
   duration: number;
   velocity: number;
+  /** 0-based index of the source MIDI track this note came from, counting
+   *  only non-percussion tracks in file order — a single-track import always
+   *  tags its notes 0, and multi-track imports get contiguous 0,1,2,...
+   *  regardless of any skipped percussion tracks in between. Undefined for
+   *  notes from generateSequence/applyVariationToProgression or notes drawn
+   *  directly in the piano roll — only MIDI import ever sets this. */
+  trackIndex?: number;
 }
 
 export interface ChordEvent {
@@ -18,6 +26,20 @@ export interface ProgressionData {
   notes: NoteEvent[];
   chords: ChordEvent[];
   totalBars: number;
+}
+
+export const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
+export const MINOR_INTERVALS = [0, 2, 3, 5, 7, 8, 10];
+
+/** Pitch classes (0-11) diatonic to `root`/`mode`. Shared by key detection
+ *  scoring and the piano roll's scale-highlight overlay. */
+export function getScaleChromas(
+  root: string,
+  mode: "major" | "minor",
+): Set<number> {
+  const rootChroma = Note.chroma(root) || 0;
+  const intervals = mode === "minor" ? MINOR_INTERVALS : MAJOR_INTERVALS;
+  return new Set(intervals.map((i) => (rootChroma + i) % 12));
 }
 
 export function detectKeyFromProgression(progression: ProgressionData): {
@@ -56,8 +78,6 @@ export function detectKeyFromProgression(progression: ProgressionData): {
     "Bb",
     "B",
   ];
-  const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
-  const MINOR_INTERVALS = [0, 2, 3, 5, 7, 8, 10];
 
   let bestScore = -1;
   let bestRoot = "C";
@@ -395,12 +415,7 @@ export function applyVariationToProgression(
   const humanizeVel = (v: number) =>
     Math.max(0.1, Math.min(1.0, v + (Math.random() * 0.1 - 0.05)));
 
-  const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
-  const MINOR_INTERVALS = [0, 2, 3, 5, 7, 8, 10];
-  const intervals = mode === "minor" ? MINOR_INTERVALS : MAJOR_INTERVALS;
-  const rootChroma = Note.chroma(root) || 0;
-
-  const scaleChromas = new Set(intervals.map((i) => (rootChroma + i) % 12));
+  const scaleChromas = getScaleChromas(root, mode);
 
   const snapToScale = (midi: number) => {
     if (dissonance > 85) return midi; // let high dissonance notes remain out of scale
@@ -554,4 +569,59 @@ export function applyVariationToProgression(
     ...prog,
     notes: newNotes
   };
+}
+
+/** Grid spacing (in quarters) of an 8th note and a 16th note — the two
+ *  subdivisions swing can be applied to. */
+const EIGHTH = 0.5;
+const SIXTEENTH = 0.25;
+/** Tolerance (in quarters) for treating a note as aligned to a grid line
+ *  despite generation/humanize jitter (up to +/-0.02 quarters). */
+const SWING_GRID_EPS = 0.08;
+/** Max delay (in quarters) applied at 100% swing to an off-beat 8th note
+ *  (the "and" of the beat). Kept under `EIGHTH` so it can never reach — let
+ *  alone cross — the following beat. */
+const MAX_SWING_DELAY_EIGHTH = 0.45;
+/** Max delay for an off-beat 16th note (the "e"/"a" of the beat). Kept under
+ *  `SIXTEENTH` so it can never reach the following 8th-note position. */
+const MAX_SWING_DELAY_SIXTEENTH = 0.2;
+
+/** True if `timeStart` sits on an odd multiple of `grid` (i.e. an off-beat
+ *  position at that subdivision), within humanize-jitter tolerance. */
+function isOffBeatOnGrid(timeStart: number, grid: number): boolean {
+  const gridPos = timeStart / grid;
+  const nearest = Math.round(gridPos);
+  const onGrid = Math.abs(gridPos - nearest) < SWING_GRID_EPS / grid;
+  return onGrid && nearest % 2 !== 0;
+}
+
+/**
+ * Destructive swing/humanize post-processor (applied explicitly, like CHOP,
+ * rather than as a live playback transform — see OVERHAUL_PLAN.md 7.4).
+ * Delays every off-beat 8th note (the "and") and every off-beat 16th note
+ * (the "e"/"a") by an amount proportional to `swingAmount`; downbeats, and
+ * any note not aligned to either grid, are left completely unchanged.
+ * `swingAmount` 0 is a guaranteed no-op (same object returned).
+ */
+export function applySwing(
+  progression: ProgressionData,
+  swingAmount: number, // 0-100
+): ProgressionData {
+  const amount = clamp(swingAmount, 0, 100) / 100;
+  if (amount === 0) return progression;
+
+  const eighthDelay = amount * MAX_SWING_DELAY_EIGHTH;
+  const sixteenthDelay = amount * MAX_SWING_DELAY_SIXTEENTH;
+
+  const notes = progression.notes.map((n) => {
+    if (isOffBeatOnGrid(n.timeStart, EIGHTH)) {
+      return { ...n, timeStart: n.timeStart + eighthDelay };
+    }
+    if (isOffBeatOnGrid(n.timeStart, SIXTEENTH)) {
+      return { ...n, timeStart: n.timeStart + sixteenthDelay };
+    }
+    return n;
+  });
+
+  return { ...progression, notes };
 }

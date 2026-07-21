@@ -40,6 +40,7 @@ export function parseMidiBuffer(buffer: ArrayBuffer): ImportedMidi {
   const ppq = midi.header.ppq || 480;
 
   const notes: NoteEvent[] = [];
+  let trackIndex = 0;
   for (const track of midi.tracks) {
     if (track.channel === 9) continue; // General MIDI percussion
     for (const n of track.notes) {
@@ -49,8 +50,10 @@ export function parseMidiBuffer(buffer: ArrayBuffer): ImportedMidi {
         timeStart: n.ticks / ppq,
         duration: Math.max(1 / 64, n.durationTicks / ppq),
         velocity: n.velocity,
+        trackIndex,
       });
     }
+    trackIndex++;
   }
   notes.sort((a, b) => a.timeStart - b.timeStart || a.midi - b.midi);
 

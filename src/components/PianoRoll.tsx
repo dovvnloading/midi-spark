@@ -2,30 +2,37 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import { Note } from "@tonaljs/tonal";
-import { ProgressionData, NoteEvent } from "../lib/theory";
+import { ProgressionData, NoteEvent, getScaleChromas } from "../lib/theory";
 import { initAudio, playNote } from "../lib/audio";
 import {
   CHORD_STAMPS,
   FREE_SNAP,
   KEYBOARD_WIDTH,
   MAX_MIDI,
+  MAX_VELOCITY,
   MAX_ZOOM,
   MIDI_RANGE,
+  MIN_VELOCITY,
   MIN_ZOOM,
   NOTE_HEIGHT,
   PIANO_ROLL_HEIGHT,
   SCALE_STAMPS,
+  VELOCITY_LANE_HEIGHT,
   clamp,
+  getTrackColorClasses,
 } from "../lib/constants";
 import { ToolMode } from "./EditToolbar";
 
 export interface PianoRollProps {
   progression: ProgressionData | null;
   statusLabel: string;
+  root: string;
+  mode: "major" | "minor";
   selectedIndices: Set<number>;
   toolMode: ToolMode;
   stampType: string;
@@ -72,6 +79,12 @@ interface DragResizeState {
   durationDelta: number;
 }
 
+interface DragVelocityState {
+  notes: { index: number; startVelocity: number }[];
+  startY: number;
+  velocityDelta: number;
+}
+
 interface BoxState {
   startX: number;
   startY: number;
@@ -84,6 +97,8 @@ const BLACK_KEY_CLASSES = [1, 3, 6, 8, 10];
 export function PianoRoll({
   progression,
   statusLabel,
+  root,
+  mode,
   selectedIndices,
   toolMode,
   stampType,
@@ -104,6 +119,7 @@ export function PianoRoll({
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dragDrawState, setDragDrawState] = useState<DragDrawState | null>(null);
   const [dragResizeState, setDragResizeState] = useState<DragResizeState | null>(null);
+  const [dragVelocityState, setDragVelocityState] = useState<DragVelocityState | null>(null);
   const [lassoState, setLassoState] = useState<BoxState | null>(null);
   const [sliceState, setSliceState] = useState<BoxState | null>(null);
   const [containerWidth, setContainerWidth] = useState(1200);
@@ -115,6 +131,20 @@ export function PianoRoll({
   const zoomAnchorRef = useRef<{ tick: number; offsetPx: number } | null>(null);
 
   const snapTick = snapResolution > 0 ? snapResolution : FREE_SNAP;
+  const scaleChromas = useMemo(() => getScaleChromas(root, mode), [root, mode]);
+  // Every imported note carries a trackIndex (single-track files are tagged
+  // 0), so gating on "any note tagged" would recolor ordinary single-track
+  // imports too. Only turn on track coloring once there's more than one
+  // distinct track to actually distinguish.
+  const hasTrackColors = useMemo(() => {
+    if (!progression) return false;
+    const indices = new Set(
+      progression.notes
+        .map((n) => n.trackIndex)
+        .filter((idx): idx is number => idx !== undefined),
+    );
+    return indices.size > 1;
+  }, [progression]);
 
   // ----- Derived layout -----
   const maxNoteEndTick =
@@ -248,6 +278,19 @@ export function PianoRoll({
         ...progression,
         notes: [...progression.notes, drawnNote(dragDrawState, snapTick, zoomX)],
       };
+    } else if (dragVelocityState) {
+      const newNotes = [...progression.notes];
+      dragVelocityState.notes.forEach((dn) => {
+        newNotes[dn.index] = {
+          ...newNotes[dn.index],
+          velocity: clamp(
+            dn.startVelocity + dragVelocityState.velocityDelta,
+            MIN_VELOCITY,
+            MAX_VELOCITY,
+          ),
+        };
+      });
+      preview = { ...progression, notes: newNotes };
     }
 
     onLivePreview(preview);
@@ -255,6 +298,7 @@ export function PianoRoll({
     dragState,
     dragResizeState,
     dragDrawState,
+    dragVelocityState,
     progression,
     snapTick,
     zoomX,
@@ -406,6 +450,33 @@ export function PianoRoll({
     });
   };
 
+  const handleVelocityBarMouseDown = (e: React.MouseEvent, index: number) => {
+    e.stopPropagation();
+    if (e.button !== 0) return;
+    if (!progression) return;
+
+    let targets: number[] = [index];
+    if (selectedIndices.has(index)) {
+      targets = Array.from(selectedIndices);
+    } else if (e.shiftKey) {
+      const newSel = new Set(selectedIndices);
+      newSel.add(index);
+      onSelectionChange(newSel);
+      targets = Array.from(newSel);
+    } else {
+      onSelectionChange(new Set([index]));
+    }
+
+    setDragVelocityState({
+      notes: targets.map((idx) => ({
+        index: idx,
+        startVelocity: progression.notes[idx].velocity,
+      })),
+      startY: e.clientY,
+      velocityDelta: 0,
+    });
+  };
+
   const handleNoteDelete = (targetNote: NoteEvent, index: number) => {
     const wasSelected = selectedIndices.has(index);
     const selected = new Set(selectedIndices);
@@ -445,6 +516,10 @@ export function PianoRoll({
       setDragDrawState((prev) =>
         prev ? { ...prev, currentX: e.clientX } : null,
       );
+    } else if (dragVelocityState) {
+      const dy = dragVelocityState.startY - e.clientY;
+      const velocityDelta = dy / VELOCITY_LANE_HEIGHT;
+      setDragVelocityState((prev) => (prev ? { ...prev, velocityDelta } : null));
     } else if (sliceState || lassoState) {
       const gridRect = gridRef.current?.getBoundingClientRect();
       if (!gridRect) return;
@@ -509,6 +584,26 @@ export function PianoRoll({
         return { ...prev, notes: newNotes };
       });
       setDragResizeState(null);
+    }
+
+    if (dragVelocityState) {
+      const finished = dragVelocityState;
+      commit((prev) => {
+        if (!prev) return prev;
+        const newNotes = [...prev.notes];
+        finished.notes.forEach((dn) => {
+          newNotes[dn.index] = {
+            ...newNotes[dn.index],
+            velocity: clamp(
+              dn.startVelocity + finished.velocityDelta,
+              MIN_VELOCITY,
+              MAX_VELOCITY,
+            ),
+          };
+        });
+        return { ...prev, notes: newNotes };
+      });
+      setDragVelocityState(null);
     }
 
     if (sliceState) {
@@ -632,6 +727,7 @@ export function PianoRoll({
                     const noteClass = midi % 12;
                     const isBlack = BLACK_KEY_CLASSES.includes(noteClass);
                     const isC = noteClass === 0;
+                    const isInScale = scaleChromas.has(noteClass);
                     return (
                       <div
                         key={`key-${i}`}
@@ -643,7 +739,8 @@ export function PianoRoll({
                         }}
                         className={`absolute w-full border-b border-[var(--border-color)] flex items-center justify-end pr-1 text-[8px] font-mono hover:brightness-125 cursor-pointer active:brightness-90
                         ${isBlack ? "bg-[#111216] text-[var(--text-muted)]" : "bg-[var(--piano-white)] text-[var(--text-main)]"}
-                        ${isC ? "font-bold text-[var(--accent)] border-t border-[var(--border-color)]" : ""}`}
+                        ${isC ? "font-bold text-[var(--accent)] border-t border-[var(--border-color)]" : ""}
+                        ${isInScale ? "shadow-[inset_0_0_0_999px_rgba(94,124,246,0.08)]" : ""}`}
                         style={{
                           top: `${i * NOTE_HEIGHT}px`,
                           height: `${NOTE_HEIGHT}px`,
@@ -672,19 +769,29 @@ export function PianoRoll({
                   }}
                   onMouseDown={handleGridMouseDown}
                 >
-                  {/* Black Key Background Tracks */}
+                  {/* Row Background Tracks (black-key shading + diatonic scale tint) */}
                   {Array.from({ length: MIDI_RANGE }).map((_, i) => {
                     const midi = MAX_MIDI - i;
-                    if (!BLACK_KEY_CLASSES.includes(midi % 12)) return null;
+                    const noteClass = midi % 12;
+                    const isBlackRow = BLACK_KEY_CLASSES.includes(noteClass);
+                    const isInScale = scaleChromas.has(noteClass);
+                    if (!isBlackRow && !isInScale) return null;
                     return (
                       <div
                         key={`h-${i}`}
-                        className="absolute left-0 right-0 z-0 bg-black/[0.15] pointer-events-none"
+                        className="absolute left-0 right-0 z-0 pointer-events-none"
                         style={{
                           top: `${i * NOTE_HEIGHT}px`,
                           height: `${NOTE_HEIGHT}px`,
                         }}
-                      />
+                      >
+                        {isInScale && (
+                          <div className="absolute inset-0 bg-[var(--accent)]/[0.06]" />
+                        )}
+                        {isBlackRow && (
+                          <div className="absolute inset-0 bg-black/[0.15]" />
+                        )}
+                      </div>
                     );
                   })}
 
@@ -817,7 +924,9 @@ export function PianoRoll({
                                 ? "bg-emerald-400 border-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.5)] z-30"
                                 : isSelected
                                   ? "bg-violet-500 border-violet-400 shadow-[0_0_4px_rgba(139,92,246,0.5)] z-20"
-                                  : "bg-[var(--accent)] border-blue-400 group-hover:brightness-110"
+                                  : hasTrackColors && n.trackIndex !== undefined
+                                    ? `${getTrackColorClasses(n.trackIndex)} group-hover:brightness-110`
+                                    : "bg-[var(--accent)] border-blue-400 group-hover:brightness-110"
                             }
                           `}
                         >
@@ -842,6 +951,79 @@ export function PianoRoll({
                             <div className="w-[4px] h-[60%] bg-white/80 rounded-[1px] shadow-sm pointer-events-none" />
                           </div>
                         </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Velocity Lane */}
+              <div className="flex sticky bottom-0 z-40">
+                <div
+                  className="sticky left-0 z-40 bg-[#16181d] border-t border-r border-[var(--border-color)] flex-shrink-0 flex items-center justify-center"
+                  style={{
+                    width: `${KEYBOARD_WIDTH}px`,
+                    height: `${VELOCITY_LANE_HEIGHT}px`,
+                  }}
+                >
+                  <span className="text-[8px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
+                    Vel
+                  </span>
+                </div>
+                <div
+                  className="relative bg-[var(--piano-black)] border-t border-[var(--border-color)] flex-1"
+                  style={{
+                    minWidth: `${contentWidth}px`,
+                    height: `${VELOCITY_LANE_HEIGHT}px`,
+                  }}
+                >
+                  {progression.notes.map((n, i) => {
+                    const isVelocityDragging =
+                      dragVelocityState &&
+                      dragVelocityState.notes.some((dn) => dn.index === i);
+
+                    let renderVelocity = n.velocity;
+                    if (isVelocityDragging && dragVelocityState) {
+                      const dn = dragVelocityState.notes.find(
+                        (d) => d.index === i,
+                      );
+                      if (dn) {
+                        renderVelocity = clamp(
+                          dn.startVelocity + dragVelocityState.velocityDelta,
+                          MIN_VELOCITY,
+                          MAX_VELOCITY,
+                        );
+                      }
+                    }
+
+                    const isSelected = selectedIndices.has(i);
+                    const barWidth = Math.max(zoomX / 4, n.duration * zoomX);
+                    const barHeight = renderVelocity * VELOCITY_LANE_HEIGHT;
+
+                    return (
+                      <div
+                        key={`vel-${i}`}
+                        onMouseDown={(e) => handleVelocityBarMouseDown(e, i)}
+                        className="absolute inset-y-0 cursor-ns-resize group"
+                        style={{
+                          left: `${n.timeStart * zoomX}px`,
+                          width: `${barWidth}px`,
+                        }}
+                      >
+                        <div
+                          className={`absolute inset-x-[1px] bottom-0 rounded-t-[2px] border-t shadow-sm transition-colors
+                            ${
+                              isVelocityDragging
+                                ? "bg-emerald-400 border-emerald-300"
+                                : isSelected
+                                  ? "bg-violet-500 border-violet-400"
+                                  : hasTrackColors && n.trackIndex !== undefined
+                                    ? `${getTrackColorClasses(n.trackIndex)} group-hover:brightness-110`
+                                    : "bg-[var(--accent)] border-blue-400 group-hover:brightness-110"
+                            }
+                          `}
+                          style={{ height: `${barHeight}px` }}
+                        />
                       </div>
                     );
                   })}

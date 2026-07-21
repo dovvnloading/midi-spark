@@ -3,7 +3,9 @@ import { Upload } from "lucide-react";
 import {
   generateSequence,
   ProgressionData,
+  NoteEvent,
   applyVariationToProgression,
+  applySwing,
   detectKeyFromProgression,
 } from "./lib/theory";
 import {
@@ -17,6 +19,12 @@ import {
 } from "./lib/audio";
 import { exportToMidiBlob, parseMidiFile } from "./lib/midi";
 import { MAX_BPM, MIN_BPM, clamp } from "./lib/constants";
+import {
+  loadSession,
+  saveSession,
+  clearSession,
+  SavedSession,
+} from "./lib/persistence";
 import { useHistory } from "./hooks/useHistory";
 import { Sidebar } from "./components/Sidebar";
 import { TransportBar } from "./components/TransportBar";
@@ -32,16 +40,26 @@ function sequenceEnd(progression: ProgressionData): number {
 }
 
 export default function App() {
+  // Attempted once on mount; a missing/corrupt/schema-mismatched save comes
+  // back as null and every field below falls back to its hard-coded default.
+  const [savedSession] = useState<SavedSession | null>(() => loadSession());
+
   // Generation parameters
-  const [root, setRoot] = useState("C");
-  const [mode, setMode] = useState<"major" | "minor">("major");
-  const [dissonance, setDissonance] = useState(30);
-  const [complexity, setComplexity] = useState(20);
-  const [bars, setBars] = useState(4);
+  const [root, setRoot] = useState(savedSession?.root ?? "C");
+  const [mode, setMode] = useState<"major" | "minor">(
+    savedSession?.mode ?? "major",
+  );
+  const [dissonance, setDissonance] = useState(savedSession?.dissonance ?? 30);
+  const [complexity, setComplexity] = useState(
+    savedSession?.complexity ?? 20,
+  );
+  const [bars, setBars] = useState(savedSession?.bars ?? 4);
 
   // Transport / sound
-  const [bpm, setBpm] = useState(120);
-  const [synthType, setSynthTypeState] = useState<SynthType>("classic");
+  const [bpm, setBpm] = useState(savedSession?.bpm ?? 120);
+  const [synthType, setSynthTypeState] = useState<SynthType>(
+    savedSession?.synthType ?? "classic",
+  );
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTick, setCurrentTick] = useState(0);
   const [isLooping, setIsLooping] = useState(true);
@@ -55,7 +73,7 @@ export default function App() {
     commit,
     undo: undoHistory,
     redo: redoHistory,
-  } = useHistory<ProgressionData | null>(null);
+  } = useHistory<ProgressionData | null>(savedSession?.progression ?? null);
   const [selectedNoteIndices, setSelectedNoteIndices] = useState<Set<number>>(
     new Set(),
   );
@@ -63,9 +81,12 @@ export default function App() {
   // Editing tools
   const [toolMode, setToolMode] = useState<ToolMode>("draw");
   const [stampType, setStampType] = useState("Major");
-  const [noteLength, setNoteLength] = useState(0.25);
-  const [snapResolution, setSnapResolution] = useState(0.25);
-  const [zoomX, setZoomX] = useState(60);
+  const [noteLength, setNoteLength] = useState(savedSession?.noteLength ?? 0.25);
+  const [snapResolution, setSnapResolution] = useState(
+    savedSession?.snapResolution ?? 0.25,
+  );
+  const [zoomX, setZoomX] = useState(savedSession?.zoomX ?? 60);
+  const [swingAmount, setSwingAmount] = useState(0);
 
   // Bumped when a new sequence should re-center the piano roll.
   const [scrollAnchorKey, setScrollAnchorKey] = useState(0);
@@ -76,6 +97,15 @@ export default function App() {
   const isPlayingRef = useRef(false);
   const isLoopingRef = useRef(true);
   const isScrubbingRef = useRef(false);
+  // Copied notes, normalized so the earliest timeStart among them is 0. A ref
+  // is fine: it doesn't need to trigger re-renders and isn't itself undoable.
+  const clipboardRef = useRef<NoteEvent[] | null>(null);
+  // Pending debounced-autosave timer. Exposed outside the effect so an
+  // explicit "clear saved session" click can cancel an in-flight save --
+  // otherwise it could silently resurrect the session moments later.
+  const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
 
   const undo = useCallback(() => {
     undoHistory();
@@ -88,8 +118,44 @@ export default function App() {
   }, [redoHistory]);
 
   useEffect(() => {
-    initAudio();
-  }, []);
+    initAudio().then(() => {
+      if (savedSession?.synthType) {
+        setSynthType(savedSession.synthType);
+      }
+    });
+  }, [savedSession]);
+
+  // Debounced autosave of the session so a hard reload can restore it.
+  useEffect(() => {
+    autosaveTimeoutRef.current = setTimeout(() => {
+      saveSession({
+        progression,
+        root,
+        mode,
+        bpm,
+        dissonance,
+        complexity,
+        bars,
+        synthType,
+        snapResolution,
+        noteLength,
+        zoomX,
+      });
+    }, 400);
+    return () => clearTimeout(autosaveTimeoutRef.current);
+  }, [
+    progression,
+    root,
+    mode,
+    bpm,
+    dissonance,
+    complexity,
+    bars,
+    synthType,
+    snapResolution,
+    noteLength,
+    zoomX,
+  ]);
 
   // Keep the audio engine in sync with edits (including live drag previews),
   // BPM changes, and loop toggles while the transport is running.
@@ -163,6 +229,15 @@ export default function App() {
   const handleSynthChange = useCallback((type: SynthType) => {
     setSynthTypeState(type);
     setSynthType(type);
+  }, []);
+
+  // Only affects what happens on a future reload — does not touch the
+  // current in-memory working state. Cancels any in-flight debounced
+  // autosave first, otherwise a save already scheduled before this click
+  // could land right after and silently resurrect the session.
+  const handleClearSavedSession = useCallback(() => {
+    clearTimeout(autosaveTimeoutRef.current);
+    clearSession();
   }, []);
 
   // ----- Generation -----
@@ -275,6 +350,55 @@ export default function App() {
     }
   }, [progression]);
 
+  const handleCopySelected = useCallback(() => {
+    if (!progression || selectedNoteIndices.size === 0) return;
+    const selected = Array.from(selectedNoteIndices)
+      .map((i) => progression.notes[i])
+      .filter((n): n is NoteEvent => !!n);
+    if (selected.length === 0) return;
+    const earliest = Math.min(...selected.map((n) => n.timeStart));
+    clipboardRef.current = selected.map((n) => ({
+      ...n,
+      timeStart: n.timeStart - earliest,
+    }));
+  }, [progression, selectedNoteIndices]);
+
+  const handlePasteClipboard = useCallback(() => {
+    const clip = clipboardRef.current;
+    if (!progression || !clip || clip.length === 0) return;
+    const pasteTick = currentTick;
+    const startIndex = progression.notes.length;
+    const pasted = clip.map((n) => ({
+      ...n,
+      timeStart: n.timeStart + pasteTick,
+    }));
+    commit((prev) =>
+      prev ? { ...prev, notes: [...prev.notes, ...pasted] } : prev,
+    );
+    setSelectedNoteIndices(new Set(pasted.map((_, i) => startIndex + i)));
+  }, [progression, currentTick, commit]);
+
+  const handleApplySwing = useCallback(() => {
+    commit((prev) => (prev ? applySwing(prev, swingAmount) : prev));
+  }, [swingAmount, commit]);
+
+  const handleDuplicateBar = useCallback(() => {
+    const barStart = Math.floor(currentTick / 4) * 4;
+    const barEnd = barStart + 4;
+    commit((prev) => {
+      if (!prev) return prev;
+      const barNotes = prev.notes.filter(
+        (n) => n.timeStart >= barStart && n.timeStart < barEnd,
+      );
+      if (barNotes.length === 0) return prev;
+      const duplicated = barNotes.map((n) => ({
+        ...n,
+        timeStart: n.timeStart + 4,
+      }));
+      return { ...prev, notes: [...prev.notes, ...duplicated] };
+    });
+  }, [currentTick, commit]);
+
   // ----- Keyboard shortcuts -----
   // The handler lives in a ref so a single window listener always sees fresh
   // state; the old effect-with-deps version acted on stale history.
@@ -305,6 +429,20 @@ export default function App() {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
       e.preventDefault();
       selectAll();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
+      // Only intercept when there's actually a note selection to copy —
+      // otherwise let native browser copy-to-clipboard proceed as normal
+      // (e.g. copying chord-name/status text on the page).
+      if (selectedNoteIndices.size === 0) return;
+      e.preventDefault();
+      handleCopySelected();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
+      e.preventDefault();
+      handlePasteClipboard();
       return;
     }
     if (e.key === "Delete" || e.key === "Backspace") {
@@ -420,6 +558,7 @@ export default function App() {
           onSynthChange={handleSynthChange}
           onLoadFile={loadMidiFile}
           onExport={handleExport}
+          onClearSavedSession={handleClearSavedSession}
         />
 
         <EditToolbar
@@ -428,16 +567,22 @@ export default function App() {
           noteLength={noteLength}
           snapResolution={snapResolution}
           zoomX={zoomX}
+          swingAmount={swingAmount}
           onToolModeChange={setToolMode}
           onStampTypeChange={setStampType}
           onNoteLengthChange={setNoteLength}
           onSnapResolutionChange={setSnapResolution}
           onZoomChange={setZoomX}
+          onSwingAmountChange={setSwingAmount}
           onChop={handleChopSelected}
+          onDuplicateBar={handleDuplicateBar}
+          onApplySwing={handleApplySwing}
         />
 
         <PianoRoll
           progression={progression}
+          root={root}
+          mode={mode}
           statusLabel={
             progression
               ? `${progression.totalBars} Bars | Root: ${root}-${mode}`

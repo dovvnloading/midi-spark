@@ -5,6 +5,9 @@ export const MAX_MIDI = 127;
 export const NOTE_HEIGHT = 16;
 export const PIANO_ROLL_HEIGHT = MIDI_RANGE * NOTE_HEIGHT;
 export const KEYBOARD_WIDTH = 64;
+export const VELOCITY_LANE_HEIGHT = 80;
+export const MIN_VELOCITY = 0.1;
+export const MAX_VELOCITY = 1.0;
 
 export const MIN_ZOOM = 10;
 export const MAX_ZOOM = 200;
@@ -76,6 +79,23 @@ export const SYNTH_OPTIONS = [
 
 /** Fallback grid resolution (in quarters) when snap is set to "Line" (free). */
 export const FREE_SNAP = 0.015625;
+
+/** Per-track note colors for multi-track MIDI import (cycled by `trackIndex`).
+ *  Chosen to stay clear of the selection (violet) and playing (emerald)
+ *  highlight colors, which must still visually override these when active. */
+export const TRACK_COLORS = [
+  { bg: "bg-amber-500", border: "border-amber-400" },
+  { bg: "bg-rose-500", border: "border-rose-400" },
+  { bg: "bg-cyan-500", border: "border-cyan-400" },
+  { bg: "bg-lime-500", border: "border-lime-400" },
+  { bg: "bg-orange-500", border: "border-orange-400" },
+  { bg: "bg-fuchsia-500", border: "border-fuchsia-400" },
+];
+
+export const getTrackColorClasses = (trackIndex: number) => {
+  const c = TRACK_COLORS[trackIndex % TRACK_COLORS.length];
+  return `${c.bg} ${c.border}`;
+};
 
 export const clamp = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
