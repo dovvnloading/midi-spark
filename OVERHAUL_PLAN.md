@@ -110,11 +110,105 @@ Branch: `overhaul/v1` → PR → `main` (Pages auto-deploys from `main`).
 - [x] Verify Pages deploy + live-site smoke test
 - [x] Delete stale merged remote branches (3 old `codex/*` branches)
 
-## Deferred / future ideas (not this pass)
+## Phase 7 — Deferred feature pass (in progress, branch `overhaul/v2-deferred-features`)
 
-- Velocity editing lane (drag to shape velocities)
-- Multi-track import as separate lanes / instrument per track
-- Scale-highlighting on the piano roll rows
-- Copy/paste of selections; duplicate-bar tool
-- Swing/humanize post-processors as toggles
-- Persist last session to localStorage
+Formalizes the six "future ideas" flagged at the end of the v1 pass into concrete,
+independently verifiable stages. Each stage gates on `typecheck` + `lint --max-warnings 0`
++ `test` + `build` before being considered done, and is browser-verified afterward
+exactly like Phases 0–6.
+
+### 7.1 — Velocity editing lane
+
+- [ ] Velocity lane strip under the piano roll: one bar per note in view, height
+      proportional to velocity (0.1–1.0)
+- [ ] Drag a bar to set that note's velocity; if the note is part of the current
+      selection, drag scales all selected notes' velocities together (relative
+      delta, clamped 0.1–1.0) — mirrors the existing multi-note drag pattern
+- [ ] Commits to undo history on release, not per pixel of drag
+- [ ] Live-audible: changing velocity while a note is sounding is reflected on next
+      playback pass (uses the existing live-preview channel)
+- [ ] Gate green; browser-verified: drag lowers/raises velocity, undo restores it
+
+### 7.2 — Copy/paste + duplicate-bar tool
+
+- [ ] `Ctrl+C` copies the selected notes (times normalized relative to the earliest
+      `timeStart` in the selection) into in-memory clipboard state
+- [ ] `Ctrl+V` pastes the clipboard at the current playhead tick, selecting the
+      newly pasted notes and committing to history
+- [ ] "Duplicate Bar" tool: duplicates all notes whose bar contains the playhead
+      immediately after that bar, shifting nothing else (additive, non-destructive)
+- [ ] Gate green; browser-verified: copy at position A, move playhead, paste at B
+      reproduces the exact relative layout; duplicate-bar doubles bar content
+
+### 7.3 — Scale-highlighting on piano roll rows
+
+- [ ] Piano-roll keyboard keys and grid rows get a subtle tint when their pitch
+      class is diatonic to the current root/mode (reuses the major/minor interval
+      tables already in `theory.ts`)
+- [ ] Recomputes live when root or mode changes — no regeneration required
+- [ ] Layered so it never obscures existing black/white key shading, chord
+      markers, or note rendering
+- [ ] Gate green; browser-verified: switching root/mode visibly moves the tint
+
+### 7.4 — Swing / humanize post-processor toggle
+
+- [ ] New "Swing" slider (0–100%) in the edit toolbar
+- [ ] "Apply Swing" is a non-destructive, explicit action button (not a live
+      always-on transform) that delays every off-beat 8th/16th note by an amount
+      proportional to the slider, leaving downbeats untouched; commits to history
+- [ ] Unit test: 0% swing is a no-op; at 50% only off-beat notes shift, downbeats
+      never move
+- [ ] Gate green; browser-verified audibly/visually on a generated progression
+
+### 7.5 — Persist last session to localStorage
+
+- [ ] Debounced autosave of `{ progression, root, mode, bpm, dissonance,
+      complexity, bars, synthType, snapResolution, noteLength, zoomX }` to
+      `localStorage` on change
+- [ ] Restored on load when present; corrupt/missing/schema-mismatched data falls
+      back silently to the current empty-state default (never throws)
+- [ ] Explicit "Clear saved session" control so users aren't stuck with unwanted
+      persisted state
+- [ ] Unit test: save → reload round-trips the exact progression and settings
+- [ ] Gate green; browser-verified: hard reload restores the working sequence
+
+### 7.6 — Multi-track MIDI import (scoped v1: tag + color only)
+
+Scope decision: full separate-lane rendering with per-track instruments is a much
+larger architecture change (multi-synth playback, per-track mixer UI). This pass
+does the additive, low-risk half and re-defers the rest.
+
+- [ ] `NoteEvent` gains an optional `trackIndex` (additive field, not a breaking
+      shape change)
+- [ ] Import assigns each source MIDI track its own index instead of flattening
+      everything into one anonymous list (still merged into one `notes[]`, just
+      tagged)
+- [ ] Piano roll colors notes by `trackIndex` from a small fixed palette when a
+      progression has more than one track; single-track/generated progressions
+      render exactly as before (no visual regression)
+- [ ] Explicitly re-documented as deferred: per-track instrument routing and a
+      separate-lanes UI remain future work
+- [ ] Gate green; browser-verified: importing a multi-track file shows distinct
+      colors per track; a generated (single "track") progression is unchanged
+
+## Phase 8 — Integration, verification & ship
+
+- [ ] All Phase 7 sub-stages implemented on `overhaul/v2-deferred-features`,
+      each individually gated (typecheck+lint+test+build) before the next starts
+- [ ] Independent adversarial review pass over the full diff (correctness/
+      regression-risk, spec-compliance, code-quality lenses) — findings fixed or
+      explicitly logged as accepted trade-offs
+- [ ] Full browser regression pass: every Phase 0–6 feature re-verified alongside
+      the 6 new ones (generate/vary/chop/undo-redo/draw/drag/resize/lasso/slice/
+      stamp/transport/import-export all still work)
+- [ ] README updated with new shortcuts/features; this plan's Phase 7 checkboxes
+      finalized
+- [ ] Push branch, open PR, CI green, merge to `main`, verify Pages deploy +
+      live-site smoke test
+
+## Deferred / future ideas (still not this pass)
+
+- Full multi-track lanes with per-track instrument routing/mixing (7.6 above
+  ships only tagging + color, not this)
+- Per-note pan / MPE-style expression
+- Collaborative/shareable session links
