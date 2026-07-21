@@ -1,4 +1,4 @@
-import { Key, Chord, Progression, Note } from "@tonaljs/tonal";
+import { Chord, Progression, Note } from "@tonaljs/tonal";
 
 export interface NoteEvent {
   midi: number;
@@ -119,7 +119,18 @@ const PROGRESSIONS = [
 ];
 
 function applyDissonance(roman: string, level: number): string {
-  if (level < 20) return roman;
+  // Tonal's roman-numeral parser derives quality ONLY from an explicit chord
+  // suffix, never from case — bare "vi" resolves to A MAJOR in C. So minor
+  // degrees must always carry a quality marker.
+  const isMinorDegree = roman === roman.toLowerCase();
+  // Degrees that already carry a quality (e.g. "I7", "im7", "iim7b5") would
+  // get a second suffix stacked on ("I7maj7" -> unparseable). Leave them.
+  if (/[^IViv b#]/.test(roman)) {
+    return roman;
+  }
+  if (level < 20) {
+    return isMinorDegree ? roman + "m" : roman;
+  }
   if (level < 40) {
     if (roman.toUpperCase() === "V") return roman + "7";
     if (roman === roman.toLowerCase()) return roman + "m7";
@@ -140,6 +151,14 @@ function applyDissonance(roman: string, level: number): string {
     return Math.random() > 0.5 ? "subV7" : roman + "7alt";
   if (roman === roman.toLowerCase()) return roman + "m11";
   return roman + "maj13#11";
+}
+
+/** Keep octave-displaced notes inside a musically useful MIDI window so the
+ *  name/midi pair never falls back out of sync at the range edges. */
+function shiftOctaveClamped(midi: number, shift: number): number {
+  const shifted = midi + shift;
+  if (shifted < 21 || shifted > 108) return midi;
+  return shifted;
 }
 
 export function generateSequence(
@@ -168,14 +187,20 @@ export function generateSequence(
 
     let roman = baseRoman;
     if (mode === "minor") {
+      // Natural-minor degrees. Flat prefixes matter: tonal resolves plain
+      // uppercase romans against the MAJOR scale of the tonic, so "III" in
+      // C minor would come out E major instead of Eb. "iim7b5" is spelled out
+      // because the parser rejects "iidim" entirely.
       const minorMap: Record<string, string> = {
         I: "i",
-        ii: "iidim",
-        iii: "III",
+        I7: "im7",
+        ii: "iim7b5",
+        iii: "bIII",
+        III: "bIII",
         IV: "iv",
         V: "V",
-        vi: "VI",
-        vii: "vii",
+        vi: "bVI",
+        vii: "bVII",
       };
       roman = minorMap[baseRoman] || baseRoman;
     }
@@ -333,8 +358,9 @@ export function generateSequence(
         if (dissonance > 60 && Math.random() > 0.85) {
           const octaveShift = Math.random() > 0.5 ? 12 : -12;
           pitchStr =
-            Note.fromMidi((Note.midi(pitchStr) || 60) + octaveShift) ||
-            pitchStr;
+            Note.fromMidi(
+              shiftOctaveClamped(Note.midi(pitchStr) || 60, octaveShift),
+            ) || pitchStr;
         }
 
         notesOut.push({
@@ -424,7 +450,7 @@ export function applyVariationToProgression(
          let newMidi = n.midi;
          // random octave jump
          if (dissonance > 80 && Math.random() > 0.9) {
-           newMidi += Math.random() > 0.5 ? 12 : -12;
+           newMidi = shiftOctaveClamped(newMidi, Math.random() > 0.5 ? 12 : -12);
          }
          
          // grace note
