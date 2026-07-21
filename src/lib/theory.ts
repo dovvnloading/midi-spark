@@ -1,4 +1,4 @@
-import { Key, Chord, Progression, Note } from "@tonaljs/tonal";
+import { Chord, Progression, Note } from "@tonaljs/tonal";
 
 export interface NoteEvent {
   midi: number;
@@ -70,8 +70,8 @@ export function detectKeyFromProgression(progression: ProgressionData): {
 
     // Score Major
     let scoreMaj = 0;
-    for (let interval of MAJOR_INTERVALS) {
-      let c = (rootIdx + interval) % 12;
+    for (const interval of MAJOR_INTERVALS) {
+      const c = (rootIdx + interval) % 12;
       scoreMaj += pcDurations[c] || 0;
     }
     if (firstBassChroma === rootIdx) {
@@ -86,8 +86,8 @@ export function detectKeyFromProgression(progression: ProgressionData): {
 
     // Score Minor
     let scoreMin = 0;
-    for (let interval of MINOR_INTERVALS) {
-      let c = (rootIdx + interval) % 12;
+    for (const interval of MINOR_INTERVALS) {
+      const c = (rootIdx + interval) % 12;
       scoreMin += pcDurations[c] || 0;
     }
     if (firstBassChroma === rootIdx) {
@@ -119,7 +119,18 @@ const PROGRESSIONS = [
 ];
 
 function applyDissonance(roman: string, level: number): string {
-  if (level < 20) return roman;
+  // Tonal's roman-numeral parser derives quality ONLY from an explicit chord
+  // suffix, never from case — bare "vi" resolves to A MAJOR in C. So minor
+  // degrees must always carry a quality marker.
+  const isMinorDegree = roman === roman.toLowerCase();
+  // Degrees that already carry a quality (e.g. "I7", "im7", "iim7b5") would
+  // get a second suffix stacked on ("I7maj7" -> unparseable). Leave them.
+  if (/[^IViv b#]/.test(roman)) {
+    return roman;
+  }
+  if (level < 20) {
+    return isMinorDegree ? roman + "m" : roman;
+  }
   if (level < 40) {
     if (roman.toUpperCase() === "V") return roman + "7";
     if (roman === roman.toLowerCase()) return roman + "m7";
@@ -142,6 +153,14 @@ function applyDissonance(roman: string, level: number): string {
   return roman + "maj13#11";
 }
 
+/** Keep octave-displaced notes inside a musically useful MIDI window so the
+ *  name/midi pair never falls back out of sync at the range edges. */
+function shiftOctaveClamped(midi: number, shift: number): number {
+  const shifted = midi + shift;
+  if (shifted < 21 || shifted > 108) return midi;
+  return shifted;
+}
+
 export function generateSequence(
   root: string,
   mode: "major" | "minor",
@@ -149,8 +168,8 @@ export function generateSequence(
   dissonance: number, // 0-100
   complexity: number, // 0-100
 ): ProgressionData {
-  let notesOut: NoteEvent[] = [];
-  let chordsOut: ChordEvent[] = [];
+  const notesOut: NoteEvent[] = [];
+  const chordsOut: ChordEvent[] = [];
   let currentTime = 0; // in quarters
 
   const template =
@@ -168,21 +187,27 @@ export function generateSequence(
 
     let roman = baseRoman;
     if (mode === "minor") {
+      // Natural-minor degrees. Flat prefixes matter: tonal resolves plain
+      // uppercase romans against the MAJOR scale of the tonic, so "III" in
+      // C minor would come out E major instead of Eb. "iim7b5" is spelled out
+      // because the parser rejects "iidim" entirely.
       const minorMap: Record<string, string> = {
         I: "i",
-        ii: "iidim",
-        iii: "III",
+        I7: "im7",
+        ii: "iim7b5",
+        iii: "bIII",
+        III: "bIII",
         IV: "iv",
         V: "V",
-        vi: "VI",
-        vii: "vii",
+        vi: "bVI",
+        vii: "bVII",
       };
       roman = minorMap[baseRoman] || baseRoman;
     }
 
     const modifiedRoman = applyDissonance(roman, dissonance);
 
-    let chordNames = Progression.fromRomanNumerals(root, [modifiedRoman]);
+    const chordNames = Progression.fromRomanNumerals(root, [modifiedRoman]);
     let chordName = chordNames[0] || root + (mode === "major" ? "M" : "m");
 
     if (modifiedRoman.includes("subV")) {
@@ -289,10 +314,10 @@ export function generateSequence(
     } else {
       // Arpeggios and ostinatos
       let t = currentTime;
-      let stepSize = complexity > 80 ? 0.25 : 0.5; // 16th notes vs 8th notes
-      let numSteps = patternDuration / stepSize;
+      const stepSize = complexity > 80 ? 0.25 : 0.5; // 16th notes vs 8th notes
+      const numSteps = patternDuration / stepSize;
 
-      let arpPattern = Math.random();
+      const arpPattern = Math.random();
       const upperPitches = chordPitches.slice(1);
 
       for (let s = 0; s < numSteps; s++) {
@@ -300,7 +325,7 @@ export function generateSequence(
 
         // Add bass note on strong beats
         if (isDownbeat) {
-          let bassStr = chordPitches[0];
+          const bassStr = chordPitches[0];
           notesOut.push({
             name: bassStr,
             midi: Note.midi(bassStr) || 48,
@@ -310,8 +335,8 @@ export function generateSequence(
           });
         }
 
-        let noteIndex = 0;
-        let pLen = upperPitches.length;
+        let noteIndex: number;
+        const pLen = upperPitches.length;
 
         // Use musical melodic shapes
         if (arpPattern < 0.3) {
@@ -333,8 +358,9 @@ export function generateSequence(
         if (dissonance > 60 && Math.random() > 0.85) {
           const octaveShift = Math.random() > 0.5 ? 12 : -12;
           pitchStr =
-            Note.fromMidi((Note.midi(pitchStr) || 60) + octaveShift) ||
-            pitchStr;
+            Note.fromMidi(
+              shiftOctaveClamped(Note.midi(pitchStr) || 60, octaveShift),
+            ) || pitchStr;
         }
 
         notesOut.push({
@@ -362,7 +388,7 @@ export function applyVariationToProgression(
   root: string = "C",
   mode: "major" | "minor" = "major",
 ): ProgressionData {
-  let newNotes: NoteEvent[] = [];
+  const newNotes: NoteEvent[] = [];
 
   const humanizeTime = (t: number) =>
     Math.max(0, t + (Math.random() * 0.02 - 0.01));
@@ -378,7 +404,7 @@ export function applyVariationToProgression(
 
   const snapToScale = (midi: number) => {
     if (dissonance > 85) return midi; // let high dissonance notes remain out of scale
-    let chroma = midi % 12;
+    const chroma = midi % 12;
     if (scaleChromas.has(chroma)) return midi;
     if (scaleChromas.has((chroma + 1) % 12)) return midi + 1;
     if (scaleChromas.has((chroma + 11) % 12)) return midi - 1;
@@ -387,7 +413,7 @@ export function applyVariationToProgression(
 
   // 1. Group notes by timeStart
   const eps = 0.05;
-  let groups: NoteEvent[][] = [];
+  const groups: NoteEvent[][] = [];
   const sortedNotes = [...prog.notes].sort((a, b) => a.timeStart - b.timeStart || a.midi - b.midi);
 
   let currentGroup: NoteEvent[] = [];
@@ -424,12 +450,12 @@ export function applyVariationToProgression(
          let newMidi = n.midi;
          // random octave jump
          if (dissonance > 80 && Math.random() > 0.9) {
-           newMidi += Math.random() > 0.5 ? 12 : -12;
+           newMidi = shiftOctaveClamped(newMidi, Math.random() > 0.5 ? 12 : -12);
          }
          
          // grace note
          if (complexity > 70 && dissonance > 50 && Math.random() > 0.8) {
-            let graceMidi = snapToScale(newMidi - Math.floor(Math.random() * 2 + 1));
+            const graceMidi = snapToScale(newMidi - Math.floor(Math.random() * 2 + 1));
             newNotes.push({
               ...n, midi: graceMidi, name: Note.fromMidi(graceMidi) || n.name,
               timeStart: humanizeTime(Math.max(0, n.timeStart - 0.125)),
@@ -465,7 +491,7 @@ export function applyVariationToProgression(
       // Arpeggio
       const step = chordDur / group.length;
       const dir = Math.random();
-      let sortedGroup = [...group];
+      const sortedGroup = [...group];
       if (dir < 0.3) sortedGroup.reverse();
       else if (dir < 0.6) sortedGroup.sort(() => Math.random() - 0.5);
 

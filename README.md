@@ -1,191 +1,119 @@
-
-
 # Midi Spark
 
-<img width="1568" height="891" alt="image" src="https://github.com/user-attachments/assets/be62c0bd-ae6c-47f6-bde2-9f0f0e0cb93a" />
+[![CI](https://github.com/dovvnloading/midi-spark/actions/workflows/ci.yml/badge.svg)](https://github.com/dovvnloading/midi-spark/actions/workflows/ci.yml)
+[![Deploy](https://github.com/dovvnloading/midi-spark/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/dovvnloading/midi-spark/actions/workflows/deploy-pages.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+**Live app: [dovvnloading.github.io/midi-spark](https://dovvnloading.github.io/midi-spark/)**
 
+<img width="1568" height="891" alt="Midi Spark piano roll interface" src="https://github.com/user-attachments/assets/be62c0bd-ae6c-47f6-bde2-9f0f0e0cb93a" />
 
-Midi Spark is a mathematical MIDI generation tool for exploring chord progressions, rhythmic complexity, and dissonance. It lets you generate, edit, preview, import, and export rich MIDI sequences using built-in synthesizers and an interactive piano roll.
+Midi Spark is a mathematical MIDI generation tool for exploring chord progressions, rhythmic complexity, and dissonance. It generates, edits, previews, imports, and exports MIDI sequences with built-in synthesizers and an interactive piano roll — entirely in your browser, no account or install required.
 
 ## Features
 
 ### Algorithmic MIDI Generation
 
-Generate unique chord progressions by adjusting musical parameters such as:
+Generate chord progressions from musical parameters:
 
-* Root key
-* Scale or mode
-* Chord tension
-* Dissonance
-* Groove complexity
+* **Root key & mode** — any of the 12 keys, major or minor, with correct diatonic
+  qualities (minor degrees stay minor, flat degrees stay flat)
+* **Chord tension** — from plain triads through 7ths/9ths up to altered dominants,
+  tritone substitutions, and `maj13#11` voicings
+* **Groove complexity** — sustained pads, syncopated stabs (tresillo, offbeat
+  anticipation), or 8th/16th-note arpeggio engines with voice-leading between bars
+* **Loop length** — 4 to 16 bars
 
 ### Interactive Piano Roll
 
-Edit MIDI sequences directly on a grid-based piano roll with support for:
-
-* Drawing notes
-* Selecting notes
-* Chopping notes
-* Stamping common chords and scales
-* Fine-tuning timing and pitch
-
-### Advanced Editing Tools
-
-Midi Spark includes editing features designed for fast musical iteration:
-
-* Drag notes to move them
-* Resize note durations
-* Slice note segments
-* Use lasso selection for batch edits
-* Safely experiment with undo and redo
+* **Draw** notes with click or click-drag (drag sets the length)
+* **Select** with lasso, shift-click to extend, `Ctrl+A` for everything
+* **Stamp** full chords (9 types) or scale guides (7 scales)
+* **Slice** notes with a cut line, **chop** them into fixed-length segments
+* Drag to move (single or multi-selection), grab the right edge to resize
+* Right-click (or right-click-drag) to delete
+* Snap grid from 1/4 down to 1/32 or free placement, `Ctrl+wheel` zoom to cursor
+* Full undo/redo history (50 steps)
 
 ### Built-In Sound Engine
 
-Preview your sequences using a built-in Tone.js sound engine with five synthesizer presets:
+Five Tone.js synthesizer presets, each with its own effect chain: Classic Analog,
+Electric Piano, Atmospheric Pad, Modern Pluck, and Dreamwave. Edits are audible
+live during playback — including while dragging notes.
 
-* Classic Analog
-* Electric Piano
-* Atmospheric Pad
-* Modern Pluck
-* Dreamwave
+### MIDI Import & Export
 
-Each preset includes its own effect chain for polished playback inside the browser.
+* Drag & drop `.mid`/`.midi` files onto the app (or use **Load MIDI**)
+* Import honors the file's own PPQ and tempo, merges melodic tracks, skips
+  percussion, and auto-detects the key
+* Export produces a standard 480-PPQ MIDI file with tempo, ready for any DAW
 
-### MIDI Import and Export
+## Keyboard Shortcuts
 
-Midi Spark supports standard MIDI workflows:
+| Shortcut | Action |
+| --- | --- |
+| `Space` | Play / stop |
+| `Ctrl+Z` / `Ctrl+Shift+Z` | Undo / redo |
+| `Ctrl+Y` | Redo |
+| `Ctrl+A` | Select all notes |
+| `Delete` / `Backspace` | Delete selected notes |
+| `Alt+U` | Chop selected notes (all if none selected) |
+| `Ctrl+wheel` | Zoom (anchored at cursor) |
+| `Shift+wheel` | Horizontal scroll |
 
-* Drag and drop existing MIDI files into the app
-* Analyze and modify imported MIDI sequences
-* Export generated sequences as `.mid` files
-* Use exported MIDI files in your preferred DAW
+## Technology
 
-## Technology Stack
+* **React 19** + **Vite 6** + **TypeScript** (strict)
+* **Tailwind CSS 4** for the hardware-inspired UI
+* **Tone.js 15** — synthesis and transport
+* **Tonal** — music theory (roman numerals, chords, keys)
+* **@tonejs/midi** — MIDI file parsing and serialization
 
-* **Frontend:** React 19, Vite
-* **Styling:** Tailwind CSS 4
-* **Audio Engine:** Tone.js
-* **Music Theory:** Tonal.js
-* **MIDI Handling:** midi-writer-js, @tonejs/midi
+## Development
 
-## Getting Started
-
-### Prerequisites
-
-Make sure you have the following installed:
-
-* Node.js 20 or higher
-* npm
-
-### Installation
-
-Clone the repository:
-
-```bash
-git clone <repository-url>
-cd midi-spark
-```
-
-Install dependencies:
+Requires Node.js 20+.
 
 ```bash
 npm install
+npm run dev        # dev server on http://localhost:3000
 ```
 
-### Running the Development Server
+| Script | Purpose |
+| --- | --- |
+| `npm run dev` | Start the dev server |
+| `npm run build` | Production build to `dist/` |
+| `npm run preview` | Preview the production build |
+| `npm run typecheck` | TypeScript strict check |
+| `npm run lint` | ESLint (typescript-eslint + react-hooks) |
+| `npm test` | Vitest unit tests (theory, MIDI round-trip, history) |
 
-Start the local development server:
+### Project Structure
 
-```bash
-npm run dev
+```
+src/
+  App.tsx                 state orchestration + layout
+  components/
+    Sidebar.tsx           generation controls
+    TransportBar.tsx      play/stop, undo/redo, BPM, instrument, import/export
+    EditToolbar.tsx       tool modes, stamps, chop/length/snap/zoom
+    PianoRoll.tsx         grid, keys, timeline, notes, pointer interactions
+    CustomDropdown.tsx    themed listbox
+    CustomSlider.tsx      themed slider
+    DraggableNumberInput.tsx  drag/scroll/type number field
+    ErrorBoundary.tsx
+  hooks/
+    useHistory.ts         reducer-based undo/redo store
+  lib/
+    theory.ts             progression generation, dissonance, key detection
+    audio.ts              Tone.js synths, FX racks, transport
+    midi.ts               MIDI file import/export (@tonejs/midi)
+    constants.ts          musical + layout constants
+tests/                    vitest suites
 ```
 
-Open the app in your browser:
-
-```text
-http://localhost:3000
-```
-
-### Building for Production
-
-Create a production build:
-
-```bash
-npm run build
-```
-
-The compiled files will be generated in the `dist` directory.
-
-Preview the production build locally:
-
-```bash
-npm run preview
-```
-
-## Usage
-
-### 1. Choose a Musical Foundation
-
-Use the left sidebar to select the root key and mode, such as major or minor.
-
-### 2. Adjust Generation Parameters
-
-Use the available controls to shape the generated MIDI sequence:
-
-* Increase **Chord Tension** to introduce more harmonic complexity and dissonance.
-* Increase **Groove Complexity** to add rhythmic syncopation and variation.
-
-### 3. Generate a Progression
-
-Click **Generate Chord Progression** to create a base sequence.
-
-Use **Add Rhythmic Variation** to evolve the progression and introduce additional movement.
-
-### 4. Edit in the Piano Roll
-
-Use the top toolbar to switch between editing modes:
-
-* Draw
-* Select
-* Stamp
-* Cut
-
-Interact directly with the piano roll to modify notes, timing, rhythm, and harmony.
-
-### 5. Preview Playback
-
-Use the transport controls to listen to your sequence:
-
-* Play
-* Stop
-* Loop
-* Timeline scrubbing
-
-You can also switch instruments from the preset dropdown to preview different sound palettes.
-
-### 6. Export MIDI
-
-Click the download button in the piano roll sidebar to export the current sequence as a `.mid` file.
-
-The exported file can be imported into a DAW for further arrangement, production, or mixing.
-
-## Project Scripts
-
-### `npm run dev`
-
-Starts the local development server.
-
-### `npm run build`
-
-Builds the app for production.
-
-### `npm run preview`
-
-Previews the production build locally.
+Every push to `main` deploys to GitHub Pages via `.github/workflows/deploy-pages.yml`;
+`ci.yml` runs typecheck + lint + tests + build on every PR.
 
 ## License
 
-MIT License
-
-Designed and developed by Matthew Wensey.
+[MIT](LICENSE) — designed and developed by Matthew Wesney.

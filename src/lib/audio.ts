@@ -7,15 +7,24 @@ let padSynth: Tone.PolySynth;
 let pluckSynth: Tone.PolySynth;
 let dreamSynth: Tone.PolySynth;
 
-let activeSynth: Tone.PolySynth;
+let activeSynth: Tone.PolySynth | null = null;
 let currentPart: Tone.Part | null = null;
 
 export type SynthType = "classic" | "epiano" | "pad" | "pluck" | "dream";
+
+export interface PlaybackCallbacks {
+  /** Fired roughly every 16th note with the transport position in quarters. */
+  onTick: (timeQuarters: number) => void;
+  /** Fired once when a non-looping run reaches the end of the sequence. */
+  onEnded: () => void;
+}
 
 export async function initAudio() {
   await Tone.start();
 
   if (!classicSynth) {
+    const destination = Tone.getDestination();
+
     // === FX RACKS === //
 
     // 1. Classic Analog FX (Warm, fat, wide)
@@ -69,7 +78,7 @@ export async function initAudio() {
         octaves: 4,
       },
     });
-    classicSynth.chain(classicChorus, classicReverb, Tone.Destination);
+    classicSynth.chain(classicChorus, classicReverb, destination);
 
     // 2. Electric Piano (Velvety FM)
     epianoSynth = new Tone.PolySynth(Tone.FMSynth, {
@@ -86,7 +95,7 @@ export async function initAudio() {
         release: 0.5,
       },
     });
-    epianoSynth.chain(epTremolo, epChorus, epReverb, Tone.Destination);
+    epianoSynth.chain(epTremolo, epChorus, epReverb, destination);
 
     // 3. Atmospheric Pad (Ethereal, slow-building)
     padSynth = new Tone.PolySynth(Tone.AMSynth, {
@@ -102,7 +111,7 @@ export async function initAudio() {
         release: 4.0,
       },
     });
-    padSynth.chain(padPhaser, padWidener, padReverb, Tone.Destination);
+    padSynth.chain(padPhaser, padWidener, padReverb, destination);
 
     // 4. Modern Pluck (Tight, snappy)
     pluckSynth = new Tone.PolySynth(Tone.MonoSynth, {
@@ -119,7 +128,7 @@ export async function initAudio() {
         octaves: 5,
       },
     });
-    pluckSynth.chain(pluckDelay, pluckReverb, Tone.Destination);
+    pluckSynth.chain(pluckDelay, pluckReverb, destination);
 
     // 5. Dreamwave (Sparkly, glass-like)
     dreamSynth = new Tone.PolySynth(Tone.FMSynth, {
@@ -136,7 +145,7 @@ export async function initAudio() {
         release: 2.5,
       },
     });
-    dreamSynth.chain(dreamChorus, dreamDelay, dreamReverb, Tone.Destination);
+    dreamSynth.chain(dreamChorus, dreamDelay, dreamReverb, destination);
 
     activeSynth = classicSynth;
   }
@@ -166,53 +175,55 @@ export function setSynthType(type: SynthType) {
   }
 }
 
-export function playChord(notes: string[], duration: number) {
-  if (!activeSynth) return;
-  const time = `+0.05`;
-  activeSynth.triggerAttackRelease(notes, duration * (60 / 120), time);
-}
-
-export function updateProgressionLive(data: ProgressionData, bpm: number, isLooping?: boolean) {
-  if (!activeSynth || !currentPart) return;
-  Tone.Transport.bpm.value = bpm;
-  const Q = 60 / bpm;
-  currentPart.clear();
-  data.notes.forEach((note) => {
-    currentPart?.add(note.timeStart * Q, { ...note, time: note.timeStart * Q });
-  });
-
+function sequenceEndQuarters(data: ProgressionData): number {
   const maxNoteEnd = data.notes.reduce(
     (max, n) => Math.max(max, n.timeStart + n.duration),
     0,
   );
-  const playheadMaxTick = Math.max(data.totalBars * 4, maxNoteEnd);
-  const totalDurationSec = playheadMaxTick * Q;
+  return Math.max(data.totalBars * 4, maxNoteEnd);
+}
 
-  if (isLooping !== undefined) {
-    Tone.Transport.loop = isLooping;
-  }
+/**
+ * Re-sync the scheduled part with the current progression while the transport
+ * is running (live edits, BPM changes, loop toggles).
+ */
+export function updateProgressionLive(
+  data: ProgressionData,
+  bpm: number,
+  isLooping: boolean,
+) {
+  if (!activeSynth || !currentPart) return;
+  const transport = Tone.getTransport();
+  transport.bpm.value = bpm;
+  const quarterSec = 60 / bpm;
 
-  if (Tone.Transport.loop) {
-    Tone.Transport.setLoopPoints(0, totalDurationSec);
-  } else {
-    Tone.Transport.setLoopPoints(0, 0); // Reset or we just rely on logic in playProgression
+  currentPart.clear();
+  data.notes.forEach((note) => {
+    currentPart?.add(note.timeStart * quarterSec, note);
+  });
+
+  const totalDurationSec = sequenceEndQuarters(data) * quarterSec;
+  transport.loop = isLooping;
+  if (isLooping) {
+    transport.setLoopPoints(0, totalDurationSec);
   }
 }
 
 export function playProgression(
   data: ProgressionData,
   bpm: number,
-  onTick: (timeQuarters: number) => void,
+  callbacks: PlaybackCallbacks,
   startTickQuarters: number = 0,
   isLooping: boolean = false,
 ) {
   if (!activeSynth) return;
 
-  Tone.Transport.stop();
-  Tone.Transport.cancel();
-  Tone.Transport.bpm.value = bpm;
+  const transport = Tone.getTransport();
+  transport.stop();
+  transport.cancel();
+  transport.bpm.value = bpm;
 
-  const Q = 60 / bpm; // One quarter note in seconds
+  const quarterSec = 60 / bpm;
 
   if (currentPart) {
     currentPart.dispose();
@@ -220,7 +231,7 @@ export function playProgression(
 
   currentPart = new Tone.Part(
     (time, note) => {
-      const durationSec = note.duration * Q * 0.9;
+      const durationSec = note.duration * quarterSec * 0.9;
       activeSynth?.triggerAttackRelease(
         note.name,
         durationSec,
@@ -228,52 +239,44 @@ export function playProgression(
         note.velocity,
       );
     },
-    data.notes.map((n) => ({ ...n, time: n.timeStart * Q })),
+    data.notes.map((n) => ({ ...n, time: n.timeStart * quarterSec })),
   );
 
   currentPart.start(0);
 
-  // Repeating schedule to update UI playhead
-  Tone.Transport.scheduleRepeat((time) => {
-    Tone.Draw.schedule(() => {
-      onTick(Tone.Transport.ticks / Tone.Transport.PPQ);
+  // Repeating schedule to update the UI playhead.
+  transport.scheduleRepeat((time) => {
+    Tone.getDraw().schedule(() => {
+      callbacks.onTick(transport.ticks / transport.PPQ);
     }, time);
   }, "16n");
 
-  // Loop or Auto-stop at the end of the last note or totalBars, whichever is longer.
-  const maxNoteEnd = data.notes.reduce(
-    (max, n) => Math.max(max, n.timeStart + n.duration),
-    0,
-  );
-  const playheadMaxTick = Math.max(data.totalBars * 4, maxNoteEnd);
-
-  const totalDurationSec = playheadMaxTick * Q;
+  const totalDurationSec = sequenceEndQuarters(data) * quarterSec;
 
   if (isLooping) {
-    Tone.Transport.setLoopPoints(0, totalDurationSec);
-    Tone.Transport.loop = true;
+    transport.setLoopPoints(0, totalDurationSec);
+    transport.loop = true;
   } else {
-    Tone.Transport.loop = false;
+    transport.loop = false;
     if (totalDurationSec > 0) {
-      Tone.Transport.schedule((time) => {
-        Tone.Transport.stop();
-        Tone.Draw.schedule(() => {
-          onTick(0);
-        }, time);
+      transport.schedule(() => {
+        transport.stop();
+        // Deliberately NOT delivered via Draw: Draw events expire (and rAF is
+        // paused) while the tab is hidden, which would leave the UI stuck in
+        // the playing state when a sequence ends in a background tab.
+        setTimeout(() => callbacks.onEnded(), 0);
       }, totalDurationSec);
     }
   }
 
-  // Start from offset if provided
   if (startTickQuarters > 0) {
-    Tone.Transport.seconds = startTickQuarters * Q;
+    transport.seconds = startTickQuarters * quarterSec;
   }
-  Tone.Transport.start();
+  transport.start();
 }
 
 export function seekAudio(tickQuarters: number, bpm: number) {
-  const Q = 60 / bpm;
-  Tone.Transport.seconds = tickQuarters * Q;
+  Tone.getTransport().seconds = tickQuarters * (60 / bpm);
 }
 
 export function playNote(
@@ -286,17 +289,8 @@ export function playNote(
 }
 
 export function stopAudio() {
-  Tone.Transport.stop();
-  Tone.Transport.cancel();
+  const transport = Tone.getTransport();
+  transport.stop();
+  transport.cancel();
   if (activeSynth) activeSynth.releaseAll();
-}
-
-export function updatePlaybackNotes(notes: any[], bpm: number) {
-  if (!currentPart || Tone.Transport.state !== "started") return;
-
-  const Q = 60 / bpm;
-  currentPart.clear();
-  notes.forEach((n) => {
-    currentPart?.add(n.timeStart * Q, n);
-  });
 }
