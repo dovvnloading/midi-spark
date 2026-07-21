@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
 export interface CustomSliderProps {
@@ -23,39 +23,42 @@ export function CustomSlider({
   const trackRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const calculateValue = (clientX: number) => {
-    if (!trackRef.current) return value;
-    const rect = trackRef.current.getBoundingClientRect();
-    let percent = (clientX - rect.left) / rect.width;
-    percent = Math.max(0, Math.min(1, percent));
-    const rawVal = min + percent * (max - min);
-    const steppedVal = Math.round(rawVal / step) * step;
-    return Math.max(min, Math.min(max, steppedVal));
-  };
+  const calculateValue = useCallback(
+    (clientX: number): number | null => {
+      if (!trackRef.current) return null;
+      const rect = trackRef.current.getBoundingClientRect();
+      let percent = (clientX - rect.left) / rect.width;
+      percent = Math.max(0, Math.min(1, percent));
+      const rawVal = min + percent * (max - min);
+      const steppedVal = Math.round(rawVal / step) * step;
+      return Math.max(min, Math.min(max, steppedVal));
+    },
+    [min, max, step],
+  );
 
   useEffect(() => {
+    if (!isDragging) return;
+
     const handlePointerMove = (e: PointerEvent) => {
-      if (isDragging) {
-        onChange(calculateValue(e.clientX));
-      }
+      const next = calculateValue(e.clientX);
+      if (next !== null) onChange(next);
     };
     const handlePointerUp = () => {
       setIsDragging(false);
     };
 
-    if (isDragging) {
-      window.addEventListener('pointermove', handlePointerMove);
-      window.addEventListener('pointerup', handlePointerUp);
-    }
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
     return () => {
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [isDragging, min, max, step, onChange]);
+  }, [isDragging, calculateValue, onChange]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     setIsDragging(true);
-    onChange(calculateValue(e.clientX));
+    const next = calculateValue(e.clientX);
+    if (next !== null) onChange(next);
   };
 
   const percentage = ((value - min) / (max - min)) * 100;

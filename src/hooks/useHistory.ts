@@ -20,7 +20,8 @@ function resolve<T>(updater: T | ((prev: T) => T), prev: T): T {
     : updater;
 }
 
-function historyReducer<T>(
+// Exported for unit tests — must stay pure (StrictMode re-invokes reducers).
+export function historyReducer<T>(
   state: HistoryState<T>,
   action: HistoryAction<T>,
 ): HistoryState<T> {

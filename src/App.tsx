@@ -279,7 +279,7 @@ export default function App() {
   // The handler lives in a ref so a single window listener always sees fresh
   // state; the old effect-with-deps version acted on stale history.
   const keyHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
-  keyHandlerRef.current = (e: KeyboardEvent) => {
+  const onKeyDown = (e: KeyboardEvent) => {
     const target = e.target as HTMLElement | null;
     if (
       target &&
@@ -322,6 +322,11 @@ export default function App() {
       handleChopSelected();
     }
   };
+
+  // Re-point the stable listener at this render's handler.
+  useEffect(() => {
+    keyHandlerRef.current = onKeyDown;
+  });
 
   useEffect(() => {
     const listener = (e: KeyboardEvent) => keyHandlerRef.current(e);

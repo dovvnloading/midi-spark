@@ -70,8 +70,8 @@ export function detectKeyFromProgression(progression: ProgressionData): {
 
     // Score Major
     let scoreMaj = 0;
-    for (let interval of MAJOR_INTERVALS) {
-      let c = (rootIdx + interval) % 12;
+    for (const interval of MAJOR_INTERVALS) {
+      const c = (rootIdx + interval) % 12;
       scoreMaj += pcDurations[c] || 0;
     }
     if (firstBassChroma === rootIdx) {
@@ -86,8 +86,8 @@ export function detectKeyFromProgression(progression: ProgressionData): {
 
     // Score Minor
     let scoreMin = 0;
-    for (let interval of MINOR_INTERVALS) {
-      let c = (rootIdx + interval) % 12;
+    for (const interval of MINOR_INTERVALS) {
+      const c = (rootIdx + interval) % 12;
       scoreMin += pcDurations[c] || 0;
     }
     if (firstBassChroma === rootIdx) {
@@ -168,8 +168,8 @@ export function generateSequence(
   dissonance: number, // 0-100
   complexity: number, // 0-100
 ): ProgressionData {
-  let notesOut: NoteEvent[] = [];
-  let chordsOut: ChordEvent[] = [];
+  const notesOut: NoteEvent[] = [];
+  const chordsOut: ChordEvent[] = [];
   let currentTime = 0; // in quarters
 
   const template =
@@ -207,7 +207,7 @@ export function generateSequence(
 
     const modifiedRoman = applyDissonance(roman, dissonance);
 
-    let chordNames = Progression.fromRomanNumerals(root, [modifiedRoman]);
+    const chordNames = Progression.fromRomanNumerals(root, [modifiedRoman]);
     let chordName = chordNames[0] || root + (mode === "major" ? "M" : "m");
 
     if (modifiedRoman.includes("subV")) {
@@ -314,10 +314,10 @@ export function generateSequence(
     } else {
       // Arpeggios and ostinatos
       let t = currentTime;
-      let stepSize = complexity > 80 ? 0.25 : 0.5; // 16th notes vs 8th notes
-      let numSteps = patternDuration / stepSize;
+      const stepSize = complexity > 80 ? 0.25 : 0.5; // 16th notes vs 8th notes
+      const numSteps = patternDuration / stepSize;
 
-      let arpPattern = Math.random();
+      const arpPattern = Math.random();
       const upperPitches = chordPitches.slice(1);
 
       for (let s = 0; s < numSteps; s++) {
@@ -325,7 +325,7 @@ export function generateSequence(
 
         // Add bass note on strong beats
         if (isDownbeat) {
-          let bassStr = chordPitches[0];
+          const bassStr = chordPitches[0];
           notesOut.push({
             name: bassStr,
             midi: Note.midi(bassStr) || 48,
@@ -335,8 +335,8 @@ export function generateSequence(
           });
         }
 
-        let noteIndex = 0;
-        let pLen = upperPitches.length;
+        let noteIndex: number;
+        const pLen = upperPitches.length;
 
         // Use musical melodic shapes
         if (arpPattern < 0.3) {
@@ -388,7 +388,7 @@ export function applyVariationToProgression(
   root: string = "C",
   mode: "major" | "minor" = "major",
 ): ProgressionData {
-  let newNotes: NoteEvent[] = [];
+  const newNotes: NoteEvent[] = [];
 
   const humanizeTime = (t: number) =>
     Math.max(0, t + (Math.random() * 0.02 - 0.01));
@@ -404,7 +404,7 @@ export function applyVariationToProgression(
 
   const snapToScale = (midi: number) => {
     if (dissonance > 85) return midi; // let high dissonance notes remain out of scale
-    let chroma = midi % 12;
+    const chroma = midi % 12;
     if (scaleChromas.has(chroma)) return midi;
     if (scaleChromas.has((chroma + 1) % 12)) return midi + 1;
     if (scaleChromas.has((chroma + 11) % 12)) return midi - 1;
@@ -413,7 +413,7 @@ export function applyVariationToProgression(
 
   // 1. Group notes by timeStart
   const eps = 0.05;
-  let groups: NoteEvent[][] = [];
+  const groups: NoteEvent[][] = [];
   const sortedNotes = [...prog.notes].sort((a, b) => a.timeStart - b.timeStart || a.midi - b.midi);
 
   let currentGroup: NoteEvent[] = [];
@@ -455,7 +455,7 @@ export function applyVariationToProgression(
          
          // grace note
          if (complexity > 70 && dissonance > 50 && Math.random() > 0.8) {
-            let graceMidi = snapToScale(newMidi - Math.floor(Math.random() * 2 + 1));
+            const graceMidi = snapToScale(newMidi - Math.floor(Math.random() * 2 + 1));
             newNotes.push({
               ...n, midi: graceMidi, name: Note.fromMidi(graceMidi) || n.name,
               timeStart: humanizeTime(Math.max(0, n.timeStart - 0.125)),
@@ -491,7 +491,7 @@ export function applyVariationToProgression(
       // Arpeggio
       const step = chordDur / group.length;
       const dir = Math.random();
-      let sortedGroup = [...group];
+      const sortedGroup = [...group];
       if (dir < 0.3) sortedGroup.reverse();
       else if (dir < 0.6) sortedGroup.sort(() => Math.random() - 0.5);
 

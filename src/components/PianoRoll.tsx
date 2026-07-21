@@ -167,7 +167,9 @@ export function PianoRoll({
 
   // Ctrl+wheel zoom (anchored at the cursor), shift+wheel horizontal scroll.
   const zoomXRef = useRef(zoomX);
-  zoomXRef.current = zoomX;
+  useEffect(() => {
+    zoomXRef.current = zoomX;
+  }, [zoomX]);
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -428,7 +430,7 @@ export function PianoRoll({
     onUp: (_e: MouseEvent) => {},
   });
 
-  dragHandlersRef.current.onMove = (e: MouseEvent) => {
+  const onDragMove = (e: MouseEvent) => {
     if (dragState) {
       const dx = e.clientX - dragState.startX;
       const dy = e.clientY - dragState.startY;
@@ -458,7 +460,7 @@ export function PianoRoll({
     }
   };
 
-  dragHandlersRef.current.onUp = (e: MouseEvent) => {
+  const onDragUp = (e: MouseEvent) => {
     if (isScrubbingRef.current) {
       isScrubbingRef.current = false;
       onScrubStateChange(false);
@@ -547,6 +549,12 @@ export function PianoRoll({
       setDragDrawState(null);
     }
   };
+
+  // Re-point the stable listeners at this render's handlers.
+  useEffect(() => {
+    dragHandlersRef.current.onMove = onDragMove;
+    dragHandlersRef.current.onUp = onDragUp;
+  });
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => dragHandlersRef.current.onMove(e);
