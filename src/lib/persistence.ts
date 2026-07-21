@@ -92,7 +92,8 @@ export function saveSession(session: SavedSession): void {
   try {
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
   } catch {
-    // Autosave is best-effort only.
+    // No console.warn: private-browsing/quota errors fire on every autosave
+    // tick in that mode, which would spam the console on ordinary use.
   }
 }
 
@@ -113,6 +114,7 @@ export function clearSession(): void {
   try {
     localStorage.removeItem(SESSION_STORAGE_KEY);
   } catch {
-    // ignore
+    // Callers don't wrap this in try/catch; a storage error here must not
+    // propagate and break the "Clear saved session" button.
   }
 }

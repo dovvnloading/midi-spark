@@ -132,12 +132,19 @@ export function PianoRoll({
 
   const snapTick = snapResolution > 0 ? snapResolution : FREE_SNAP;
   const scaleChromas = useMemo(() => getScaleChromas(root, mode), [root, mode]);
-  // Only imported multi-track files carry trackIndex; generated/drawn notes
-  // never do, so this keeps single-track rendering byte-for-byte unchanged.
-  const hasTrackColors = useMemo(
-    () => progression?.notes.some((n) => n.trackIndex !== undefined) ?? false,
-    [progression],
-  );
+  // Every imported note carries a trackIndex (single-track files are tagged
+  // 0), so gating on "any note tagged" would recolor ordinary single-track
+  // imports too. Only turn on track coloring once there's more than one
+  // distinct track to actually distinguish.
+  const hasTrackColors = useMemo(() => {
+    if (!progression) return false;
+    const indices = new Set(
+      progression.notes
+        .map((n) => n.trackIndex)
+        .filter((idx): idx is number => idx !== undefined),
+    );
+    return indices.size > 1;
+  }, [progression]);
 
   // ----- Derived layout -----
   const maxNoteEndTick =
@@ -451,6 +458,11 @@ export function PianoRoll({
     let targets: number[] = [index];
     if (selectedIndices.has(index)) {
       targets = Array.from(selectedIndices);
+    } else if (e.shiftKey) {
+      const newSel = new Set(selectedIndices);
+      newSel.add(index);
+      onSelectionChange(newSel);
+      targets = Array.from(newSel);
     } else {
       onSelectionChange(new Set([index]));
     }

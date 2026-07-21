@@ -191,13 +191,60 @@ does the additive, low-risk half and re-defers the rest.
 - [x] Gate green; browser-verified: importing a multi-track file shows distinct
       colors per track; a generated (single "track") progression is unchanged
 
+### 7.7 — Adversarial review findings (post-implementation)
+
+Three independent reviewer passes (correctness/regression-risk, spec-compliance/UX,
+code-quality) ran against the full 7.1–7.6 diff. All three, working separately,
+independently converged on the same headline bug — strong signal it was real, not
+a false positive. Confirmed/plausible findings and their resolutions:
+
+- [x] **(blocker, triple-confirmed) 7.6 color regression**: `hasTrackColors` gated on
+      "does any note carry a `trackIndex`" rather than "are there ≥2 distinct
+      tracks" — since import tags every note (single-track files get `trackIndex:
+      0`), importing an ordinary single-track file recolored every note amber
+      instead of the original accent-blue. Fixed to require >1 distinct index;
+      browser-verified both directions (single-track import → unchanged blue;
+      3-track import → 3 distinct colors).
+- [x] **7.2 Ctrl+C regression**: copy shortcut unconditionally called
+      `preventDefault()` even with nothing selected, silently breaking native
+      browser text-copy anywhere else on the page. Fixed to only intercept when
+      `selectedNoteIndices.size > 0`; browser-verified `defaultPrevented` is false
+      with no selection and true with one.
+- [x] **7.4 spec gap**: plan text said swing delays "every off-beat 8th/16th
+      note," but the shipped implementation only handled 8th notes. Extended
+      `applySwing` to also delay off-beat 16th notes (the "e"/"a" of the beat) at
+      a proportionally smaller, independently-capped delay; existing test updated
+      + a new test added for the 16th-note case; browser-verified at 100% swing.
+- [x] **7.1 parity gap**: velocity-lane drag didn't support shift-click to extend
+      selection, unlike the main-grid note drag it was billed as mirroring. Added
+      the same shift-click branch; browser-verified (2 → 4 selected DOM elements
+      across two notes).
+- [x] **Code-quality nits**: `applySwing` now reuses the shared `clamp()` helper
+      instead of hand-rolling one; two filler comments in `persistence.ts` that
+      only restated their function's doc comment were replaced with comments that
+      state actual non-obvious WHY (why no `console.warn`, why the catch must
+      never propagate).
+- Reviewed but not changed (documented, not silently dropped):
+  - 7.2 Duplicate Bar overlays onto an already-occupied following bar rather than
+    inserting/shifting — matches the plan's literal "shifting nothing else"
+    wording; left as-is.
+  - 7.4 swing is not idempotent on repeated "Apply Swing" clicks at the same
+    slider value below ~18% (each click keeps compounding slightly rather than
+    converging) — plausible, not live-reproduced by the reviewer, not part of the
+    original acceptance criteria (only "0% is a no-op" was required); left as a
+    known limitation for a future pass.
+  - 7.4's applied-at-swingAmount-with-no-eligible-notes case records a harmless
+    but semantically-empty undo step — benign, not a data-integrity issue.
+  - Ctrl+C/Ctrl+V discoverability (no README entry, no in-app tooltip) — folded
+    into Phase 8's README update below, not a Phase 7 gap.
+
 ## Phase 8 — Integration, verification & ship
 
-- [ ] All Phase 7 sub-stages implemented on `overhaul/v2-deferred-features`,
-      each individually gated (typecheck+lint+test+build) before the next starts
-- [ ] Independent adversarial review pass over the full diff (correctness/
+- [x] All Phase 7 sub-stages implemented on `overhaul/v2-deferred-features`,
+      each individually gated (typecheck+lint+test+build) before the next started
+- [x] Independent adversarial review pass over the full diff (correctness/
       regression-risk, spec-compliance, code-quality lenses) — findings fixed or
-      explicitly logged as accepted trade-offs
+      explicitly logged as accepted trade-offs (see 7.7 above)
 - [ ] Full browser regression pass: every Phase 0–6 feature re-verified alongside
       the 6 new ones (generate/vary/chop/undo-redo/draw/drag/resize/lasso/slice/
       stamp/transport/import-export all still work)

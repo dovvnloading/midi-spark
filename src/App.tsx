@@ -432,6 +432,10 @@ export default function App() {
       return;
     }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
+      // Only intercept when there's actually a note selection to copy —
+      // otherwise let native browser copy-to-clipboard proceed as normal
+      // (e.g. copying chord-name/status text on the page).
+      if (selectedNoteIndices.size === 0) return;
       e.preventDefault();
       handleCopySelected();
       return;
