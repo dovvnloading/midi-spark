@@ -253,8 +253,16 @@ a false positive. Confirmed/plausible findings and their resolutions:
       Zero console errors across the full battery.
 - [x] README updated with new shortcuts/features; this plan's Phase 7 checkboxes
       finalized
-- [ ] Push branch, open PR, CI green, merge to `main`, verify Pages deploy +
-      live-site smoke test
+- [x] Push branch, open PR, CI green, merge to `main`, verify Pages deploy +
+      live-site smoke test (completed 2026-07-22, [PR #5](https://github.com/dovvnloading/midi-spark/pull/5);
+      live site re-checked with a cleared `localStorage`: Generate/Duplicate
+      Bar/Apply Swing/Clear-session controls all present and functional,
+      velocity lane renders once notes exist, zero console errors)
+
+**Phase 7 + 8 complete.** All 6 deferred features shipped, adversarially
+reviewed (one triple-confirmed blocker + 3 other real issues fixed before
+merge), regression-tested against every Phase 0–6 feature, and verified live
+in production.
 
 ## Deferred / future ideas (still not this pass)
 
