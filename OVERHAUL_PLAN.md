@@ -245,10 +245,13 @@ a false positive. Confirmed/plausible findings and their resolutions:
 - [x] Independent adversarial review pass over the full diff (correctness/
       regression-risk, spec-compliance, code-quality lenses) — findings fixed or
       explicitly logged as accepted trade-offs (see 7.7 above)
-- [ ] Full browser regression pass: every Phase 0–6 feature re-verified alongside
+- [x] Full browser regression pass: every Phase 0–6 feature re-verified alongside
       the 6 new ones (generate/vary/chop/undo-redo/draw/drag/resize/lasso/slice/
-      stamp/transport/import-export all still work)
-- [ ] README updated with new shortcuts/features; this plan's Phase 7 checkboxes
+      stamp/transport/import-export all still work). Also caught + fixed one
+      stale UI string the review missed: the "Apply Swing" button's tooltip
+      still said "8th note" only, after 7.7 extended swing to cover 16ths too.
+      Zero console errors across the full battery.
+- [x] README updated with new shortcuts/features; this plan's Phase 7 checkboxes
       finalized
 - [ ] Push branch, open PR, CI green, merge to `main`, verify Pages deploy +
       live-site smoke test

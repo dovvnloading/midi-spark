@@ -168,7 +168,7 @@ export function EditToolbar({
             onClick={onApplySwing}
             disabled={swingAmount === 0}
             className="hardware-btn px-4 py-1.5 h-10 rounded text-[10px] font-bold uppercase tracking-widest text-[var(--accent)] hover:bg-[var(--surface-bg-hover)] flex items-center gap-2 border border-[var(--border-color)] bg-[var(--piano-black)] shrink-0"
-            title="Apply swing: delays every off-beat 8th note by an amount proportional to the Swing slider; downbeats are untouched."
+            title="Apply swing: delays every off-beat 8th/16th note by an amount proportional to the Swing slider; downbeats are untouched."
           >
             <Waves size={14} />
             APPLY SWING
