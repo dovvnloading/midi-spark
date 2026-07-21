@@ -162,15 +162,15 @@ exactly like Phases 0–6.
 
 ### 7.5 — Persist last session to localStorage
 
-- [ ] Debounced autosave of `{ progression, root, mode, bpm, dissonance,
+- [x] Debounced autosave of `{ progression, root, mode, bpm, dissonance,
       complexity, bars, synthType, snapResolution, noteLength, zoomX }` to
       `localStorage` on change
-- [ ] Restored on load when present; corrupt/missing/schema-mismatched data falls
+- [x] Restored on load when present; corrupt/missing/schema-mismatched data falls
       back silently to the current empty-state default (never throws)
-- [ ] Explicit "Clear saved session" control so users aren't stuck with unwanted
+- [x] Explicit "Clear saved session" control so users aren't stuck with unwanted
       persisted state
-- [ ] Unit test: save → reload round-trips the exact progression and settings
-- [ ] Gate green; browser-verified: hard reload restores the working sequence
+- [x] Unit test: save → reload round-trips the exact progression and settings
+- [x] Gate green; browser-verified: hard reload restores the working sequence
 
 ### 7.6 — Multi-track MIDI import (scoped v1: tag + color only)
 
