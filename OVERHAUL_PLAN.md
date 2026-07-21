@@ -142,13 +142,13 @@ exactly like Phases 0–6.
 
 ### 7.3 — Scale-highlighting on piano roll rows
 
-- [ ] Piano-roll keyboard keys and grid rows get a subtle tint when their pitch
+- [x] Piano-roll keyboard keys and grid rows get a subtle tint when their pitch
       class is diatonic to the current root/mode (reuses the major/minor interval
       tables already in `theory.ts`)
-- [ ] Recomputes live when root or mode changes — no regeneration required
-- [ ] Layered so it never obscures existing black/white key shading, chord
+- [x] Recomputes live when root or mode changes — no regeneration required
+- [x] Layered so it never obscures existing black/white key shading, chord
       markers, or note rendering
-- [ ] Gate green; browser-verified: switching root/mode visibly moves the tint
+- [x] Gate green; browser-verified: switching root/mode visibly moves the tint
 
 ### 7.4 — Swing / humanize post-processor toggle
 

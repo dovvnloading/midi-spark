@@ -2,11 +2,12 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import { Note } from "@tonaljs/tonal";
-import { ProgressionData, NoteEvent } from "../lib/theory";
+import { ProgressionData, NoteEvent, getScaleChromas } from "../lib/theory";
 import { initAudio, playNote } from "../lib/audio";
 import {
   CHORD_STAMPS,
@@ -26,6 +27,8 @@ import { ToolMode } from "./EditToolbar";
 export interface PianoRollProps {
   progression: ProgressionData | null;
   statusLabel: string;
+  root: string;
+  mode: "major" | "minor";
   selectedIndices: Set<number>;
   toolMode: ToolMode;
   stampType: string;
@@ -84,6 +87,8 @@ const BLACK_KEY_CLASSES = [1, 3, 6, 8, 10];
 export function PianoRoll({
   progression,
   statusLabel,
+  root,
+  mode,
   selectedIndices,
   toolMode,
   stampType,
@@ -115,6 +120,7 @@ export function PianoRoll({
   const zoomAnchorRef = useRef<{ tick: number; offsetPx: number } | null>(null);
 
   const snapTick = snapResolution > 0 ? snapResolution : FREE_SNAP;
+  const scaleChromas = useMemo(() => getScaleChromas(root, mode), [root, mode]);
 
   // ----- Derived layout -----
   const maxNoteEndTick =
@@ -632,6 +638,7 @@ export function PianoRoll({
                     const noteClass = midi % 12;
                     const isBlack = BLACK_KEY_CLASSES.includes(noteClass);
                     const isC = noteClass === 0;
+                    const isInScale = scaleChromas.has(noteClass);
                     return (
                       <div
                         key={`key-${i}`}
@@ -643,7 +650,8 @@ export function PianoRoll({
                         }}
                         className={`absolute w-full border-b border-[var(--border-color)] flex items-center justify-end pr-1 text-[8px] font-mono hover:brightness-125 cursor-pointer active:brightness-90
                         ${isBlack ? "bg-[#111216] text-[var(--text-muted)]" : "bg-[var(--piano-white)] text-[var(--text-main)]"}
-                        ${isC ? "font-bold text-[var(--accent)] border-t border-[var(--border-color)]" : ""}`}
+                        ${isC ? "font-bold text-[var(--accent)] border-t border-[var(--border-color)]" : ""}
+                        ${isInScale ? "shadow-[inset_0_0_0_999px_rgba(94,124,246,0.08)]" : ""}`}
                         style={{
                           top: `${i * NOTE_HEIGHT}px`,
                           height: `${NOTE_HEIGHT}px`,
@@ -672,19 +680,29 @@ export function PianoRoll({
                   }}
                   onMouseDown={handleGridMouseDown}
                 >
-                  {/* Black Key Background Tracks */}
+                  {/* Row Background Tracks (black-key shading + diatonic scale tint) */}
                   {Array.from({ length: MIDI_RANGE }).map((_, i) => {
                     const midi = MAX_MIDI - i;
-                    if (!BLACK_KEY_CLASSES.includes(midi % 12)) return null;
+                    const noteClass = midi % 12;
+                    const isBlackRow = BLACK_KEY_CLASSES.includes(noteClass);
+                    const isInScale = scaleChromas.has(noteClass);
+                    if (!isBlackRow && !isInScale) return null;
                     return (
                       <div
                         key={`h-${i}`}
-                        className="absolute left-0 right-0 z-0 bg-black/[0.15] pointer-events-none"
+                        className="absolute left-0 right-0 z-0 pointer-events-none"
                         style={{
                           top: `${i * NOTE_HEIGHT}px`,
                           height: `${NOTE_HEIGHT}px`,
                         }}
-                      />
+                      >
+                        {isInScale && (
+                          <div className="absolute inset-0 bg-[var(--accent)]/[0.06]" />
+                        )}
+                        {isBlackRow && (
+                          <div className="absolute inset-0 bg-black/[0.15]" />
+                        )}
+                      </div>
                     );
                   })}
 

@@ -20,6 +20,20 @@ export interface ProgressionData {
   totalBars: number;
 }
 
+export const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
+export const MINOR_INTERVALS = [0, 2, 3, 5, 7, 8, 10];
+
+/** Pitch classes (0-11) diatonic to `root`/`mode`. Shared by key detection
+ *  scoring and the piano roll's scale-highlight overlay. */
+export function getScaleChromas(
+  root: string,
+  mode: "major" | "minor",
+): Set<number> {
+  const rootChroma = Note.chroma(root) || 0;
+  const intervals = mode === "minor" ? MINOR_INTERVALS : MAJOR_INTERVALS;
+  return new Set(intervals.map((i) => (rootChroma + i) % 12));
+}
+
 export function detectKeyFromProgression(progression: ProgressionData): {
   root: string;
   mode: "major" | "minor";
@@ -56,8 +70,6 @@ export function detectKeyFromProgression(progression: ProgressionData): {
     "Bb",
     "B",
   ];
-  const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
-  const MINOR_INTERVALS = [0, 2, 3, 5, 7, 8, 10];
 
   let bestScore = -1;
   let bestRoot = "C";
@@ -395,12 +407,7 @@ export function applyVariationToProgression(
   const humanizeVel = (v: number) =>
     Math.max(0.1, Math.min(1.0, v + (Math.random() * 0.1 - 0.05)));
 
-  const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
-  const MINOR_INTERVALS = [0, 2, 3, 5, 7, 8, 10];
-  const intervals = mode === "minor" ? MINOR_INTERVALS : MAJOR_INTERVALS;
-  const rootChroma = Note.chroma(root) || 0;
-
-  const scaleChromas = new Set(intervals.map((i) => (rootChroma + i) % 12));
+  const scaleChromas = getScaleChromas(root, mode);
 
   const snapToScale = (midi: number) => {
     if (dissonance > 85) return midi; // let high dissonance notes remain out of scale

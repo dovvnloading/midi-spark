@@ -438,6 +438,8 @@ export default function App() {
 
         <PianoRoll
           progression={progression}
+          root={root}
+          mode={mode}
           statusLabel={
             progression
               ? `${progression.totalBars} Bars | Root: ${root}-${mode}`
