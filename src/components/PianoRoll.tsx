@@ -1035,7 +1035,10 @@ export function PianoRoll({
                           `}
                         >
                           {showLabel && (
-                            <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[10px] font-mono font-semibold text-[#f5f7ff] pointer-events-none select-none">
+                            <span className={
+                              "pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 select-none font-mono text-[10px] font-semibold " +
+                              (isSelected ? "text-white" : "text-[#172237]")
+                            }>
                               {Note.fromMidi(renderMidi) || ""}
                             </span>
                           )}
