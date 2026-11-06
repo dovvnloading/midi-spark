@@ -25,7 +25,7 @@ export function TrackStudio({
   onFocusTrack,
   onChange,
 }: TrackStudioProps) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(tracks.length > 1);
   if (!tracks.length) return null;
 
   return (

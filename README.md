@@ -61,6 +61,26 @@ selected to affect the whole pattern:
 Paste and Duplicate Bar now automatically extend the piano-roll canvas when
 notes spill past the end of the current sequence.
 
+### Track Studio — Multitrack Playback & Editing
+
+After you load a multitrack MIDI file, **Track Studio** presents a strip for
+each source track. Every strip has its own instrument preset, level fader,
+mute button, and multi-solo button. Tracks have independent synth voices
+and gain buses, so mix changes can be heard during playback without changing
+MIDI notes. Effects are shared per synth preset.
+
+Click a track's name to **focus that lane** in the piano roll: only its notes
+and velocity bars appear, and notes drawn or stamped there are assigned to the
+focused track. Lasso and slice operate only within the focused lane, and
+`Ctrl+A` selects its visible notes. **All lanes** restores the combined view.
+Note Lab transforms and CHOP still affect *all* notes if you don't explicitly
+select any; use selection when you want to restrict those operations.
+
+Track controls and focus are session-local. Mix settings autosave for a future
+visit but are not embedded in exported MIDI. Imported track names, MIDI program
+numbers, and channel assignments are retained and written back on export,
+independently of the chosen browser synth presets.
+
 ### Built-In Sound Engine
 
 Five Tone.js synthesizer presets, each with its own effect chain: Classic Analog,
@@ -75,13 +95,13 @@ live during playback — including while dragging notes.
 * Multi-track files are tagged per source track and colored distinctly in the
   piano roll (single-track imports render identically to a generated sequence)
 * Export produces a standard 480-PPQ MIDI file with tempo, ready for any DAW;
-  imported melodic track separation is preserved on export (instrument programs
-  and MIDI channel assignments are not yet retained)
+  imported melodic track separation, names, instrument programs, and MIDI
+  channel assignments are preserved on export
 
 ### Session Persistence
 
 Your last sequence and settings (key, mode, tension, complexity, bars, BPM,
-instrument, snap/note-length, zoom) are autosaved to `localStorage` and
+instrument, track mixer, snap/note-length, zoom) are autosaved to `localStorage` and
 restored on your next visit. A "Clear saved session" control (next to Load
 MIDI) resets this without touching your current in-progress work.
 
@@ -138,6 +158,7 @@ src/
     TransportBar.tsx      play/stop, undo/redo, BPM, instrument, import/export
     EditToolbar.tsx       tool modes, stamps, chop/length/snap/zoom
     TransformBar.tsx      Note Lab: quantize, transpose, humanize
+    TrackStudio.tsx       per-track instrument, volume, mute, solo, focus
     PianoRoll.tsx         grid, keys, timeline, notes, pointer interactions
     CustomDropdown.tsx    themed listbox
     CustomSlider.tsx      themed slider
@@ -148,6 +169,7 @@ src/
   lib/
     theory.ts             progression generation, dissonance, key detection, swing
     transforms.ts         selection-aware MIDI note transforms
+    tracks.ts             track identification, mixer state + solo rules
     audio.ts              Tone.js synths, FX racks, transport
     midi.ts               MIDI file import/export (@tonejs/midi)
     persistence.ts        localStorage session save/load/clear
