@@ -29,6 +29,7 @@ export interface EditToolbarProps {
   snapResolution: number;
   zoomX: number;
   swingAmount: number;
+  hasNotes: boolean;
   onToolModeChange: (mode: ToolMode) => void;
   onStampTypeChange: (stamp: string) => void;
   onNoteLengthChange: (length: number) => void;
@@ -79,6 +80,7 @@ export function EditToolbar({
   snapResolution,
   zoomX,
   swingAmount,
+  hasNotes,
   onToolModeChange,
   onStampTypeChange,
   onNoteLengthChange,
@@ -90,7 +92,12 @@ export function EditToolbar({
   onApplySwing,
 }: EditToolbarProps) {
   return (
-    <div className="w-full max-w-6xl mx-auto overflow-x-auto scrollbar-hide z-20 relative shrink-0 mb-[-12px]">
+    <div
+      role="region"
+      aria-label="Piano roll editing tools. Scroll horizontally for more controls."
+      tabIndex={0}
+      className="w-full max-w-6xl mx-auto overflow-x-auto toolbar-scroll z-20 relative shrink-0"
+    >
       <div className="min-w-max flex items-center justify-between px-4 sm:px-6 pb-2 sm:pb-0 gap-4">
         <div className="flex hardware-display p-1 shrink-0">
           {TOOL_BUTTONS.map(({ mode, title, Icon, activeClass }) => (
@@ -108,6 +115,7 @@ export function EditToolbar({
           {toolMode === "stamp" && (
             <div className="pl-2 border-l border-[var(--border-color)] ml-2 flex items-center w-36">
               <CustomDropdown
+                ariaLabel="Chord or scale stamp"
                 options={[
                   {
                     groupLabel: "Chords",
@@ -135,7 +143,8 @@ export function EditToolbar({
         <div className="flex gap-4 shrink-0">
           <button
             onClick={onChop}
-            className="hardware-btn px-4 py-1.5 h-10 rounded text-[10px] font-bold uppercase tracking-widest text-[var(--accent)] hover:bg-[var(--surface-bg-hover)] flex items-center gap-2 border border-[var(--border-color)] bg-[var(--piano-black)] shrink-0"
+            disabled={!hasNotes}
+            className="hardware-btn px-4 py-1.5 h-10 rounded text-[11px] font-bold uppercase tracking-widest text-[var(--accent)] hover:bg-[var(--surface-bg-hover)] flex items-center gap-2 border border-[var(--border-color)] bg-[var(--piano-black)] shrink-0"
             title="Chop notes into 'Length' segments (Alt+U). Applies to selected notes, or all notes if none selected."
           >
             <Zap size={14} />
@@ -143,7 +152,8 @@ export function EditToolbar({
           </button>
           <button
             onClick={onDuplicateBar}
-            className="hardware-btn px-4 py-1.5 h-10 rounded text-[10px] font-bold uppercase tracking-widest text-[var(--accent)] hover:bg-[var(--surface-bg-hover)] flex items-center gap-2 border border-[var(--border-color)] bg-[var(--piano-black)] shrink-0"
+            disabled={!hasNotes}
+            className="hardware-btn px-4 py-1.5 h-10 rounded text-[11px] font-bold uppercase tracking-widest text-[var(--accent)] hover:bg-[var(--surface-bg-hover)] flex items-center gap-2 border border-[var(--border-color)] bg-[var(--piano-black)] shrink-0"
             title="Duplicate the bar the playhead is in, appended immediately after it."
           >
             <CopyPlus size={14} />
@@ -151,7 +161,7 @@ export function EditToolbar({
           </button>
           <div className="flex items-center gap-2 hardware-display p-1 px-3 w-32 shrink-0">
             <Waves size={16} className="text-[var(--text-muted)] shrink-0" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] shrink-0">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] shrink-0">
               Swing
             </span>
             <CustomSlider
@@ -159,6 +169,7 @@ export function EditToolbar({
               max={100}
               step={1}
               value={swingAmount}
+              label="Swing percentage"
               onChange={onSwingAmountChange}
               className="h-6"
               fillColor="linear-gradient(90deg, #3b5bdb 0%, #5e7cf6 100%)"
@@ -166,19 +177,20 @@ export function EditToolbar({
           </div>
           <button
             onClick={onApplySwing}
-            disabled={swingAmount === 0}
-            className="hardware-btn px-4 py-1.5 h-10 rounded text-[10px] font-bold uppercase tracking-widest text-[var(--accent)] hover:bg-[var(--surface-bg-hover)] flex items-center gap-2 border border-[var(--border-color)] bg-[var(--piano-black)] shrink-0"
+            disabled={!hasNotes || swingAmount === 0}
+            className="hardware-btn px-4 py-1.5 h-10 rounded text-[11px] font-bold uppercase tracking-widest text-[var(--accent)] hover:bg-[var(--surface-bg-hover)] flex items-center gap-2 border border-[var(--border-color)] bg-[var(--piano-black)] shrink-0"
             title="Apply swing: delays every off-beat 8th/16th note by an amount proportional to the Swing slider; downbeats are untouched."
           >
             <Waves size={14} />
             APPLY SWING
           </button>
           <div className="flex items-center gap-2 hardware-display p-1 px-3 shrink-0">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
               Length
             </span>
             <div className="w-24 ml-1">
               <CustomDropdown
+                ariaLabel="Default note length"
                 options={NOTE_LENGTH_OPTIONS}
                 value={noteLength}
                 onChange={(v) => onNoteLengthChange(Number(v))}
@@ -189,11 +201,12 @@ export function EditToolbar({
 
           <div className="flex items-center gap-2 hardware-display p-1 px-3 shrink-0">
             <Magnet size={16} className="text-[var(--text-muted)]" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
               Snap
             </span>
             <div className="w-24 ml-1">
               <CustomDropdown
+                ariaLabel="Grid snap"
                 options={SNAP_OPTIONS}
                 value={snapResolution}
                 onChange={(v) => onSnapResolutionChange(Number(v))}
@@ -209,6 +222,7 @@ export function EditToolbar({
               max={MAX_ZOOM}
               step={1}
               value={zoomX}
+              label="Horizontal zoom"
               onChange={onZoomChange}
               className="h-6"
               fillColor="linear-gradient(90deg, #3b5bdb 0%, #5e7cf6 100%)"

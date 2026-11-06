@@ -13,6 +13,7 @@ let activeSynth: Tone.PolySynth | null = null;
 let currentPart: Tone.Part | null = null;
 
 export type SynthType = "classic" | "epiano" | "pad" | "pluck" | "dream";
+let requestedSynthType: SynthType = "classic";
 
 // Per-track synths mirror the five existing preset definitions.
 function createTrackSynth(type: SynthType): Tone.PolySynth {
@@ -209,6 +210,7 @@ export async function initAudio() {
     dreamSynth.chain(dreamChorus, dreamDelay, dreamReverb, destination);
 
     activeSynth = classicSynth;
+    setSynthType(requestedSynthType);
     effectInputs.classic = classicChorus;
     effectInputs.epiano = epTremolo;
     effectInputs.pad = padPhaser;
@@ -219,6 +221,7 @@ export async function initAudio() {
 }
 
 export function setSynthType(type: SynthType) {
+  requestedSynthType = type;
   if (!classicSynth) return;
 
   if (activeSynth) activeSynth.releaseAll();

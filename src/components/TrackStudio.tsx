@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AudioLines, ChevronDown, ChevronUp, Headphones, Layers3, Volume2, VolumeX } from "lucide-react";
 import { SYNTH_OPTIONS } from "../lib/constants";
 import type { SynthType } from "../lib/audio";
@@ -26,6 +26,15 @@ export function TrackStudio({
   onChange,
 }: TrackStudioProps) {
   const [expanded, setExpanded] = useState(tracks.length > 1);
+  const previousCount = useRef(tracks.length);
+
+  // Track Studio stays mounted while the editor has no sequence; a newly
+  // imported multitrack file should reveal its mixer without another click.
+  useEffect(() => {
+    if (previousCount.current < 2 && tracks.length > 1) setExpanded(true);
+    previousCount.current = tracks.length;
+  }, [tracks.length]);
+
   if (!tracks.length) return null;
 
   return (
@@ -35,7 +44,7 @@ export function TrackStudio({
           type="button"
           aria-expanded={expanded}
           aria-controls="track-studio-strips"
-          className="flex items-center gap-2 text-[10px] uppercase font-bold tracking-widest text-[var(--accent)] hover:text-white"
+          className="flex items-center gap-2 text-[11px] uppercase font-bold tracking-widest text-[var(--accent)] hover:text-white"
           title="Open Track Studio mixer and lane controls"
           onClick={() => setExpanded((value) => !value)}
         >
@@ -44,14 +53,14 @@ export function TrackStudio({
           {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
         </button>
         <div className="flex items-center gap-3">
-          <span className="text-[10px] text-[var(--text-muted)] font-mono">
+          <span className="text-[11px] text-[var(--text-muted)] font-mono">
             {tracks.length} {tracks.length === 1 ? "track" : "tracks"}
           </span>
           <button
             type="button"
             onClick={() => onFocusTrack(null)}
             aria-pressed={focusedTrack === null}
-            className={"hardware-btn px-3 py-1.5 text-[10px] uppercase " +
+            className={"hardware-btn px-3 py-1.5 text-[11px] uppercase " +
               (focusedTrack === null ? "text-[var(--accent)]" : "")}
             title="Show all tracks together in the piano roll"
           >
@@ -62,7 +71,7 @@ export function TrackStudio({
       {expanded && (
         <div
           id="track-studio-strips"
-          className="hardware-panel mt-2 p-3 flex gap-3 overflow-x-auto"
+          className="hardware-panel mt-2 p-3 flex gap-3 overflow-x-auto toolbar-scroll"
         >
           {tracks.map((track) => {
             const setting = mixer[track.index] ??
@@ -88,7 +97,7 @@ export function TrackStudio({
                       <AudioLines size={13} aria-hidden="true" />
                       <span className="truncate">{track.name}</span>
                     </span>
-                    <span className="block mt-1 text-[9px] font-mono text-[var(--text-muted)]">
+                    <span className="block mt-1 text-[10px] font-mono text-[var(--text-muted)]">
                       Track {track.index + 1} · {track.noteCount} notes
                     </span>
                   </button>
@@ -97,7 +106,7 @@ export function TrackStudio({
                     aria-label={setting.muted ? "Unmute " + track.name : "Mute " + track.name}
                     aria-pressed={setting.muted}
                     onClick={() => onChange(track.index, { muted: !setting.muted })}
-                    className={"hardware-btn w-8 h-8 text-[10px] " +
+                    className={"hardware-btn w-8 h-8 text-[11px] " +
                       (setting.muted ? "text-red-400" : "text-[var(--text-main)]")}
                     title="Mute this track"
                   >
@@ -116,10 +125,11 @@ export function TrackStudio({
                   </button>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <span className="text-[9px] uppercase tracking-wider font-bold text-[var(--text-muted)]">
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-[var(--text-muted)]">
                     Instrument
                   </span>
                   <CustomDropdown
+                    ariaLabel={track.name + " instrument"}
                     options={SYNTH_OPTIONS.map((item) => ({
                       label: item.label,
                       value: item.value,
@@ -128,7 +138,7 @@ export function TrackStudio({
                     onChange={(value) => onChange(track.index, { synthType: value as SynthType })}
                   />
                 </div>
-                <label className="flex flex-col gap-1 text-[9px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+                <label className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
                   <span className="flex justify-between">
                     <span>Level</span>
                     <span className={audible ? "text-emerald-400" : "text-red-400"}>
@@ -147,7 +157,7 @@ export function TrackStudio({
                     className="accent-[var(--accent)] w-full h-6 cursor-pointer"
                   />
                 </label>
-                <span className="text-[9px] font-mono text-[var(--text-muted)]">
+                <span className="text-[10px] font-mono text-[var(--text-muted)]">
                   {audible ? (focused ? "Focused · audible" : "Audible") : "Silent"}
                 </span>
               </div>

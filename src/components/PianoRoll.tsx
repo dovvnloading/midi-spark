@@ -34,6 +34,8 @@ export interface PianoRollProps {
   /** null shows all tracks; an index shows one editable track lane. */
   focusedTrack: number | null;
   statusLabel: string;
+  onGenerate: () => void;
+  onLoadFile: (file: File) => void;
   root: string;
   mode: "major" | "minor";
   selectedIndices: Set<number>;
@@ -102,6 +104,8 @@ export function PianoRoll({
   progression,
   focusedTrack,
   statusLabel,
+  onGenerate,
+  onLoadFile,
   root,
   mode,
   selectedIndices,
@@ -130,6 +134,7 @@ export function PianoRoll({
   const [containerWidth, setContainerWidth] = useState(1200);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const emptyImportRef = useRef<HTMLInputElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const isScrubbingRef = useRef(false);
@@ -362,7 +367,11 @@ export function PianoRoll({
       return;
     }
 
-    await initAudio();
+    try {
+      await initAudio();
+    } catch {
+      // Drawing / stamping should not depend on the browser allowing audio.
+    }
 
     if (toolMode === "stamp") {
       const isScale = !!SCALE_STAMPS[stampType];
@@ -675,8 +684,8 @@ export function PianoRoll({
 
   // ----- Render -----
   return (
-    <div className="flex-1 hardware-panel p-8 z-10 relative w-full max-w-6xl mx-auto flex flex-col overflow-hidden">
-      <div className="flex justify-between items-start mb-6 shrink-0">
+    <div className="flex-1 min-h-[320px] hardware-panel p-3 sm:p-4 lg:p-5 z-10 relative w-full max-w-6xl mx-auto flex flex-col overflow-hidden">
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-3 shrink-0">
         <h2 className="text-sm font-bold uppercase tracking-widest">
           Piano Roll Sequencer
           {focusedTrack !== null && (
@@ -697,8 +706,51 @@ export function PianoRoll({
           onContextMenu={(e) => e.preventDefault()}
         >
           {!progression ? (
-            <div className="absolute inset-0 flex items-center justify-center opacity-40 font-bold text-xs uppercase tracking-widest pointer-events-none">
-              No Sequence Data
+            <div className="absolute inset-0 flex items-center justify-center px-4 py-8 bg-[radial-gradient(ellipse_at_center,rgba(94,124,246,0.12),transparent_65%)]">
+              <div className="flex flex-col items-center text-center max-w-sm">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-[var(--accent)]/10 border border-[var(--accent)]/30 mb-5 text-2xl" aria-hidden="true">
+                  ♫
+                </div>
+                <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+                  Make something unexpected.
+                </h3>
+                <p className="text-sm text-[var(--text-muted)] mt-2 leading-relaxed">
+                  Choose a key, adjust the tension, and generate a MIDI loop.
+                  Or pick up where you left off by importing a file.
+                </p>
+                <div className="flex flex-wrap justify-center gap-3 mt-6">
+                  <button
+                    type="button"
+                    className="hardware-btn hardware-btn-primary px-5 h-11 text-xs uppercase tracking-wide"
+                    onClick={onGenerate}
+                  >
+                    Generate a pattern
+                  </button>
+                  <input
+                    type="file"
+                    ref={emptyImportRef}
+                    accept=".mid,.midi"
+                    className="sr-only"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) onLoadFile(file);
+                      event.target.value = "";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="hardware-btn px-5 h-11 text-xs uppercase tracking-wide"
+                    onClick={() => emptyImportRef.current?.click()}
+                  >
+                    Import MIDI
+                  </button>
+                </div>
+                <p className="mt-5 text-xs text-[var(--text-muted)]">
+                  Space to play · Press ? for keyboard shortcuts
+                </p>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col relative min-w-full w-max pb-6 pr-12">
@@ -749,7 +801,11 @@ export function PianoRoll({
                         key={`key-${i}`}
                         onMouseDown={async (e) => {
                           if (e.button !== 0) return;
-                          await initAudio();
+                          try {
+                            await initAudio();
+                          } catch {
+                            return; // Still allow editing when audio is unavailable.
+                          }
                           const name = Note.fromMidi(midi);
                           if (name) playNote(name);
                         }}

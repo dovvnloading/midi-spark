@@ -105,6 +105,16 @@ instrument, track mixer, snap/note-length, zoom) are autosaved to `localStorage`
 restored on your next visit. A "Clear saved session" control (next to Load
 MIDI) resets this without touching your current in-progress work.
 
+## Getting started
+
+1. Pick a key, mode, and how much tension or rhythmic complexity you want.
+2. Choose **Generate a pattern** in the empty piano roll or **Generate Chord Progression** in the sidebar. On narrow screens, tap **Settings** to open the generation controls.
+3. Press **Space** to play, or hit **Load MIDI** / **Import MIDI** to bring in a pattern. Use **?** or the keyboard icon in the transport to see all shortcuts.
+
+The main workspace scrolls vertically on shorter displays, and the transport and editing toolbars scroll sideways when there are more controls than can fit onscreen. The piano-roll canvas scrolls independently in both directions.
+
+Editing feedback appears as a small, dismissible notification rather than a blocking alert. Generate and import work even before the browser grants audio permission; audio starts when you press Play or audition a note.
+
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
@@ -118,6 +128,8 @@ MIDI) resets this without touching your current in-progress work.
 | `Alt+U` | Chop selected notes (all if none selected) |
 | `Ctrl+wheel` | Zoom (anchored at cursor) |
 | `Shift+wheel` | Horizontal scroll |
+| `?` | Open in-app keyboard shortcut guide |
+| `Escape` | Clear note selection (or close shortcut help) |
 
 `Ctrl+C` only intercepts the shortcut when notes are selected — with nothing
 selected, normal browser text-copy still works everywhere on the page.
@@ -164,6 +176,8 @@ src/
     CustomSlider.tsx      themed slider
     DraggableNumberInput.tsx  drag/scroll/type number field
     ErrorBoundary.tsx
+    ShortcutHelp.tsx        shortcut reference dialog
+    StatusToast.tsx         accessible action notifications
   hooks/
     useHistory.ts         reducer-based undo/redo store
   lib/

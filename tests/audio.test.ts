@@ -124,4 +124,17 @@ describe("multitrack audio routing", () => {
     expect(mockState.voices[6].triggers).toHaveLength(2);
     stopAudio();
   });
+
+  it("applies a preset chosen before Web Audio starts", async () => {
+    // A restored session selects its preset on mount, while AudioContext is
+    // initialized only after a user gesture (Play / piano audition).
+    vi.resetModules();
+    const freshAudio = await import("../src/lib/audio");
+    const beforeVoices = mockState.voices.length;
+    freshAudio.setSynthType("dream");
+    await freshAudio.initAudio();
+    freshAudio.playNote("G4");
+    expect(mockState.voices[beforeVoices + 4].triggers.map((t) => t[0])).toEqual(["G4"]);
+    freshAudio.stopAudio();
+  });
 });

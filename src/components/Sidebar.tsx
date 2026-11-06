@@ -1,4 +1,5 @@
-import { AudioLines } from "lucide-react";
+import { useState } from "react";
+import { AudioLines, ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react";
 import { CustomDropdown } from "./CustomDropdown";
 import { CustomSlider } from "./CustomSlider";
 import { ROOT_NOTES } from "../lib/constants";
@@ -34,9 +35,14 @@ export function Sidebar({
   onGenerate,
   onAddVariation,
 }: SidebarProps) {
+  const [mobileExpanded, setMobileExpanded] = useState(false);
+
   return (
-    <div className="w-[320px] min-w-[320px] p-6 flex flex-col gap-6 overflow-y-auto hardware-panel relative z-40 m-6 mr-0">
-      <div className="flex items-center gap-3 mb-6 mt-2">
+    <aside
+      aria-label="Generation controls"
+      className="w-auto lg:w-[300px] lg:min-w-[300px] shrink-0 p-4 lg:p-5 flex flex-col gap-4 overflow-y-auto hardware-panel relative z-40 m-3 mb-0 lg:m-4 lg:mr-0 max-h-[70dvh] lg:max-h-none"
+    >
+      <div className="flex items-center gap-3 lg:mb-4">
         <div className="relative w-10 h-10 rounded-xl bg-gradient-to-b from-[var(--surface-bg-hover)] to-[var(--piano-black)] flex items-center justify-center border border-[var(--border-color)] shadow-[0_0_15px_rgba(77,124,255,0.15)] overflow-hidden">
           <div className="absolute inset-0 bg-[var(--accent)] opacity-10 mix-blend-overlay"></div>
           <AudioLines
@@ -51,20 +57,37 @@ export function Sidebar({
             SPARK
           </span>
         </h1>
+        <button
+          type="button"
+          className="lg:hidden ml-auto inline-flex items-center gap-2 rounded-lg border border-[var(--border-color)] px-3 py-2 text-[11px] font-semibold text-[var(--text-main)]"
+          aria-expanded={mobileExpanded}
+          aria-controls="generation-settings"
+          onClick={() => setMobileExpanded((open) => !open)}
+        >
+          <SlidersHorizontal size={14} aria-hidden="true" />
+          Settings
+          {mobileExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        </button>
       </div>
 
+      <div
+        id="generation-settings"
+        className={`flex-col gap-5 ${mobileExpanded ? "flex" : "hidden"} lg:flex`}
+      >
       <div className="flex flex-col gap-4">
-        <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] mb-1 block">
+        <label className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] mb-1 block">
           Key & Scale
         </label>
         <div className="flex gap-4">
           <CustomDropdown
+            ariaLabel="Root key"
             options={ROOT_NOTES.map((k) => ({ label: k, value: k }))}
             value={root}
             onChange={(v) => onRootChange(String(v))}
           />
 
           <CustomDropdown
+            ariaLabel="Scale mode"
             options={[
               { label: "Major", value: "major" },
               { label: "Minor", value: "minor" },
@@ -73,15 +96,18 @@ export function Sidebar({
             onChange={(v) => onModeChange(v as "major" | "minor")}
           />
         </div>
+        <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
+          These settings shape your next generation. Existing MIDI notes stay in place.
+        </p>
       </div>
 
       <div className="flex flex-col gap-4">
         <div>
           <div className="flex justify-between mb-2">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] block">
+            <label className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] block">
               Chord Tension
             </label>
-            <span className="text-[10px] font-mono text-[var(--text-main)] opacity-80">
+            <span className="text-[11px] font-mono text-[var(--text-main)] opacity-80">
               {dissonance}%
             </span>
           </div>
@@ -90,9 +116,10 @@ export function Sidebar({
             min={0}
             max={100}
             value={dissonance}
+            label="Chord tension"
             onChange={onDissonanceChange}
           />
-          <div className="flex justify-between mt-2 text-[9px] font-mono text-[var(--text-muted)]">
+          <div className="flex justify-between mt-2 text-[10px] font-mono text-[var(--text-muted)]">
             <span>Low</span>
             <span>High</span>
           </div>
@@ -100,10 +127,10 @@ export function Sidebar({
 
         <div className="mt-2">
           <div className="flex justify-between mb-2">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] block">
+            <label className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] block">
               Groove Complexity
             </label>
-            <span className="text-[10px] font-mono text-[var(--text-main)] opacity-80">
+            <span className="text-[11px] font-mono text-[var(--text-main)] opacity-80">
               {complexity}%
             </span>
           </div>
@@ -112,16 +139,17 @@ export function Sidebar({
             min={0}
             max={100}
             value={complexity}
+            label="Groove complexity"
             onChange={onComplexityChange}
           />
         </div>
 
         <div className="mt-2">
           <div className="flex justify-between mb-2">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] block">
+            <label className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] block">
               Loop Length
             </label>
-            <span className="text-[10px] font-mono text-[var(--text-main)] opacity-80">
+            <span className="text-[11px] font-mono text-[var(--text-main)] opacity-80">
               {bars} Bars
             </span>
           </div>
@@ -131,6 +159,7 @@ export function Sidebar({
             max={16}
             step={4}
             value={bars}
+            label="Loop length"
             onChange={onBarsChange}
           />
         </div>
@@ -139,7 +168,7 @@ export function Sidebar({
       <div className="flex flex-col gap-3 mt-4">
         <button
           onClick={onGenerate}
-          className="hardware-btn hardware-btn-primary h-12 w-full uppercase tracking-widest text-[10px] gap-2 font-bold"
+          className="hardware-btn hardware-btn-primary h-12 w-full uppercase tracking-wide text-[11px] gap-2 font-bold"
         >
           Generate Chord Progression
         </button>
@@ -147,11 +176,12 @@ export function Sidebar({
         <button
           onClick={onAddVariation}
           disabled={!canVary}
-          className="hardware-btn h-10 w-full text-[10px] uppercase tracking-widest gap-2 font-bold"
+          className="hardware-btn h-10 w-full text-[11px] uppercase tracking-wide gap-2 font-bold"
         >
           Add Rhythmic Variation
         </button>
       </div>
-    </div>
+      </div>
+    </aside>
   );
 }
