@@ -1,22 +1,26 @@
 @import "tailwindcss";
 
+/*
+ * Studio palette: high-contrast working surfaces, quiet chrome, one restrained
+ * accent. The piano-roll notes and playback state remain the colorful elements.
+ */
 :root {
-  --app-bg: #1e2128;
-  --surface-bg: #1e2128;
-  --surface-bg-hover: #262933;
-  --text-main: #e0e0e0;
-  --text-muted: #8b92a5;
-  --accent: #5e7cf6;
-  --accent-hover: #4b66d4;
-  --border-color: rgba(255, 255, 255, 0.05);
-  --piano-black: #111216;
-  --piano-white: #22252e;
-  
-  /* Dark Neuomorphism (Claymorphism) */
-  --neu-shadow: 8px 8px 16px #15171c, -8px -8px 16px #272b34;
-  --neu-shadow-sm: 4px 4px 8px #15171c, -4px -4px 8px #272b34;
-  --neu-inset: inset 4px 4px 8px #15171c, inset -4px -4px 8px #272b34;
-  --neu-inset-deep: inset 6px 6px 12px #131519, inset -6px -6px 12px #292d37;
+  color-scheme: dark;
+  --app-bg: #0c111a;
+  --surface-bg: #161e2a;
+  --surface-bg-hover: #263145;
+  --surface-elevated: #1c2534;
+  --surface-soft: #121a26;
+  --text-main: #e8edf8;
+  --text-muted: #a0abc0;
+  --text-subtle: #7e8ca6;
+  --accent: #9db1ff;
+  --accent-hover: #b4c2ff;
+  --accent-ink: #11192a;
+  --border-color: rgba(170, 190, 227, 0.15);
+  --border-strong: rgba(170, 190, 227, 0.26);
+  --piano-black: #0e141e;
+  --piano-white: #293447;
 }
 
 @theme {
@@ -38,14 +42,202 @@ html, body, #root {
 }
 
 body {
-  background-color: var(--app-bg);
-  color: var(--text-main);
+  margin: 0;
   overflow: hidden;
+  background: var(--app-bg);
+  color: var(--text-main);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+
+::selection {
+  color: #fff;
+  background: #465fbb;
 }
 
 :where(button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid #a2b3ff !important;
+  outline: 2px solid var(--accent) !important;
   outline-offset: 3px;
+}
+
+@layer utilities {
+  .hardware-panel {
+    background: var(--surface-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  }
+
+  .hardware-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border: 1px solid var(--border-strong);
+    border-radius: 9px;
+    background: #273246;
+    color: #d8e1f5;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+    box-shadow: none;
+    text-shadow: none;
+    transition: background-color 150ms ease, border-color 150ms ease,
+      color 150ms ease, opacity 150ms ease;
+  }
+
+  .hardware-btn:hover:not(:disabled) {
+    color: #fff;
+    background: #33415a;
+    border-color: rgba(182, 201, 243, 0.45);
+  }
+
+  .hardware-btn:active:not(:disabled) {
+    background: #202c40;
+  }
+
+  .hardware-btn:disabled {
+    opacity: 0.38;
+    box-shadow: none;
+  }
+
+  .hardware-btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 750;
+    box-shadow: none;
+    text-shadow: none;
+  }
+
+  .hardware-btn-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    color: #0b1427;
+  }
+
+  .hardware-btn-primary:active:not(:disabled) {
+    background: #879eec;
+    border-color: #879eec;
+    color: #0b1427;
+  }
+
+  .hardware-display {
+    background: var(--surface-soft);
+    border: 1px solid var(--border-strong);
+    border-radius: 9px;
+    color: #d9e3fa;
+    box-shadow: none;
+    text-shadow: none;
+  }
+
+  .studio-kicker {
+    color: var(--text-subtle);
+    font-size: 10px;
+    line-height: 1.45;
+    font-weight: 750;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .studio-heading {
+    color: var(--text-main);
+    font-size: 14px;
+    line-height: 1.4;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .studio-meta {
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .studio-group {
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: rgba(11, 17, 27, 0.27);
+  }
+
+  .studio-field-label {
+    color: #abb8d0;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .studio-separator {
+    width: 1px;
+    height: 26px;
+    flex-shrink: 0;
+    background: var(--border-strong);
+  }
+
+  .studio-quiet-btn {
+    color: var(--text-muted);
+    background: transparent;
+    border-color: transparent;
+  }
+
+  .studio-quiet-btn:hover:not(:disabled) {
+    color: #fff;
+    background: var(--surface-bg-hover);
+    border-color: var(--border-color);
+  }
+
+  .studio-tool-active {
+    color: #c8d5ff;
+    background: #293b66;
+    border-color: rgba(157, 177, 255, 0.48);
+  }
+
+  .studio-panel-caption {
+    font-size: 11px;
+    font-weight: 550;
+    color: var(--text-muted);
+    line-height: 1.45;
+  }
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+input[type="range"] { accent-color: var(--accent); }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #40516b; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #576c8d; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+.toolbar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #4c5e7b transparent;
+  overscroll-behavior-x: contain;
+}
+.toolbar-scroll::-webkit-scrollbar { height: 4px; }
+.toolbar-scroll::-webkit-scrollbar-thumb {
+  background: #4c5e7b;
+  border-radius: 8px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -54,135 +246,4 @@ body {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
-}
-
-@layer utilities {
-  .hardware-panel {
-    background-color: #1e2128;
-    border-radius: 12px;
-    box-shadow: 
-      inset 1px 1px 0px rgba(255,255,255,0.05),
-      inset -1px -1px 0px rgba(0,0,0,0.5),
-      5px 5px 15px rgba(0,0,0,0.4);
-    border: 1px solid #111216;
-  }
-
-  .hardware-btn {
-    background: linear-gradient(180deg, #2a2e38 0%, #1a1c23 100%);
-    color: #a0a6b5;
-    border: 1px solid #111216;
-    border-top: 1px solid #383e4c;
-    border-radius: 6px;
-    box-shadow: 
-      0 2px 4px rgba(0,0,0,0.3),
-      inset 0 1px 1px rgba(255,255,255,0.1);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    transition: all 0.1s ease;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
-  }
-
-  .hardware-btn:hover:not(:disabled) {
-    background: linear-gradient(180deg, #323742 0%, #20232c 100%);
-    color: #e0e0e0;
-  }
-
-  .hardware-btn:active:not(:disabled) {
-    background: #1a1c23;
-    border-top: 1px solid #111216;
-    box-shadow: inset 0 2px 5px rgba(0,0,0,0.6);
-    transform: translateY(1px);
-  }
-
-  .hardware-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .hardware-btn-primary {
-    background: linear-gradient(180deg, #5e7cf6 0%, #3b5bdb 100%);
-    border-top: 1px solid #7f99ff;
-    color: #ffffff;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
-    box-shadow: 
-      0 2px 8px rgba(94, 124, 246, 0.4),
-      inset 0 1px 1px rgba(255,255,255,0.3);
-  }
-
-  .hardware-btn-primary:hover:not(:disabled) {
-    background: linear-gradient(180deg, #6c89ff 0%, #4667e8 100%);
-    box-shadow: 
-      0 4px 12px rgba(94, 124, 246, 0.6),
-      inset 0 1px 1px rgba(255,255,255,0.4);
-  }
-  
-  .hardware-btn-primary:active:not(:disabled) {
-    background: linear-gradient(180deg, #3b5bdb 0%, #5e7cf6 100%);
-    border-top: 1px solid #2a41a6;
-    box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.4);
-  }
-
-  .hardware-display {
-    background: #0d0f13;
-    border: 1px solid #2e323f;
-    border-top: 1px solid #000000;
-    border-left: 1px solid #000000;
-    border-radius: 6px;
-    box-shadow: inset 0 2px 8px rgba(0,0,0,0.8);
-    color: #4aff9f;
-    text-shadow: 0 0 5px rgba(74, 255, 159, 0.4);
-  }
-}
-
-/* Clean up default spinner for number inputs just in case */
-input[type=number]::-webkit-inner-spin-button, 
-input[type=number]::-webkit-outer-spin-button { 
-  -webkit-appearance: none; 
-  margin: 0; 
-}
-input[type=number] {
-  -moz-appearance: textfield;
-}
-
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #3a3f4e;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #4a5061;
-}
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
-
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-
-/* Keep horizontally overflowing DAW toolbars discoverable rather than hiding
-   their scrollbar entirely. Trackpad, touch and keyboard scrolling all work. */
-.toolbar-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: #64718e transparent;
-  overscroll-behavior-x: contain;
-}
-.toolbar-scroll::-webkit-scrollbar {
-  height: 5px;
-}
-.toolbar-scroll::-webkit-scrollbar-thumb {
-  background: #64718e;
-  border-radius: 4px;
 }
