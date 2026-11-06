@@ -247,3 +247,36 @@ input[type="range"] { accent-color: var(--accent); }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Native slider functionality, minus the faux-metal thumb. */
+.studio-range::-webkit-slider-runnable-track {
+  height: 20px;
+  background: transparent;
+}
+.studio-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 2.5px;
+  border: 3px solid #e9eeff;
+  border-radius: 50%;
+  background: #6e86dc;
+  box-shadow: 0 0 0 2px #263653;
+  transition: box-shadow 140ms ease;
+}
+.studio-range:hover::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgba(157, 177, 255, 0.24);
+}
+.studio-range::-moz-range-track {
+  height: 20px;
+  background: transparent;
+}
+.studio-range::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border: 3px solid #e9eeff;
+  border-radius: 50%;
+  background: #6e86dc;
+  box-shadow: 0 0 0 2px #263653;
+}

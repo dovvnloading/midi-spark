@@ -131,12 +131,8 @@ export function DraggableNumberInput({
       onKeyDown={handleKeyDown}
       title="Click or press Enter to type. Drag vertically or use arrow keys to adjust."
     >
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjEiIGZpbGw9InJnYmEoMCwwLDAsMC4yKSIvPjwvc3ZnPg==')] opacity-50 z-10"
-      />
-      <div className="relative z-20 flex gap-2 items-center">
-        {label && <span className="text-[11px] opacity-70 font-sans tracking-wide">{label}</span>}
+      <div className="relative flex items-center gap-2">
+        {label && <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">{label}</span>}
         {isEditing ? (
           <input
             ref={inputRef}
