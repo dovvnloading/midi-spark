@@ -1,4 +1,5 @@
-import { ProgressionData, NoteEvent, ChordEvent } from "./theory";
+import { ProgressionData, NoteEvent, ChordEvent, TrackMetadata } from "./theory";
+import type { TrackMix } from "./tracks";
 import type { SynthType } from "./audio";
 
 /** Versioned so an incompatible future shape change can invalidate old saves
@@ -18,6 +19,8 @@ export interface SavedSession {
   snapResolution: number;
   noteLength: number;
   zoomX: number;
+  /** Optional to keep backwards compatibility with older v1 local saves. */
+  trackMix?: TrackMix;
 }
 
 const SYNTH_TYPES: ReadonlySet<string> = new Set([
@@ -55,6 +58,34 @@ function isChordEvent(v: unknown): v is ChordEvent {
   );
 }
 
+function isTrackMetadata(v: unknown): v is TrackMetadata {
+  if (typeof v !== "object" || v === null) return false;
+  const t = v as Record<string, unknown>;
+  return (
+    Number.isInteger(t.index) &&
+    (t.index as number) >= 0 &&
+    typeof t.name === "string" &&
+    (t.program === undefined || (Number.isInteger(t.program) && (t.program as number) >= 0 && (t.program as number) <= 127)) &&
+    (t.channel === undefined || (Number.isInteger(t.channel) && (t.channel as number) >= 0 && (t.channel as number) <= 15))
+  );
+}
+
+function isTrackMix(v: unknown): v is TrackMix {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return false;
+  return Object.entries(v).every(([key, value]) => {
+    if (!/^\d+$/.test(key) || typeof value !== "object" || value === null) return false;
+    const setting = value as Record<string, unknown>;
+    return (
+      typeof setting.synthType === "string" &&
+      SYNTH_TYPES.has(setting.synthType) &&
+      isFiniteNumber(setting.level) &&
+      setting.level >= 0 && setting.level <= 1 &&
+      typeof setting.muted === "boolean" &&
+      typeof setting.solo === "boolean"
+    );
+  });
+}
+
 function isProgressionData(v: unknown): v is ProgressionData {
   if (typeof v !== "object" || v === null) return false;
   const p = v as Record<string, unknown>;
@@ -63,7 +94,8 @@ function isProgressionData(v: unknown): v is ProgressionData {
     p.notes.every(isNoteEvent) &&
     Array.isArray(p.chords) &&
     p.chords.every(isChordEvent) &&
-    isFiniteNumber(p.totalBars)
+    isFiniteNumber(p.totalBars) &&
+    (p.tracks === undefined || (Array.isArray(p.tracks) && p.tracks.every(isTrackMetadata)))
   );
 }
 
@@ -82,7 +114,8 @@ function isValidSession(v: unknown): v is SavedSession {
     SYNTH_TYPES.has(s.synthType) &&
     isFiniteNumber(s.snapResolution) &&
     isFiniteNumber(s.noteLength) &&
-    isFiniteNumber(s.zoomX)
+    isFiniteNumber(s.zoomX) &&
+    (s.trackMix === undefined || isTrackMix(s.trackMix))
   );
 }
 

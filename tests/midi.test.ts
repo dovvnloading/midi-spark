@@ -133,6 +133,32 @@ describe("parseMidiBuffer", () => {
     );
   });
 
+  it("preserves imported track names, programs, and channels through export", async () => {
+    const midi = new Midi();
+    const bass = midi.addTrack();
+    bass.name = "Bass";
+    bass.instrument.number = 33;
+    bass.channel = 2;
+    bass.addNote({ midi: 43, ticks: 0, durationTicks: 480, velocity: 0.8 });
+    const lead = midi.addTrack();
+    lead.name = "Lead";
+    lead.instrument.number = 81;
+    lead.channel = 3;
+    lead.addNote({ midi: 76, ticks: 480, durationTicks: 480, velocity: 0.6 });
+
+    const input = parseMidiBuffer(midi.toArray().buffer as ArrayBuffer);
+    expect(input.progression.tracks).toEqual([
+      { index: 0, name: "Bass", program: 33, channel: 2 },
+      { index: 1, name: "Lead", program: 81, channel: 3 },
+    ]);
+
+    const exported = new Midi(await exportToMidiBlob(input.progression, 120).arrayBuffer());
+    expect(exported.tracks.map((t) => [t.name, t.instrument.number, t.channel])).toEqual([
+      ["Bass", 33, 2],
+      ["Lead", 81, 3],
+    ]);
+  });
+
   it("tags single-track imports with trackIndex 0 consistently", () => {
     const midi = new Midi();
     const track = midi.addTrack();
