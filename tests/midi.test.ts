@@ -159,6 +159,26 @@ describe("parseMidiBuffer", () => {
     ]);
   });
 
+  it("keeps empty imported melodic tracks on export", async () => {
+    const midi = new Midi();
+    const empty = midi.addTrack();
+    empty.name = "Empty pad";
+    empty.instrument.number = 89;
+    empty.channel = 4;
+    const bass = midi.addTrack();
+    bass.name = "Bass";
+    bass.addNote({ midi: 43, ticks: 0, durationTicks: 480, velocity: 0.8 });
+
+    const imported = parseMidiBuffer(midi.toArray().buffer as ArrayBuffer);
+    expect(imported.progression.tracks?.map((track) => track.name)).toEqual([
+      "Empty pad", "Bass",
+    ]);
+    const exported = new Midi(await exportToMidiBlob(imported.progression, 120).arrayBuffer());
+    expect(exported.tracks.map((track) => track.name)).toEqual(["Empty pad", "Bass"]);
+    expect(exported.tracks[0].instrument.number).toBe(89);
+    expect(exported.tracks[0].notes).toHaveLength(0);
+  });
+
   it("tags single-track imports with trackIndex 0 consistently", () => {
     const midi = new Midi();
     const track = midi.addTrack();

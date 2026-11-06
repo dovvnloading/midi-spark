@@ -100,6 +100,10 @@ export default function App() {
     savedSession?.trackMix ?? {},
   );
   const tracks = useMemo(() => listTracks(progression), [progression]);
+  const visibleFocusedTrack =
+    focusedTrack !== null && tracks.some((track) => track.index === focusedTrack)
+      ? focusedTrack
+      : null;
   const trackMix = useMemo(
     () => reconcileTrackMix(progression, trackOverrides, synthType),
     [progression, trackOverrides, synthType],
@@ -415,12 +419,12 @@ export default function App() {
       setSelectedNoteIndices(new Set(
         progression.notes
           .map((note, i) =>
-            focusedTrack === null || trackIndexOf(note) === focusedTrack ? i : -1,
+            visibleFocusedTrack === null || trackIndexOf(note) === visibleFocusedTrack ? i : -1,
           )
           .filter((index) => index >= 0),
       ));
     }
-  }, [progression, focusedTrack]);
+  }, [progression, visibleFocusedTrack]);
 
   const handleCopySelected = useCallback(() => {
     if (!progression || selectedNoteIndices.size === 0) return;
@@ -674,7 +678,7 @@ export default function App() {
           tracks={tracks}
           mixer={trackMix}
           defaultSynth={synthType}
-          focusedTrack={focusedTrack}
+          focusedTrack={visibleFocusedTrack}
           onFocusTrack={handleFocusTrack}
           onChange={handleTrackChange}
         />
@@ -707,7 +711,7 @@ export default function App() {
 
         <PianoRoll
           progression={progression}
-          focusedTrack={focusedTrack}
+          focusedTrack={visibleFocusedTrack}
           root={root}
           mode={mode}
           statusLabel={

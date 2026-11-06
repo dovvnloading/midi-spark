@@ -24,6 +24,12 @@ export function exportToMidiBlob(data: ProgressionData, bpm: number): Blob {
     groups.get(index)?.push(note);
   }
 
+  // Imported empty melodic tracks still carry names, programs and channels.
+  data.tracks?.forEach((track) => {
+    if (Number.isInteger(track.index) && track.index >= 0 && !groups.has(track.index)) {
+      groups.set(track.index, []);
+    }
+  });
   if (groups.size === 0) groups.set(0, []);
   const sortedGroups = [...groups.entries()].sort(([a], [b]) => a - b);
   for (const [sourceIndex, notes] of sortedGroups) {

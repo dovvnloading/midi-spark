@@ -189,87 +189,23 @@ export async function initAudio() {
     // === SYNTHESIZERS === //
 
     // 1. Classic Analog (Juno-style Brass/String)
-    classicSynth = new Tone.PolySynth(Tone.MonoSynth, {
-      volume: -6,
-      oscillator: { type: "sawtooth" },
-      filter: { Q: 2, type: "lowpass", rolloff: -24 },
-      envelope: { attack: 0.05, decay: 0.3, sustain: 0.4, release: 1.2 },
-      filterEnvelope: {
-        attack: 0.05,
-        decay: 0.6,
-        sustain: 0.2,
-        release: 1.2,
-        baseFrequency: 200,
-        octaves: 4,
-      },
-    });
+    classicSynth = createTrackSynth("classic");
     classicSynth.chain(classicChorus, classicReverb, destination);
 
     // 2. Electric Piano (Velvety FM)
-    epianoSynth = new Tone.PolySynth(Tone.FMSynth, {
-      volume: -4,
-      harmonicity: 3.01, // Slight detune for warmth
-      modulationIndex: 4,
-      oscillator: { type: "sine" },
-      envelope: { attack: 0.01, decay: 2.0, sustain: 0.2, release: 1.5 },
-      modulation: { type: "triangle" },
-      modulationEnvelope: {
-        attack: 0.01,
-        decay: 0.5,
-        sustain: 0.0,
-        release: 0.5,
-      },
-    });
+    epianoSynth = createTrackSynth("epiano");
     epianoSynth.chain(epTremolo, epChorus, epReverb, destination);
 
     // 3. Atmospheric Pad (Ethereal, slow-building)
-    padSynth = new Tone.PolySynth(Tone.AMSynth, {
-      volume: -6,
-      harmonicity: 1.01, // slow beating
-      oscillator: { type: "sine" },
-      envelope: { attack: 1.5, decay: 2.0, sustain: 0.8, release: 4.0 },
-      modulation: { type: "square" },
-      modulationEnvelope: {
-        attack: 1.5,
-        decay: 2.0,
-        sustain: 0.8,
-        release: 4.0,
-      },
-    });
+    padSynth = createTrackSynth("pad");
     padSynth.chain(padPhaser, padWidener, padReverb, destination);
 
     // 4. Modern Pluck (Tight, snappy)
-    pluckSynth = new Tone.PolySynth(Tone.MonoSynth, {
-      volume: -5,
-      oscillator: { type: "square" }, // Hollow, woody character
-      filter: { Q: 1, type: "lowpass", rolloff: -24 },
-      envelope: { attack: 0.005, decay: 0.2, sustain: 0.0, release: 0.2 },
-      filterEnvelope: {
-        attack: 0.001,
-        decay: 0.2,
-        sustain: 0.0,
-        release: 0.2,
-        baseFrequency: 150,
-        octaves: 5,
-      },
-    });
+    pluckSynth = createTrackSynth("pluck");
     pluckSynth.chain(pluckDelay, pluckReverb, destination);
 
     // 5. Dreamwave (Sparkly, glass-like)
-    dreamSynth = new Tone.PolySynth(Tone.FMSynth, {
-      volume: -8,
-      harmonicity: 2,
-      modulationIndex: 2,
-      oscillator: { type: "sine" },
-      envelope: { attack: 0.1, decay: 1.0, sustain: 0.4, release: 2.5 },
-      modulation: { type: "sawtooth" },
-      modulationEnvelope: {
-        attack: 0.1,
-        decay: 1.0,
-        sustain: 0.4,
-        release: 2.5,
-      },
-    });
+    dreamSynth = createTrackSynth("dream");
     dreamSynth.chain(dreamChorus, dreamDelay, dreamReverb, destination);
 
     activeSynth = classicSynth;
