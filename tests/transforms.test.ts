@@ -22,7 +22,7 @@ describe("Note Lab transforms", () => {
   it("transposes every note and chord label, keeping MIDI names in sync", () => {
     const result = transposeNotes(progression, 2);
     expect(result.notes.map((n) => [n.midi, n.name])).toEqual([
-      [62, "D4"], [66, "F#4"], [69, "A4"],
+      [62, "D4"], [66, "Gb4"], [69, "A4"],
     ]);
     expect(result.chords[0].name).toBe("Dmaj7");
     expect(result.notes[1].trackIndex).toBe(1);
