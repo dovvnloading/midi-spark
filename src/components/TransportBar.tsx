@@ -1,9 +1,20 @@
 import { useRef } from "react";
-import { Play, Repeat, Square, Trash2, Undo2, Redo2, Keyboard } from "lucide-react";
+import {
+  Download,
+  Keyboard,
+  Play,
+  Repeat,
+  Square,
+  Trash2,
+  Undo2,
+  Redo2,
+  Upload,
+  PanelTop,
+} from "lucide-react";
 import { CustomDropdown } from "./CustomDropdown";
 import { DraggableNumberInput } from "./DraggableNumberInput";
 import { MIN_BPM, MAX_BPM, SYNTH_OPTIONS } from "../lib/constants";
-import { SynthType } from "../lib/audio";
+import type { SynthType } from "../lib/audio";
 
 export interface TransportBarProps {
   isPlaying: boolean;
@@ -57,171 +68,185 @@ export function TransportBar({
   return (
     <div
       role="region"
-      aria-label="Transport controls. Scroll horizontally for more actions."
+      aria-label="Transport and file controls. Scroll horizontally for additional controls."
       tabIndex={0}
-      className="w-full max-w-6xl mx-auto min-w-0 overflow-x-auto toolbar-scroll hardware-panel z-30 relative shrink-0"
+      className="hardware-panel toolbar-scroll sticky top-0 z-50 mx-auto w-full max-w-6xl min-w-0 shrink-0 overflow-x-auto"
     >
-      <div className="min-w-max h-16 px-3 sm:px-5 flex justify-between items-center gap-4">
-        <div className="flex items-center gap-3 sm:gap-4">
-          {isPlaying ? (
+      <div className="flex h-[70px] min-w-max items-center justify-between gap-5 px-3 sm:px-4">
+        <div className="flex shrink-0 items-center gap-3">
+          <div role="group" aria-label="Playback" className="flex items-center gap-2">
             <button
-              onClick={onStop}
-              aria-label="Stop (Space)"
-              title="Stop (Space)"
-              className="hardware-btn w-10 h-10 rounded-full text-[var(--accent)] hover:text-red-400 shrink-0"
+              type="button"
+              onClick={isPlaying ? onStop : onPlay}
+              disabled={!isPlaying && !canPlay}
+              aria-label={isPlaying ? "Stop playback (Space)" : "Play sequence (Space)"}
+              title={isPlaying ? "Stop (Space)" : "Play (Space)"}
+              className={
+                "hardware-btn h-11 w-11 shrink-0 rounded-[11px] " +
+                (isPlaying
+                  ? "border-[#6a4655] bg-[#412b37] text-rose-300 hover:text-white"
+                  : "hardware-btn-primary")
+              }
             >
-              <Square fill="currentColor" size={12} />
+              {isPlaying
+                ? <Square size={15} fill="currentColor" aria-hidden="true" />
+                : <Play size={17} fill="currentColor" aria-hidden="true" />}
             </button>
-          ) : (
-            <button
-              onClick={onPlay}
-              aria-label="Play (Space)"
-              title="Play (Space)"
-              className="hardware-btn w-10 h-10 rounded-full text-[var(--accent)] hover:text-emerald-400 shrink-0"
-              disabled={!canPlay}
-            >
-              <Play fill="currentColor" size={16} />
-            </button>
-          )}
+            <div className="min-w-[85px] px-1">
+              <p className="studio-kicker">Transport</p>
+              <p className="mt-0.5 text-xs font-semibold text-[var(--text-main)]">
+                {isPlaying ? "Playing" : canPlay ? "Ready" : "No pattern"}
+              </p>
+            </div>
+          </div>
 
-          <div className="h-6 w-px bg-[var(--border-color)] mx-1 sm:mx-2 shrink-0"></div>
+          <div className="studio-separator mx-1" aria-hidden="true" />
 
-          <div className="flex items-center gap-1 shrink-0">
+          <div role="group" aria-label="Edit history" className="flex items-center gap-1">
             <button
+              type="button"
               onClick={onUndo}
               disabled={!canUndo}
-              className="hardware-btn w-10 h-10 rounded-full disabled:opacity-30 shrink-0"
               aria-label="Undo (Ctrl+Z)"
               title="Undo (Ctrl+Z)"
+              className="hardware-btn studio-quiet-btn h-9 w-9"
             >
-              <Undo2 size={16} />
+              <Undo2 size={17} aria-hidden="true" />
             </button>
             <button
+              type="button"
               onClick={onRedo}
               disabled={!canRedo}
-              className="hardware-btn w-10 h-10 rounded-full disabled:opacity-30 shrink-0"
               aria-label="Redo (Ctrl+Y)"
               title="Redo (Ctrl+Y)"
+              className="hardware-btn studio-quiet-btn h-9 w-9"
             >
-              <Redo2 size={16} />
+              <Redo2 size={17} aria-hidden="true" />
             </button>
           </div>
 
-          <div className="h-6 w-px bg-[var(--border-color)] mx-1 sm:mx-2 shrink-0"></div>
+          <div className="studio-separator mx-1" aria-hidden="true" />
 
-          <button
-            onClick={onToggleFollow}
-            aria-pressed={followPlayback}
-            aria-label="Follow playback"
-            className={`hardware-btn px-3 h-10 rounded-full flex items-center gap-2 transition-all shrink-0 ${followPlayback ? "text-[var(--accent)] border-[var(--accent)]/30" : "text-[var(--text-muted)] opacity-50"}`}
-            title="Toggle Follow Playback (Auto-scroll)"
-          >
-            <div
-              className={`w-1.5 h-1.5 rounded-full ${followPlayback ? "bg-[var(--accent)] animate-pulse shadow-[0_0_8px_var(--accent)]" : "bg-gray-600"}`}
-            ></div>
-            <span className="text-[11px] font-bold uppercase tracking-tight">
-              Follow
-            </span>
-          </button>
-
-          <button
-            onClick={onToggleLoop}
-            aria-pressed={isLooping}
-            aria-label="Loop playback"
-            className={`hardware-btn px-3 h-10 rounded-full flex items-center gap-2 transition-all shrink-0 ${isLooping ? "text-emerald-400 border-emerald-400/30 font-bold" : "text-[var(--text-muted)] opacity-50"}`}
-            title="Toggle Loop Playback"
-          >
-            <div
-              className={`w-1.5 h-1.5 rounded-full ${isLooping ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" : "bg-gray-600"}`}
-            ></div>
-            <Repeat size={14} />
-            <span className="text-[11px] font-bold uppercase tracking-tight">
+          <div role="group" aria-label="Playback behavior" className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={onToggleLoop}
+              aria-pressed={isLooping}
+              aria-label="Loop playback"
+              title="Loop playback"
+              className={
+                "hardware-btn h-9 gap-2 px-3 text-xs " +
+                (isLooping ? "studio-tool-active" : "studio-quiet-btn")
+              }
+            >
+              <Repeat size={15} aria-hidden="true" />
               Loop
-            </span>
-          </button>
-
-          <div className="h-6 w-px bg-[var(--border-color)] mx-1 sm:mx-2 shrink-0"></div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <DraggableNumberInput
-              label="BPM"
-              className="w-20 p-2"
-              value={bpm}
-              min={MIN_BPM}
-              max={MAX_BPM}
-              step={1}
-              onChange={onBpmChange}
-            />
+            </button>
+            <button
+              type="button"
+              onClick={onToggleFollow}
+              aria-pressed={followPlayback}
+              aria-label="Follow playhead"
+              title="Automatically scroll with playback"
+              className={
+                "hardware-btn h-9 gap-2 px-3 text-xs " +
+                (followPlayback ? "studio-tool-active" : "studio-quiet-btn")
+              }
+            >
+              <PanelTop size={15} aria-hidden="true" />
+              Follow
+            </button>
           </div>
 
-          {multiTrack ? (
-            <div
-              className="flex items-center gap-2 px-4 h-10 hardware-display rounded-full sm:ml-2 shrink-0 text-[11px] text-[var(--text-muted)]"
-              title="Individual track instruments, mute/solo and volume are set in Track Studio below."
-            >
-              Instruments: Track Studio
+          <div className="studio-separator mx-1" aria-hidden="true" />
+
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-1">
+              <span className="studio-kicker">Tempo</span>
+              <DraggableNumberInput
+                label="BPM"
+                className="h-9 w-[100px]"
+                value={bpm}
+                min={MIN_BPM}
+                max={MAX_BPM}
+                step={1}
+                onChange={onBpmChange}
+              />
             </div>
-          ) : (
-            <div className="flex items-center space-x-2 px-4 h-10 hardware-display rounded-full sm:ml-2 shrink-0">
-              <span className="text-xs font-semibold uppercase opacity-70">
-                Instrument
-              </span>
-              <div className="w-44 -mr-2 shrink-0">
+            {multiTrack ? (
+              <div className="flex min-w-[125px] flex-col gap-1">
+                <span className="studio-kicker">Sound</span>
+                <span
+                  className="text-[11px] font-medium text-[var(--text-muted)]"
+                  title="Change individual track instruments in Track Studio."
+                >
+                  Per-track instruments
+                </span>
+              </div>
+            ) : (
+              <div className="flex w-[170px] flex-col gap-1">
+                <span className="studio-kicker">Instrument</span>
                 <CustomDropdown
                   ariaLabel="Instrument preset"
-                  options={SYNTH_OPTIONS.map((o) => ({
-                    label: o.label,
-                    value: o.value,
+                  options={SYNTH_OPTIONS.map((option) => ({
+                    label: option.label,
+                    value: option.value,
                   }))}
                   value={synthType}
-                  onChange={(v) => onSynthChange(v as SynthType)}
-                  className="bg-transparent border-none mt-[-2px]"
+                  onChange={(value) => onSynthChange(value as SynthType)}
                 />
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+        <div role="group" aria-label="Project actions" className="flex shrink-0 items-center gap-2">
           <button
             type="button"
             onClick={onOpenShortcuts}
-            aria-label="Keyboard shortcuts (question mark)"
+            aria-label="Keyboard shortcuts (?)"
             title="Keyboard shortcuts (?)"
-            className="hardware-btn w-10 h-10 rounded-full shrink-0"
+            className="hardware-btn studio-quiet-btn h-10 w-10"
           >
-            <Keyboard size={16} />
+            <Keyboard size={17} aria-hidden="true" />
           </button>
+          <div className="studio-separator mx-1" aria-hidden="true" />
           <input
             type="file"
             accept=".mid,.midi"
-            className="hidden"
             ref={fileInputRef}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
+            className="hidden"
+            tabIndex={-1}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
               if (file) onLoadFile(file);
-              e.target.value = "";
+              event.target.value = "";
             }}
           />
           <button
+            type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="hardware-btn h-10 px-4 sm:px-6 text-[11px] uppercase tracking-wide flex gap-2 font-bold items-center shrink-0"
+            className="hardware-btn h-10 px-3.5 text-xs"
           >
-            Load MIDI
+            <Upload size={15} aria-hidden="true" />
+            Import
           </button>
           <button
+            type="button"
             onClick={onClearSavedSession}
-            aria-label="Clear saved session"
-            title="Clear the autosaved session from this browser (only affects a future reload, not your current work)"
-            className="hardware-btn w-10 h-10 rounded-full text-[var(--text-muted)] hover:text-red-400 shrink-0"
+            aria-label="Clear saved browser session"
+            title="Clear autosaved browser session (keeps current work in this tab)"
+            className="hardware-btn studio-quiet-btn h-10 w-10"
           >
-            <Trash2 size={14} />
+            <Trash2 size={16} aria-hidden="true" />
           </button>
           <button
+            type="button"
             onClick={onExport}
             disabled={!canPlay}
-            className="hardware-btn hardware-btn-primary h-10 px-4 sm:px-6 text-[11px] uppercase tracking-wide flex gap-2 font-bold items-center shrink-0"
+            className="hardware-btn hardware-btn-primary h-10 px-4 text-xs"
           >
+            <Download size={15} aria-hidden="true" />
             Export MIDI
           </button>
         </div>

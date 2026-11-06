@@ -122,8 +122,8 @@ export function CustomDropdown({
         tabIndex={index === activeIndex ? 0 : -1}
         onClick={() => select(entry.value)}
         className={cn(
-          "w-full text-left px-3 py-2 text-xs font-mono tracking-wide hover:bg-[#333b4f] hover:text-white transition-colors",
-          entry.value === value ? "text-[#b9ffc9] bg-[#202b2d]" : "text-[#d0d3dc]",
+          "w-full text-left px-3 py-2.5 text-[12px] font-medium hover:bg-[#33415b] hover:text-white focus-visible:bg-[#33415b] transition-colors",
+          entry.value === value ? "text-[#c5d2ff] bg-[#293957]" : "text-[#d1d9e8]",
         )}
       >
         {entry.label}
@@ -141,7 +141,7 @@ export function CustomDropdown({
       role="listbox"
       aria-label={ariaLabel}
       onKeyDown={handleMenuKeyDown}
-      className="fixed z-[9999] rounded-lg shadow-[0_14px_40px_rgba(0,0,0,0.8)] border border-[#414a5e] bg-[#171b25] max-h-60 overflow-auto py-1 focus:outline-none"
+      className="fixed z-[9999] rounded-xl border border-[var(--border-strong)] bg-[#202a3a] shadow-[0_20px_60px_rgba(0,0,0,0.45)] max-h-60 overflow-auto py-1 focus:outline-none"
       style={{
         top: openAbove ? undefined : rect.bottom + 4,
         bottom: openAbove ? window.innerHeight - rect.top + 4 : undefined,
@@ -155,7 +155,7 @@ export function CustomDropdown({
               .reduce((sum, item) => sum + item.options.length, 0);
             return (
               <div key={group.groupLabel} className="mb-1">
-                <div className="px-3 py-1.5 text-[10px] font-bold text-[#a0a8ba] uppercase tracking-wide bg-black/40 border-b border-black">
+                <div className="border-b border-[var(--border-color)] bg-[#192233] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
                   {group.groupLabel}
                 </div>
                 {group.options.map((item, index) => renderOption(item, offset + index))}
@@ -186,8 +186,7 @@ export function CustomDropdown({
         aria-controls={listboxId}
         aria-expanded={isOpen}
         aria-label={ariaLabel}
-        className="w-full flex items-center justify-between hardware-display px-3 py-2 text-xs font-mono tracking-wide hover:brightness-125 transition-colors"
-        style={{ textShadow: "0 0 4px rgba(74,255,159,0.3)" }}
+        className="hardware-display flex h-9 w-full items-center justify-between px-3 text-[12px] font-semibold tracking-normal transition-colors hover:border-[var(--accent)]"
       >
         <span className="truncate">{currentLabel}</span>
         <ChevronDown
