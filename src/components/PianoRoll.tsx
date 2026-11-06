@@ -367,7 +367,11 @@ export function PianoRoll({
       return;
     }
 
-    await initAudio();
+    try {
+      await initAudio();
+    } catch {
+      // Drawing / stamping should not depend on the browser allowing audio.
+    }
 
     if (toolMode === "stamp") {
       const isScale = !!SCALE_STAMPS[stampType];
@@ -797,7 +801,11 @@ export function PianoRoll({
                         key={`key-${i}`}
                         onMouseDown={async (e) => {
                           if (e.button !== 0) return;
-                          await initAudio();
+                          try {
+                            await initAudio();
+                          } catch {
+                            return; // Still allow editing when audio is unavailable.
+                          }
                           const name = Note.fromMidi(midi);
                           if (name) playNote(name);
                         }}

@@ -62,6 +62,7 @@ export function TransformBar({
               Grid
               <div className="w-28">
                 <CustomDropdown
+                  ariaLabel="Quantization grid"
                   options={SNAP_OPTIONS.filter((o) => o.value > 0)}
                   value={grid}
                   onChange={(value) => setGrid(Number(value))}

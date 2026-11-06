@@ -120,6 +120,7 @@ export function TrackStudio({
                     Instrument
                   </span>
                   <CustomDropdown
+                    ariaLabel={track.name + " instrument"}
                     options={SYNTH_OPTIONS.map((item) => ({
                       label: item.label,
                       value: item.value,

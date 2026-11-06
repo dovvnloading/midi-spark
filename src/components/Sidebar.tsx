@@ -80,12 +80,14 @@ export function Sidebar({
         </label>
         <div className="flex gap-4">
           <CustomDropdown
+            ariaLabel="Root key"
             options={ROOT_NOTES.map((k) => ({ label: k, value: k }))}
             value={root}
             onChange={(v) => onRootChange(String(v))}
           />
 
           <CustomDropdown
+            ariaLabel="Scale mode"
             options={[
               { label: "Major", value: "major" },
               { label: "Minor", value: "minor" },
@@ -111,6 +113,7 @@ export function Sidebar({
             min={0}
             max={100}
             value={dissonance}
+            label="Chord tension"
             onChange={onDissonanceChange}
           />
           <div className="flex justify-between mt-2 text-[9px] font-mono text-[var(--text-muted)]">
@@ -133,6 +136,7 @@ export function Sidebar({
             min={0}
             max={100}
             value={complexity}
+            label="Groove complexity"
             onChange={onComplexityChange}
           />
         </div>
@@ -152,6 +156,7 @@ export function Sidebar({
             max={16}
             step={4}
             value={bars}
+            label="Loop length"
             onChange={onBarsChange}
           />
         </div>

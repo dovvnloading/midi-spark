@@ -113,6 +113,7 @@ export function EditToolbar({
           {toolMode === "stamp" && (
             <div className="pl-2 border-l border-[var(--border-color)] ml-2 flex items-center w-36">
               <CustomDropdown
+                ariaLabel="Chord or scale stamp"
                 options={[
                   {
                     groupLabel: "Chords",
@@ -164,6 +165,7 @@ export function EditToolbar({
               max={100}
               step={1}
               value={swingAmount}
+              label="Swing percentage"
               onChange={onSwingAmountChange}
               className="h-6"
               fillColor="linear-gradient(90deg, #3b5bdb 0%, #5e7cf6 100%)"
@@ -184,6 +186,7 @@ export function EditToolbar({
             </span>
             <div className="w-24 ml-1">
               <CustomDropdown
+                ariaLabel="Default note length"
                 options={NOTE_LENGTH_OPTIONS}
                 value={noteLength}
                 onChange={(v) => onNoteLengthChange(Number(v))}
@@ -199,6 +202,7 @@ export function EditToolbar({
             </span>
             <div className="w-24 ml-1">
               <CustomDropdown
+                ariaLabel="Grid snap"
                 options={SNAP_OPTIONS}
                 value={snapResolution}
                 onChange={(v) => onSnapResolutionChange(Number(v))}
@@ -214,6 +218,7 @@ export function EditToolbar({
               max={MAX_ZOOM}
               step={1}
               value={zoomX}
+              label="Horizontal zoom"
               onChange={onZoomChange}
               className="h-6"
               fillColor="linear-gradient(90deg, #3b5bdb 0%, #5e7cf6 100%)"

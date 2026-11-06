@@ -154,6 +154,7 @@ export function TransportBar({
             </span>
             <div className="w-44 -mr-2 shrink-0">
               <CustomDropdown
+                ariaLabel="Default instrument"
                 options={SYNTH_OPTIONS.map((o) => ({
                   label: o.label,
                   value: o.value,
