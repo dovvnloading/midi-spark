@@ -1,7 +1,8 @@
 import { Sparkles, Shuffle, ArrowUpRight } from "lucide-react";
 import { CustomDropdown } from "./CustomDropdown";
+import { SoundPicker } from "./SoundPicker";
 import { CustomSlider } from "./CustomSlider";
-import { ROOT_NOTES, SYNTH_OPTIONS } from "../lib/constants";
+import { ROOT_NOTES } from "../lib/constants";
 import type { SynthType } from "../lib/audio";
 export interface SidebarProps {
   root: string; mode: "major" | "minor"; dissonance: number; complexity: number; bars: number; canVary: boolean;
@@ -9,7 +10,7 @@ export interface SidebarProps {
   onRootChange: (value: string) => void; onModeChange: (value: "major" | "minor") => void;
   onDissonanceChange: (value: number) => void; onComplexityChange: (value: number) => void; onBarsChange: (value: number) => void;
   onSynthChange: (value: SynthType) => void; onOpenTracks: () => void;
-  onGenerate: () => void; onAddVariation: () => void;
+  onGenerate: () => void; onAddVariation: () => void; onPreviewError?: (message: string) => void;
 }
 export function Sidebar(p: SidebarProps) {
   return <div className="compose-panel">
@@ -38,7 +39,7 @@ export function Sidebar(p: SidebarProps) {
       <section className="field-section sound-section">
         <div className="field-heading"><h3>{p.multiTrack ? "Track instruments" : "Preview sound"}</h3><span className="field-hint">Audio only</span></div>
         {p.multiTrack ? <button className="secondary-button wide" onClick={p.onOpenTracks}>Open track mixer <ArrowUpRight size={14} /></button> :
-          <CustomDropdown ariaLabel="Preview sound" value={p.synthType} onChange={v => p.onSynthChange(v as SynthType)} options={[...SYNTH_OPTIONS]} />}
+          <SoundPicker label="Preview sound" value={p.synthType} onChange={p.onSynthChange} onPreviewError={p.onPreviewError} />}
       </section>
       <p className="inspector-note">Generation replaces the pattern. Your previous idea is always one undo away.</p>
     </div>

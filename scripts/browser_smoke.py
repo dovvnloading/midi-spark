@@ -30,6 +30,22 @@ with sync_playwright() as p:
  page=b.new_page(viewport={'width':1440,'height':900},device_scale_factor=1,has_touch=True)
  errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  page.goto(args.url);page.evaluate('document.fonts.ready')
+ # Curated preset library: search, category filtering, independent preview,
+ # selection, and saved instrument state, all in the real browser.
+ page.get_by_role('button',name='Preview sound: Classic Analog. Open sound library').click()
+ expect(page.get_by_role('dialog',name='Sound library')).to_be_visible()
+ assert page.locator('.sound-library-row').count()==33
+ page.get_by_role('button',name='Keys',exact=True).click()
+ assert page.locator('.sound-library-row').count()==6
+ page.get_by_role('searchbox',name='Search presets').fill('glass')
+ assert page.locator('.sound-library-row').count()==1
+ page.get_by_role('button',name='Preview Glass Piano',exact=True).click()
+ page.locator('.sound-library-select').filter(has_text='Glass Piano').click()
+ expect(page.get_by_role('dialog',name='Sound library')).not_to_be_visible()
+ assert 'Glass Piano' in page.locator('.sound-picker-title').first.inner_text()
+ page.wait_for_timeout(650)
+ assert snap(page)['synthType']=='glass'
+ record('33 sounds are searchable, categorized, audible and persist after selection')
  page.screenshot(path=str(OUTPUT/'empty-desktop.png'))
  page.get_by_role('button',name='Start blank',exact=True).click();page.wait_for_timeout(250)
  x,y=grid_point(page,60,1)
@@ -81,6 +97,15 @@ with sync_playwright() as p:
  assert snap(page)['progression']['notes']==after
  record('Empty-track transforms are disabled, never affect hidden notes')
  page.get_by_role('combobox',name='Edit track',exact=True).select_option('all');page.get_by_role('tab',name='Tracks',exact=True).click()
+ bass_strip=page.locator('section.track-strip').filter(has_text='Bass').first
+ bass_strip.locator('.sound-picker-trigger').click()
+ page.get_by_role('button',name='Bass',exact=True).click()
+ page.get_by_role('searchbox',name='Search presets').fill('digital bass')
+ assert page.locator('.sound-library-row').count()==1
+ page.locator('.sound-library-select').filter(has_text='Digital Bass').click()
+ page.wait_for_timeout(550)
+ assert snap(page)['trackMix']['1']['synthType']=='fmBass'
+ record('Track mixer chooses independent expanded presets with audition')
  page.get_by_role('button',name='Mute Bass',exact=True).click();assert snap(page)['trackMix']['1']['muted']
  page.get_by_role('button',name='Solo Keys',exact=True).click();assert snap(page)['trackMix']['0']['solo']
  page.get_by_role('slider',name='Keys volume',exact=True).fill('35');assert snap(page)['trackMix']['0']['level']==.35

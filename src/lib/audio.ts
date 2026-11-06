@@ -1,97 +1,65 @@
 import * as Tone from "tone";
 import { ProgressionData } from "./theory";
+import { PRESET_BY_ID, type EffectFamily, type PresetPatch, type SynthType } from "./presets";
 import type { TrackMix } from "./tracks";
 import { trackEffectiveLevel, trackIndexOf } from "./tracks";
 
+export type { SynthType } from "./presets";
+
+// Preserve the original five voices/FX racks, while keeping newly selected
+// preview voices lazy. A large sound bank should not create dozens of synths
+// and Web Audio oscillators before a sound is ever selected.
 let classicSynth: Tone.PolySynth;
 let epianoSynth: Tone.PolySynth;
 let padSynth: Tone.PolySynth;
 let pluckSynth: Tone.PolySynth;
 let dreamSynth: Tone.PolySynth;
-
 let activeSynth: Tone.PolySynth | null = null;
 let currentPart: Tone.Part | null = null;
-
-export type SynthType = "classic" | "epiano" | "pad" | "pluck" | "dream";
 let requestedSynthType: SynthType = "classic";
 
-// Per-track synths mirror the five existing preset definitions.
-function createTrackSynth(type: SynthType): Tone.PolySynth {
-  switch (type) {
-    case "classic":
-      return new Tone.PolySynth(Tone.MonoSynth, {
-      volume: -6,
-      oscillator: { type: "sawtooth" },
-      filter: { Q: 2, type: "lowpass", rolloff: -24 },
-      envelope: { attack: 0.05, decay: 0.3, sustain: 0.4, release: 1.2 },
-      filterEnvelope: {
-        attack: 0.05,
-        decay: 0.6,
-        sustain: 0.2,
-        release: 1.2,
-        baseFrequency: 200,
-        octaves: 4,
-      },
-    });
-    case "epiano":
+/** All instrument patches use the same PolySynth note API, despite different
+ * oscillator engines. The definitions are kept separate from the audio graph. */
+export function createTrackSynth(type: SynthType): Tone.PolySynth {
+  const patch: PresetPatch = PRESET_BY_ID[type].patch;
+  switch (patch.engine) {
+    case "basic":
+      return new Tone.PolySynth(Tone.Synth, {
+        volume: patch.volume,
+        oscillator: { type: patch.wave },
+        envelope: patch.envelope,
+      });
+    case "fm":
       return new Tone.PolySynth(Tone.FMSynth, {
-      volume: -4,
-      harmonicity: 3.01, // Slight detune for warmth
-      modulationIndex: 4,
-      oscillator: { type: "sine" },
-      envelope: { attack: 0.01, decay: 2.0, sustain: 0.2, release: 1.5 },
-      modulation: { type: "triangle" },
-      modulationEnvelope: {
-        attack: 0.01,
-        decay: 0.5,
-        sustain: 0.0,
-        release: 0.5,
-      },
-    });
-    case "pad":
+        volume: patch.volume,
+        harmonicity: patch.harmonicity,
+        modulationIndex: patch.modulationIndex,
+        oscillator: { type: patch.wave },
+        envelope: patch.envelope,
+        modulation: { type: patch.modulationWave },
+        modulationEnvelope: patch.modulationEnvelope,
+      });
+    case "am":
       return new Tone.PolySynth(Tone.AMSynth, {
-      volume: -6,
-      harmonicity: 1.01, // slow beating
-      oscillator: { type: "sine" },
-      envelope: { attack: 1.5, decay: 2.0, sustain: 0.8, release: 4.0 },
-      modulation: { type: "square" },
-      modulationEnvelope: {
-        attack: 1.5,
-        decay: 2.0,
-        sustain: 0.8,
-        release: 4.0,
-      },
-    });
-    case "pluck":
+        volume: patch.volume,
+        harmonicity: patch.harmonicity,
+        oscillator: { type: patch.wave },
+        envelope: patch.envelope,
+        modulation: { type: patch.modulationWave },
+        modulationEnvelope: patch.modulationEnvelope,
+      });
+    case "mono":
       return new Tone.PolySynth(Tone.MonoSynth, {
-      volume: -5,
-      oscillator: { type: "square" }, // Hollow, woody character
-      filter: { Q: 1, type: "lowpass", rolloff: -24 },
-      envelope: { attack: 0.005, decay: 0.2, sustain: 0.0, release: 0.2 },
-      filterEnvelope: {
-        attack: 0.001,
-        decay: 0.2,
-        sustain: 0.0,
-        release: 0.2,
-        baseFrequency: 150,
-        octaves: 5,
-      },
-    });
-    case "dream":
-      return new Tone.PolySynth(Tone.FMSynth, {
-      volume: -8,
-      harmonicity: 2,
-      modulationIndex: 2,
-      oscillator: { type: "sine" },
-      envelope: { attack: 0.1, decay: 1.0, sustain: 0.4, release: 2.5 },
-      modulation: { type: "sawtooth" },
-      modulationEnvelope: {
-        attack: 0.1,
-        decay: 1.0,
-        sustain: 0.4,
-        release: 2.5,
-      },
-    });
+        volume: patch.volume,
+        oscillator: { type: patch.wave },
+        filter: { type: "lowpass", Q: patch.q, rolloff: -24 },
+        envelope: patch.envelope,
+        filterEnvelope: {
+          ...patch.filterEnvelope,
+          baseFrequency: patch.baseFrequency,
+          octaves: patch.octaves,
+        },
+      });
   }
 }
 
@@ -101,20 +69,32 @@ interface TrackVoice {
   synth: Tone.PolySynth;
   gain: Tone.Gain;
 }
-const effectInputs: Partial<Record<SynthType, EffectInput>> = {};
+const effectInputs: Partial<Record<EffectFamily, EffectInput>> = {};
 const trackVoices = new Map<number, TrackVoice>();
 let trackMixer: TrackMix = {};
+let selectedPreview: { type: SynthType; synth: Tone.PolySynth } | null = null;
+let auditionVoice: { type: SynthType; synth: Tone.PolySynth } | null = null;
 
-/** Gain buses take effect immediately, even during an already playing note. */
-export function setTrackMixer(next: TrackMix) {
+function connectPreset(synth: Tone.PolySynth, type: SynthType): void {
+  const rack = effectInputs[PRESET_BY_ID[type].fx];
+  if (rack) synth.connect(rack);
+  else synth.toDestination();
+}
+
+function releaseVoice(voice: Tone.PolySynth): void {
+  voice.releaseAll();
+  voice.dispose();
+}
+
+/** Gain buses take effect immediately during sustained notes. */
+export function setTrackMixer(next: TrackMix): void {
   trackMixer = next;
   if (!classicSynth) return;
 
   for (const [id, voice] of trackVoices) {
     const setting = next[id];
     if (!setting || voice.type !== setting.synthType) {
-      voice.synth.releaseAll();
-      voice.synth.dispose();
+      releaseVoice(voice.synth);
       voice.gain.dispose();
       trackVoices.delete(id);
     }
@@ -128,8 +108,8 @@ export function setTrackMixer(next: TrackMix) {
       const gain = new Tone.Gain(0);
       const synth = createTrackSynth(setting.synthType);
       synth.connect(gain);
-      const input = effectInputs[setting.synthType];
-      if (input) gain.connect(input);
+      const rack = effectInputs[PRESET_BY_ID[setting.synthType].fx];
+      if (rack) gain.connect(rack);
       else gain.toDestination();
       voice = { type: setting.synthType, synth, gain };
       trackVoices.set(id, voice);
@@ -139,110 +119,102 @@ export function setTrackMixer(next: TrackMix) {
 }
 
 export interface PlaybackCallbacks {
-  /** Fired roughly every 16th note with the transport position in quarters. */
   onTick: (timeQuarters: number) => void;
-  /** Fired once when a non-looping run reaches the end of the sequence. */
   onEnded: () => void;
 }
 
-export async function initAudio() {
+export async function initAudio(): Promise<void> {
   await Tone.start();
+  if (classicSynth) return;
 
-  if (!classicSynth) {
-    const destination = Tone.getDestination();
+  const destination = Tone.getDestination();
 
-    // === FX RACKS === //
+  // Shared effect racks keep even the expanded bank lightweight. Each track
+  // has an independent synth/gain and routes into the selected preset family.
+  const classicChorus = new Tone.Chorus(2, 3.5, 0.7).start();
+  const classicReverb = new Tone.Reverb({ decay: 2.5, preDelay: .1, wet: .2 });
+  const epTremolo = new Tone.Tremolo(4, .4).start();
+  const epChorus = new Tone.Chorus(1.5, 2, .3).start();
+  const epReverb = new Tone.Reverb({ decay: 1.5, preDelay: .05, wet: .15 });
+  const padPhaser = new Tone.Phaser({ frequency: .2, octaves: 4, baseFrequency: 300, wet: .4 });
+  const padReverb = new Tone.Reverb({ decay: 6, preDelay: .2, wet: .6 });
+  const padWidener = new Tone.StereoWidener(.8);
+  const pluckDelay = new Tone.PingPongDelay("8n", .4);
+  pluckDelay.wet.value = .3;
+  const pluckReverb = new Tone.Reverb({ decay: 1.2, wet: .1 });
+  const dreamChorus = new Tone.Chorus(.5, 4, 1).start();
+  const dreamDelay = new Tone.FeedbackDelay("4n.", .5);
+  dreamDelay.wet.value = .4;
+  const dreamReverb = new Tone.Reverb({ decay: 8, wet: .5 });
 
-    // 1. Classic Analog FX (Warm, fat, wide)
-    const classicChorus = new Tone.Chorus(2, 3.5, 0.7).start();
-    const classicReverb = new Tone.Reverb({
-      decay: 2.5,
-      preDelay: 0.1,
-      wet: 0.2,
-    });
+  classicSynth = createTrackSynth("classic");
+  classicSynth.chain(classicChorus, classicReverb, destination);
+  epianoSynth = createTrackSynth("epiano");
+  epianoSynth.chain(epTremolo, epChorus, epReverb, destination);
+  padSynth = createTrackSynth("pad");
+  padSynth.chain(padPhaser, padWidener, padReverb, destination);
+  pluckSynth = createTrackSynth("pluck");
+  pluckSynth.chain(pluckDelay, pluckReverb, destination);
+  dreamSynth = createTrackSynth("dream");
+  dreamSynth.chain(dreamChorus, dreamDelay, dreamReverb, destination);
 
-    // 2. EPiano FX (Tremolo, subtle chorus, room reverb)
-    const epTremolo = new Tone.Tremolo(4, 0.4).start();
-    const epChorus = new Tone.Chorus(1.5, 2, 0.3).start();
-    const epReverb = new Tone.Reverb({ decay: 1.5, preDelay: 0.05, wet: 0.15 });
-
-    // 3. Pad FX (Phaser, massive verb, stereo spread)
-    const padPhaser = new Tone.Phaser({
-      frequency: 0.2,
-      octaves: 4,
-      baseFrequency: 300,
-      wet: 0.4,
-    });
-    const padReverb = new Tone.Reverb({ decay: 6, preDelay: 0.2, wet: 0.6 });
-    const padWidener = new Tone.StereoWidener(0.8);
-
-    // 4. Pluck FX (Ping-pong delay, tight room)
-    const pluckDelay = new Tone.PingPongDelay("8n", 0.4);
-    pluckDelay.wet.value = 0.3;
-    const pluckReverb = new Tone.Reverb({ decay: 1.2, wet: 0.1 });
-
-    // 5. Dream FX (Shimmering delay, ethereal verb)
-    const dreamChorus = new Tone.Chorus(0.5, 4, 1.0).start();
-    const dreamDelay = new Tone.FeedbackDelay("4n.", 0.5);
-    dreamDelay.wet.value = 0.4;
-    const dreamReverb = new Tone.Reverb({ decay: 8, wet: 0.5 });
-
-    // === SYNTHESIZERS === //
-
-    // 1. Classic Analog (Juno-style Brass/String)
-    classicSynth = createTrackSynth("classic");
-    classicSynth.chain(classicChorus, classicReverb, destination);
-
-    // 2. Electric Piano (Velvety FM)
-    epianoSynth = createTrackSynth("epiano");
-    epianoSynth.chain(epTremolo, epChorus, epReverb, destination);
-
-    // 3. Atmospheric Pad (Ethereal, slow-building)
-    padSynth = createTrackSynth("pad");
-    padSynth.chain(padPhaser, padWidener, padReverb, destination);
-
-    // 4. Modern Pluck (Tight, snappy)
-    pluckSynth = createTrackSynth("pluck");
-    pluckSynth.chain(pluckDelay, pluckReverb, destination);
-
-    // 5. Dreamwave (Sparkly, glass-like)
-    dreamSynth = createTrackSynth("dream");
-    dreamSynth.chain(dreamChorus, dreamDelay, dreamReverb, destination);
-
-    activeSynth = classicSynth;
-    setSynthType(requestedSynthType);
-    effectInputs.classic = classicChorus;
-    effectInputs.epiano = epTremolo;
-    effectInputs.pad = padPhaser;
-    effectInputs.pluck = pluckDelay;
-    effectInputs.dream = dreamChorus;
-    setTrackMixer(trackMixer);
-  }
+  effectInputs.classic = classicChorus;
+  effectInputs.epiano = epTremolo;
+  effectInputs.pad = padPhaser;
+  effectInputs.pluck = pluckDelay;
+  effectInputs.dream = dreamChorus;
+  activeSynth = classicSynth;
+  setSynthType(requestedSynthType);
+  setTrackMixer(trackMixer);
 }
 
-export function setSynthType(type: SynthType) {
+const CORE_TYPES: Partial<Record<SynthType, () => Tone.PolySynth>> = {
+  classic: () => classicSynth,
+  epiano: () => epianoSynth,
+  pad: () => padSynth,
+  pluck: () => pluckSynth,
+  dream: () => dreamSynth,
+};
+
+/** Keep preview selection independent from the track mixer. Only one extra
+ * preset voice is retained, even when browsing the entire sound library. */
+export function setSynthType(type: SynthType): void {
   requestedSynthType = type;
   if (!classicSynth) return;
-
   if (activeSynth) activeSynth.releaseAll();
-
-  switch (type) {
-    case "classic":
-      activeSynth = classicSynth;
-      break;
-    case "epiano":
-      activeSynth = epianoSynth;
-      break;
-    case "pad":
-      activeSynth = padSynth;
-      break;
-    case "pluck":
-      activeSynth = pluckSynth;
-      break;
-    case "dream":
-      activeSynth = dreamSynth;
-      break;
+  if (CORE_TYPES[type]) {
+    if (selectedPreview) releaseVoice(selectedPreview.synth);
+    selectedPreview = null;
+    activeSynth = CORE_TYPES[type]();
+    return;
   }
+  if (selectedPreview?.type !== type) {
+    if (selectedPreview) releaseVoice(selectedPreview.synth);
+    const synth = createTrackSynth(type);
+    connectPreset(synth, type);
+    selectedPreview = { type, synth };
+  }
+  activeSynth = selectedPreview.synth;
+}
+
+/** Play a short, original triad or register-appropriate interval while browsing
+ * sounds. Auditions do not change MIDI data, the requested instrument, or
+ * per-track mute/solo; the listener can hear a new patch before selecting it. */
+export async function auditionPreset(type: SynthType): Promise<void> {
+  await initAudio();
+  if (auditionVoice?.type !== type) {
+    if (auditionVoice) releaseVoice(auditionVoice.synth);
+    const synth = createTrackSynth(type);
+    connectPreset(synth, type);
+    auditionVoice = { type, synth };
+  }
+  auditionVoice.synth.releaseAll();
+  const notes = PRESET_BY_ID[type].category === "Bass"
+    ? ["C3", "G3"]
+    : PRESET_BY_ID[type].category === "Leads"
+      ? ["C4", "G4"]
+      : ["C4", "E4", "G4"];
+  auditionVoice.synth.triggerAttackRelease(notes, 0.42, "+0.02", 0.45);
 }
 
 function sequenceEndQuarters(data: ProgressionData): number {

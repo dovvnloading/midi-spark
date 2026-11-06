@@ -729,12 +729,12 @@ export default function App() {
           compose={<Sidebar root={root} mode={mode} dissonance={dissonance} complexity={complexity} bars={bars} canVary={hasNotes}
             synthType={displayedSynth} multiTrack={tracks.length > 1} onSynthChange={handleSynthChange} onOpenTracks={openTracks}
             onRootChange={setRoot} onModeChange={setMode} onDissonanceChange={setDissonance} onComplexityChange={setComplexity} onBarsChange={setBars}
-            onGenerate={handleGenerate} onAddVariation={handleGenerateVariations} />}
+            onGenerate={handleGenerate} onAddVariation={handleGenerateVariations} onPreviewError={message => notify(message, "error")} />}
           transform={<TransformBar noteCount={editTargets.size} selectedCount={selectedNoteIndices.size} scopeLabel={scopeLabel}
             onQuantize={handleQuantize} onTranspose={handleTranspose} onHumanize={handleHumanize} swingAmount={swingAmount}
             onSwingAmountChange={setSwingAmount} onApplySwing={handleApplySwing} noteLength={noteLength} onNoteLengthChange={setNoteLength}
             onChop={handleChopSelected} onDuplicateBar={handleDuplicateBar} />}
-          tracks={<TrackStudio tracks={tracks} mixer={trackMix} defaultSynth={synthType} focusedTrack={visibleFocusedTrack} onFocusTrack={handleFocusTrack} onChange={handleTrackChange} />}
+          tracks={<TrackStudio tracks={tracks} mixer={trackMix} defaultSynth={synthType} focusedTrack={visibleFocusedTrack} onFocusTrack={handleFocusTrack} onChange={handleTrackChange} onPreviewError={message => notify(message, "error")} />}
         />
         <main className="editor-main" aria-label="MIDI editor">
           <div className="editor-context"><div className="editor-title"><Music2 size={16} /><h1>Piano roll</h1><span className="context-separator">/</span>

@@ -83,9 +83,23 @@ independently of the chosen browser synth presets.
 
 ### Built-In Sound Engine
 
-Five Tone.js synthesizer presets, each with its own effect chain: Classic Analog,
-Electric Piano, Atmospheric Pad, Modern Pluck, and Dreamwave. Edits are audible
-live during playback — including while dragging notes.
+A **33-sound curated synth library** is available to preview entirely in your browser —
+no samples, downloads, or external accounts. Explore **Keys**, **Analog & Retro**,
+**Pads & Atmospheres**, **Plucks & Mallets**, **Leads**, and **Bass**. The sounds
+are original Tone.js synth patches inspired by broad instrument families, not
+recorded acoustic instrument samples.
+
+Click the sound field in **Compose → Preview sound**, or in any **Tracks** mixer
+strip, to open the searchable categorized library. Use the play button on any
+sound to **audition without selecting**, or click a sound to select it and hear
+it immediately. A separate play button beside the selected sound lets you
+compare patches quickly. Existing Classic Analog, Electric Piano, Atmospheric
+Pad, Modern Pluck, and Dreamwave sessions continue to load unchanged. Each
+track has independent synth and gain control; shared effects are reused to
+avoid allocating a separate reverb rack for every sound.
+
+Sound choices affect the browser preview only — they do **not** change the MIDI
+instrument programs preserved from imported files on export.
 
 ### MIDI Import & Export
 

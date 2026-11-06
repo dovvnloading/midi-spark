@@ -93,6 +93,21 @@ describe("saveSession / loadSession", () => {
     expect(loadSession()).toEqual(session);
   });
 
+  it("persists expanded preset choices without invalidating older session data", () => {
+    const session: SavedSession = {
+      ...sampleSession,
+      synthType: "nebula",
+      trackMix: {
+        0: { synthType: "kalimba", level: 0.65, solo: false, muted: false },
+        1: { synthType: "acid", level: 0.82, solo: false, muted: false },
+      },
+    };
+    saveSession(session);
+    expect(loadSession()).toEqual(session);
+    saveSession(sampleSession);
+    expect(loadSession()).toEqual(sampleSession);
+  });
+
   it("rejects corrupt mixer preferences rather than restoring invalid audio gain", () => {
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
       ...sampleSession,

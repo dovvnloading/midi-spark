@@ -67,7 +67,7 @@ vi.mock("tone", () => {
   };
   return {
     PolySynth: MockSynth,
-    MonoSynth: class {}, FMSynth: class {}, AMSynth: class {},
+    MonoSynth: class {}, FMSynth: class {}, AMSynth: class {}, Synth: class {},
     Gain: MockGain,
     Chorus: MockNode, Reverb: MockNode, Tremolo: MockNode,
     Phaser: MockNode, PingPongDelay: MockNode, FeedbackDelay: MockNode,
@@ -123,6 +123,27 @@ describe("multitrack audio routing", () => {
     part.callback(1.5, b);
     expect(mockState.voices[6].triggers).toHaveLength(2);
     stopAudio();
+  });
+
+  it("previews new preset engines lazily without altering MIDI playback selection", async () => {
+    vi.resetModules();
+    const freshAudio = await import("../src/lib/audio");
+    const before = mockState.voices.length;
+    await freshAudio.initAudio();
+    expect(mockState.voices.length).toBe(before + 5);
+    await freshAudio.auditionPreset("kalimba");
+    const first = mockState.voices[before + 5];
+    expect(first.triggers).toHaveLength(1);
+    expect(first.triggers[0][0]).toEqual(["C4", "E4", "G4"]);
+    await freshAudio.auditionPreset("warmPad");
+    expect(first.disposed).toBe(true);
+    expect(mockState.voices.length).toBe(before + 7);
+    freshAudio.setSynthType("sub");
+    freshAudio.playNote("C2");
+    expect(mockState.voices[before + 7].triggers[0][0]).toBe("C2");
+    await freshAudio.auditionPreset("sub");
+    expect(mockState.voices[before + 7].triggers).toHaveLength(1);
+    freshAudio.stopAudio();
   });
 
   it("applies a preset chosen before Web Audio starts", async () => {
