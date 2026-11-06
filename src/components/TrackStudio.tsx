@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AudioLines, ChevronDown, ChevronUp, Headphones, Layers3, Volume2, VolumeX } from "lucide-react";
 import { SYNTH_OPTIONS } from "../lib/constants";
 import type { SynthType } from "../lib/audio";
@@ -26,6 +26,15 @@ export function TrackStudio({
   onChange,
 }: TrackStudioProps) {
   const [expanded, setExpanded] = useState(tracks.length > 1);
+  const previousCount = useRef(tracks.length);
+
+  // Track Studio stays mounted while the editor has no sequence; a newly
+  // imported multitrack file should reveal its mixer without another click.
+  useEffect(() => {
+    if (previousCount.current < 2 && tracks.length > 1) setExpanded(true);
+    previousCount.current = tracks.length;
+  }, [tracks.length]);
+
   if (!tracks.length) return null;
 
   return (

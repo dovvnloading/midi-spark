@@ -109,6 +109,8 @@ export function TransportBar({
 
           <button
             onClick={onToggleFollow}
+            aria-pressed={followPlayback}
+            aria-label="Follow playback"
             className={`hardware-btn px-3 h-10 rounded-full flex items-center gap-2 transition-all shrink-0 ${followPlayback ? "text-[var(--accent)] border-[var(--accent)]/30" : "text-[var(--text-muted)] opacity-50"}`}
             title="Toggle Follow Playback (Auto-scroll)"
           >
@@ -122,6 +124,8 @@ export function TransportBar({
 
           <button
             onClick={onToggleLoop}
+            aria-pressed={isLooping}
+            aria-label="Loop playback"
             className={`hardware-btn px-3 h-10 rounded-full flex items-center gap-2 transition-all shrink-0 ${isLooping ? "text-emerald-400 border-emerald-400/30 font-bold" : "text-[var(--text-muted)] opacity-50"}`}
             title="Toggle Loop Playback"
           >
