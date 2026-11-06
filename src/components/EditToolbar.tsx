@@ -29,6 +29,7 @@ export interface EditToolbarProps {
   snapResolution: number;
   zoomX: number;
   swingAmount: number;
+  hasNotes: boolean;
   onToolModeChange: (mode: ToolMode) => void;
   onStampTypeChange: (stamp: string) => void;
   onNoteLengthChange: (length: number) => void;
@@ -79,6 +80,7 @@ export function EditToolbar({
   snapResolution,
   zoomX,
   swingAmount,
+  hasNotes,
   onToolModeChange,
   onStampTypeChange,
   onNoteLengthChange,
@@ -141,7 +143,8 @@ export function EditToolbar({
         <div className="flex gap-4 shrink-0">
           <button
             onClick={onChop}
-            className="hardware-btn px-4 py-1.5 h-10 rounded text-[10px] font-bold uppercase tracking-widest text-[var(--accent)] hover:bg-[var(--surface-bg-hover)] flex items-center gap-2 border border-[var(--border-color)] bg-[var(--piano-black)] shrink-0"
+            disabled={!hasNotes}
+            className="hardware-btn px-4 py-1.5 h-10 rounded text-[11px] font-bold uppercase tracking-widest text-[var(--accent)] hover:bg-[var(--surface-bg-hover)] flex items-center gap-2 border border-[var(--border-color)] bg-[var(--piano-black)] shrink-0"
             title="Chop notes into 'Length' segments (Alt+U). Applies to selected notes, or all notes if none selected."
           >
             <Zap size={14} />
@@ -149,7 +152,8 @@ export function EditToolbar({
           </button>
           <button
             onClick={onDuplicateBar}
-            className="hardware-btn px-4 py-1.5 h-10 rounded text-[10px] font-bold uppercase tracking-widest text-[var(--accent)] hover:bg-[var(--surface-bg-hover)] flex items-center gap-2 border border-[var(--border-color)] bg-[var(--piano-black)] shrink-0"
+            disabled={!hasNotes}
+            className="hardware-btn px-4 py-1.5 h-10 rounded text-[11px] font-bold uppercase tracking-widest text-[var(--accent)] hover:bg-[var(--surface-bg-hover)] flex items-center gap-2 border border-[var(--border-color)] bg-[var(--piano-black)] shrink-0"
             title="Duplicate the bar the playhead is in, appended immediately after it."
           >
             <CopyPlus size={14} />
@@ -157,7 +161,7 @@ export function EditToolbar({
           </button>
           <div className="flex items-center gap-2 hardware-display p-1 px-3 w-32 shrink-0">
             <Waves size={16} className="text-[var(--text-muted)] shrink-0" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] shrink-0">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] shrink-0">
               Swing
             </span>
             <CustomSlider
@@ -173,15 +177,15 @@ export function EditToolbar({
           </div>
           <button
             onClick={onApplySwing}
-            disabled={swingAmount === 0}
-            className="hardware-btn px-4 py-1.5 h-10 rounded text-[10px] font-bold uppercase tracking-widest text-[var(--accent)] hover:bg-[var(--surface-bg-hover)] flex items-center gap-2 border border-[var(--border-color)] bg-[var(--piano-black)] shrink-0"
+            disabled={!hasNotes || swingAmount === 0}
+            className="hardware-btn px-4 py-1.5 h-10 rounded text-[11px] font-bold uppercase tracking-widest text-[var(--accent)] hover:bg-[var(--surface-bg-hover)] flex items-center gap-2 border border-[var(--border-color)] bg-[var(--piano-black)] shrink-0"
             title="Apply swing: delays every off-beat 8th/16th note by an amount proportional to the Swing slider; downbeats are untouched."
           >
             <Waves size={14} />
             APPLY SWING
           </button>
           <div className="flex items-center gap-2 hardware-display p-1 px-3 shrink-0">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
               Length
             </span>
             <div className="w-24 ml-1">
@@ -197,7 +201,7 @@ export function EditToolbar({
 
           <div className="flex items-center gap-2 hardware-display p-1 px-3 shrink-0">
             <Magnet size={16} className="text-[var(--text-muted)]" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
               Snap
             </span>
             <div className="w-24 ml-1">

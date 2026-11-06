@@ -119,7 +119,7 @@ export function TransportBar({
             <div
               className={`w-1.5 h-1.5 rounded-full ${followPlayback ? "bg-[var(--accent)] animate-pulse shadow-[0_0_8px_var(--accent)]" : "bg-gray-600"}`}
             ></div>
-            <span className="text-[10px] font-bold uppercase tracking-tight">
+            <span className="text-[11px] font-bold uppercase tracking-tight">
               Follow
             </span>
           </button>
@@ -135,7 +135,7 @@ export function TransportBar({
               className={`w-1.5 h-1.5 rounded-full ${isLooping ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" : "bg-gray-600"}`}
             ></div>
             <Repeat size={14} />
-            <span className="text-[10px] font-bold uppercase tracking-tight">
+            <span className="text-[11px] font-bold uppercase tracking-tight">
               Loop
             </span>
           </button>

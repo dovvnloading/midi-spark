@@ -730,6 +730,7 @@ export default function App() {
           snapResolution={snapResolution}
           zoomX={zoomX}
           swingAmount={swingAmount}
+          hasNotes={!!progression?.notes.length}
           onToolModeChange={setToolMode}
           onStampTypeChange={setStampType}
           onNoteLengthChange={setNoteLength}

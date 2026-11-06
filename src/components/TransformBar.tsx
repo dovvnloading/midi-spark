@@ -30,7 +30,7 @@ export function TransformBar({
       <div className="hardware-panel px-4 py-2 flex flex-wrap gap-x-5 gap-y-2 items-center justify-between">
         <button
           type="button"
-          className="flex gap-2 items-center font-bold uppercase tracking-widest text-[10px] text-[var(--accent)] hover:text-white"
+          className="flex gap-2 items-center font-bold uppercase tracking-widest text-[11px] text-[var(--accent)] hover:text-white"
           onClick={() => setExpanded((prev) => !prev)}
           aria-expanded={expanded}
           aria-controls="note-lab-controls"
@@ -40,7 +40,7 @@ export function TransformBar({
           Note Lab
           {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
-        <span className="text-[10px] font-mono text-[var(--text-muted)]">
+        <span className="text-[11px] font-mono text-[var(--text-muted)]">
           {selectedCount > 0
             ? String(selectedCount) + " notes selected · edits affect selection"
             : noteCount > 0
@@ -58,7 +58,7 @@ export function TransformBar({
               <Grid3X3 size={15} className="text-[var(--accent)]" />
               Quantize timing
             </div>
-            <div className="flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
+            <div className="flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
               Grid
               <div className="w-28">
                 <CustomDropdown
@@ -83,7 +83,7 @@ export function TransformBar({
             </div>
             <button
               type="button"
-              className="hardware-btn px-3 py-2 text-[10px] uppercase tracking-widest"
+              className="hardware-btn px-3 py-2 text-[11px] uppercase tracking-widest"
               onClick={() => onQuantize(grid, strength)}
               disabled={disabled || strength === 0}
               title="Move note starts toward the nearest gridline; durations are preserved"
@@ -93,7 +93,7 @@ export function TransformBar({
           </div>
           <div className="rounded-md bg-[var(--piano-black)]/60 border border-[var(--border-color)] p-3 flex flex-col gap-3">
             <div className="text-[11px] font-bold text-[var(--text-main)]">Transpose pitch</div>
-            <p className="text-[10px] text-[var(--text-muted)]">
+            <p className="text-[11px] text-[var(--text-muted)]">
               Shift by semitones or octaves, within the MIDI 0–127 range.
             </p>
             <div className="grid grid-cols-4 gap-2 mt-auto">
@@ -116,7 +116,7 @@ export function TransformBar({
               <WandSparkles size={15} className="text-[var(--accent)]" />
               Humanize groove
             </div>
-            <label className="flex flex-col gap-1 text-[10px] text-[var(--text-muted)]">
+            <label className="flex flex-col gap-1 text-[11px] text-[var(--text-muted)]">
               Timing + velocity variation · {humanizeAmount}%
               <input
                 type="range"
@@ -130,7 +130,7 @@ export function TransformBar({
             </label>
             <button
               type="button"
-              className="hardware-btn px-3 py-2 text-[10px] uppercase tracking-widest mt-auto"
+              className="hardware-btn px-3 py-2 text-[11px] uppercase tracking-widest mt-auto"
               onClick={() => onHumanize(humanizeAmount)}
               disabled={disabled || humanizeAmount === 0}
               title="Add small randomized note timing and velocity variation"

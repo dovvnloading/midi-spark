@@ -75,7 +75,7 @@ export function Sidebar({
         className={`flex-col gap-5 ${mobileExpanded ? "flex" : "hidden"} lg:flex`}
       >
       <div className="flex flex-col gap-4">
-        <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] mb-1 block">
+        <label className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] mb-1 block">
           Key & Scale
         </label>
         <div className="flex gap-4">
@@ -104,10 +104,10 @@ export function Sidebar({
       <div className="flex flex-col gap-4">
         <div>
           <div className="flex justify-between mb-2">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] block">
+            <label className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] block">
               Chord Tension
             </label>
-            <span className="text-[10px] font-mono text-[var(--text-main)] opacity-80">
+            <span className="text-[11px] font-mono text-[var(--text-main)] opacity-80">
               {dissonance}%
             </span>
           </div>
@@ -119,7 +119,7 @@ export function Sidebar({
             label="Chord tension"
             onChange={onDissonanceChange}
           />
-          <div className="flex justify-between mt-2 text-[9px] font-mono text-[var(--text-muted)]">
+          <div className="flex justify-between mt-2 text-[10px] font-mono text-[var(--text-muted)]">
             <span>Low</span>
             <span>High</span>
           </div>
@@ -127,10 +127,10 @@ export function Sidebar({
 
         <div className="mt-2">
           <div className="flex justify-between mb-2">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] block">
+            <label className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] block">
               Groove Complexity
             </label>
-            <span className="text-[10px] font-mono text-[var(--text-main)] opacity-80">
+            <span className="text-[11px] font-mono text-[var(--text-main)] opacity-80">
               {complexity}%
             </span>
           </div>
@@ -146,10 +146,10 @@ export function Sidebar({
 
         <div className="mt-2">
           <div className="flex justify-between mb-2">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] block">
+            <label className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] block">
               Loop Length
             </label>
-            <span className="text-[10px] font-mono text-[var(--text-main)] opacity-80">
+            <span className="text-[11px] font-mono text-[var(--text-main)] opacity-80">
               {bars} Bars
             </span>
           </div>
