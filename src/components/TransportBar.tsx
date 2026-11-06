@@ -1,256 +1,57 @@
-import { useRef } from "react";
-import {
-  Download,
-  Keyboard,
-  Play,
-  Repeat,
-  Square,
-  Trash2,
-  Undo2,
-  Redo2,
-  Upload,
-  PanelTop,
-} from "lucide-react";
-import { CustomDropdown } from "./CustomDropdown";
-import { DraggableNumberInput } from "./DraggableNumberInput";
-import { MIN_BPM, MAX_BPM, SYNTH_OPTIONS } from "../lib/constants";
-import type { SynthType } from "../lib/audio";
-
+import { useEffect, useRef } from "react";
+import { AudioLines, Download, Play, Square, Repeat2, Undo2, Redo2, Upload, Keyboard, Trash2, MoreHorizontal, SlidersHorizontal } from "lucide-react";
+import { MIN_BPM, MAX_BPM } from "../lib/constants";
 export interface TransportBarProps {
-  isPlaying: boolean;
-  canPlay: boolean;
-  canUndo: boolean;
-  canRedo: boolean;
-  followPlayback: boolean;
-  isLooping: boolean;
-  bpm: number;
-  synthType: SynthType;
-  multiTrack: boolean;
-  onPlay: () => void;
-  onStop: () => void;
-  onUndo: () => void;
-  onRedo: () => void;
-  onToggleFollow: () => void;
-  onToggleLoop: () => void;
-  onBpmChange: (bpm: number) => void;
-  onSynthChange: (synth: SynthType) => void;
-  onLoadFile: (file: File) => void;
-  onExport: () => void;
-  onClearSavedSession: () => void;
-  onOpenShortcuts: () => void;
+  isPlaying: boolean; canPlay: boolean; canUndo: boolean; canRedo: boolean; isLooping: boolean; bpm: number; currentTick: number;
+  onPlay: () => void; onStop: () => void; onUndo: () => void; onRedo: () => void; onToggleLoop: () => void;
+  onBpmChange: (value: number) => void; onLoadFile: (file: File) => void; onExport: () => void;
+  onClearSavedSession: () => void; onOpenShortcuts: () => void; onToggleInspector: () => void;
 }
-
-export function TransportBar({
-  isPlaying,
-  canPlay,
-  canUndo,
-  canRedo,
-  followPlayback,
-  isLooping,
-  bpm,
-  synthType,
-  multiTrack,
-  onPlay,
-  onStop,
-  onUndo,
-  onRedo,
-  onToggleFollow,
-  onToggleLoop,
-  onBpmChange,
-  onSynthChange,
-  onLoadFile,
-  onExport,
-  onClearSavedSession,
-  onOpenShortcuts,
-}: TransportBarProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  return (
-    <div
-      role="region"
-      aria-label="Transport and file controls. Scroll horizontally for additional controls."
-      tabIndex={0}
-      className="hardware-panel toolbar-scroll sticky top-0 z-50 mx-auto w-full max-w-6xl min-w-0 shrink-0 overflow-x-auto"
-    >
-      <div className="flex h-[70px] min-w-max items-center justify-between gap-5 px-3 sm:px-4">
-        <div className="flex shrink-0 items-center gap-3">
-          <div role="group" aria-label="Playback" className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={isPlaying ? onStop : onPlay}
-              disabled={!isPlaying && !canPlay}
-              aria-label={isPlaying ? "Stop playback (Space)" : "Play sequence (Space)"}
-              title={isPlaying ? "Stop (Space)" : "Play (Space)"}
-              className={
-                "hardware-btn h-11 w-11 shrink-0 rounded-[11px] " +
-                (isPlaying
-                  ? "border-[#6a4655] bg-[#412b37] text-rose-300 hover:text-white"
-                  : "hardware-btn-primary")
-              }
-            >
-              {isPlaying
-                ? <Square size={15} fill="currentColor" aria-hidden="true" />
-                : <Play size={17} fill="currentColor" aria-hidden="true" />}
-            </button>
-            <div className="min-w-[85px] px-1">
-              <p className="studio-kicker">Transport</p>
-              <p className="mt-0.5 text-xs font-semibold text-[var(--text-main)]">
-                {isPlaying ? "Playing" : canPlay ? "Ready" : "No pattern"}
-              </p>
-            </div>
-          </div>
-
-          <div className="studio-separator mx-1" aria-hidden="true" />
-
-          <div role="group" aria-label="Edit history" className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={onUndo}
-              disabled={!canUndo}
-              aria-label="Undo (Ctrl+Z)"
-              title="Undo (Ctrl+Z)"
-              className="hardware-btn studio-quiet-btn h-9 w-9"
-            >
-              <Undo2 size={17} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={onRedo}
-              disabled={!canRedo}
-              aria-label="Redo (Ctrl+Y)"
-              title="Redo (Ctrl+Y)"
-              className="hardware-btn studio-quiet-btn h-9 w-9"
-            >
-              <Redo2 size={17} aria-hidden="true" />
-            </button>
-          </div>
-
-          <div className="studio-separator mx-1" aria-hidden="true" />
-
-          <div role="group" aria-label="Playback behavior" className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={onToggleLoop}
-              aria-pressed={isLooping}
-              aria-label="Loop playback"
-              title="Loop playback"
-              className={
-                "hardware-btn h-9 gap-2 px-3 text-xs " +
-                (isLooping ? "studio-tool-active" : "studio-quiet-btn")
-              }
-            >
-              <Repeat size={15} aria-hidden="true" />
-              Loop
-            </button>
-            <button
-              type="button"
-              onClick={onToggleFollow}
-              aria-pressed={followPlayback}
-              aria-label="Follow playhead"
-              title="Automatically scroll with playback"
-              className={
-                "hardware-btn h-9 gap-2 px-3 text-xs " +
-                (followPlayback ? "studio-tool-active" : "studio-quiet-btn")
-              }
-            >
-              <PanelTop size={15} aria-hidden="true" />
-              Follow
-            </button>
-          </div>
-
-          <div className="studio-separator mx-1" aria-hidden="true" />
-
-          <div className="flex items-center gap-3">
-            <div className="flex flex-col gap-1">
-              <span className="studio-kicker">Tempo</span>
-              <DraggableNumberInput
-                label="BPM"
-                className="h-9 w-[100px]"
-                value={bpm}
-                min={MIN_BPM}
-                max={MAX_BPM}
-                step={1}
-                onChange={onBpmChange}
-              />
-            </div>
-            {multiTrack ? (
-              <div className="flex min-w-[125px] flex-col gap-1">
-                <span className="studio-kicker">Sound</span>
-                <span
-                  className="text-[11px] font-medium text-[var(--text-muted)]"
-                  title="Change individual track instruments in Track Studio."
-                >
-                  Per-track instruments
-                </span>
-              </div>
-            ) : (
-              <div className="flex w-[170px] flex-col gap-1">
-                <span className="studio-kicker">Instrument</span>
-                <CustomDropdown
-                  ariaLabel="Instrument preset"
-                  options={SYNTH_OPTIONS.map((option) => ({
-                    label: option.label,
-                    value: option.value,
-                  }))}
-                  value={synthType}
-                  onChange={(value) => onSynthChange(value as SynthType)}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div role="group" aria-label="Project actions" className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={onOpenShortcuts}
-            aria-label="Keyboard shortcuts (?)"
-            title="Keyboard shortcuts (?)"
-            className="hardware-btn studio-quiet-btn h-10 w-10"
-          >
-            <Keyboard size={17} aria-hidden="true" />
-          </button>
-          <div className="studio-separator mx-1" aria-hidden="true" />
-          <input
-            type="file"
-            accept=".mid,.midi"
-            ref={fileInputRef}
-            className="hidden"
-            tabIndex={-1}
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) onLoadFile(file);
-              event.target.value = "";
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="hardware-btn h-10 px-3.5 text-xs"
-          >
-            <Upload size={15} aria-hidden="true" />
-            Import
-          </button>
-          <button
-            type="button"
-            onClick={onClearSavedSession}
-            aria-label="Clear saved browser session"
-            title="Clear autosaved browser session (keeps current work in this tab)"
-            className="hardware-btn studio-quiet-btn h-10 w-10"
-          >
-            <Trash2 size={16} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={onExport}
-            disabled={!canPlay}
-            className="hardware-btn hardware-btn-primary h-10 px-4 text-xs"
-          >
-            <Download size={15} aria-hidden="true" />
-            Export MIDI
-          </button>
-        </div>
-      </div>
+export function TransportBar(p: TransportBarProps) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const moreRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const closeOutside = (event: PointerEvent) => {
+      const menu = moreRef.current;
+      if (menu?.open && event.target instanceof Node && !menu.contains(event.target)) menu.open = false;
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, []);
+  const bar = Math.floor(p.currentTick / 4) + 1, beat = Math.floor(p.currentTick % 4) + 1;
+  return <header className="app-header">
+    <div className="wordmark"><span className="brand-mark"><AudioLines size={20} strokeWidth={1.8} /></span><span>midi<span className="wordmark-light">spark</span><span className="edition">STUDIO</span></span></div>
+    <div className="transport" role="group" aria-label="Playback controls">
+      <button className={"play-button" + (p.isPlaying ? " playing" : "")} onClick={p.isPlaying ? p.onStop : p.onPlay} disabled={!p.canPlay}
+        aria-label={p.isPlaying ? "Stop playback" : "Play pattern"} title="Play / stop (Space)">
+        {p.isPlaying ? <Square size={13} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
+      </button>
+      <button className="icon-button loop-button" aria-pressed={p.isLooping} onClick={p.onToggleLoop} aria-label="Loop playback" title="Loop playback"><Repeat2 size={17} /></button>
+      <span className="control-divider" />
+      <label className="tempo-field"><input type="number" aria-label="Tempo" min={MIN_BPM} max={MAX_BPM} step={1}
+        value={p.bpm} onChange={event => { const next = event.target.valueAsNumber; if (Number.isFinite(next)) p.onBpmChange(Math.max(MIN_BPM, Math.min(MAX_BPM, next))); }} />
+        <span>BPM</span></label>
+      <span className="control-divider position-divider" />
+      <div className="position-display" aria-label={"Bar " + bar + ", beat " + beat}><span>{String(bar).padStart(2, "0")}</span><i>:</i><span>{String(beat).padStart(2, "0")}</span><small>BAR / BEAT</small></div>
     </div>
-  );
+    <div className="project-actions">
+      <div className="history-actions"><button className="icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo" title="Undo (Ctrl/⌘ Z)"><Undo2 size={17} /></button>
+        <button className="icon-button" onClick={p.onRedo} disabled={!p.canRedo} aria-label="Redo" title="Redo (Ctrl/⌘ Shift Z)"><Redo2 size={17} /></button></div>
+      <span className="control-divider history-divider" />
+      <button className="secondary-button import-button" onClick={() => fileRef.current?.click()} aria-label="Import MIDI"><Upload size={15} /><span>Import</span></button>
+      <button className="primary-button export-button" onClick={p.onExport} disabled={!p.canPlay} aria-label="Export MIDI"><Download size={15} /><span>Export MIDI</span></button>
+      <details className="project-menu" ref={moreRef} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}>
+        <summary className="icon-button" aria-label="More actions"><MoreHorizontal size={18} /></summary>
+        <div className="project-menu-content">
+          <button onClick={() => { moreRef.current!.open = false; p.onOpenShortcuts(); }}><Keyboard size={15} />Keyboard shortcuts <kbd>?</kbd></button>
+          <button onClick={() => { moreRef.current!.open = false; p.onToggleInspector(); }}><SlidersHorizontal size={15} />Toggle inspector</button>
+          <button className="menu-danger" onClick={() => { moreRef.current!.open = false; p.onClearSavedSession(); }}><Trash2 size={15} />Clear browser autosave</button>
+          <p>Clearing autosave keeps this session open.</p>
+        </div>
+      </details>
+      <input type="file" accept=".mid,.midi" ref={fileRef} className="hidden" aria-label="Import MIDI file" onChange={event => {
+        const file = event.target.files?.[0]; if (file) p.onLoadFile(file); event.target.value = "";
+      }} />
+    </div>
+  </header>;
 }

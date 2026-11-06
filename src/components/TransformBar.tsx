@@ -1,185 +1,44 @@
+import { ArrowDown, ArrowUp, CopyPlus, Scissors } from "lucide-react";
 import { useState } from "react";
-import {
-  ChevronDown,
-  ChevronUp,
-  Grid3X3,
-  MoveUpRight,
-  SlidersHorizontal,
-  WandSparkles,
-} from "lucide-react";
 import { CustomDropdown } from "./CustomDropdown";
-import { SNAP_OPTIONS } from "../lib/constants";
-
+import { CustomSlider } from "./CustomSlider";
+import { SNAP_OPTIONS, NOTE_LENGTH_OPTIONS } from "../lib/constants";
 export interface TransformBarProps {
-  noteCount: number;
-  selectedCount: number;
-  onQuantize: (grid: number, strength: number) => void;
-  onTranspose: (semitones: number) => void;
-  onHumanize: (amount: number) => void;
+  noteCount: number; selectedCount: number; scopeLabel: string;
+  swingAmount: number; noteLength: number;
+  onSwingAmountChange: (value: number) => void; onApplySwing: () => void;
+  onNoteLengthChange: (value: number) => void; onChop: () => void; onDuplicateBar: () => void;
+  onQuantize: (grid: number, strength: number) => void; onTranspose: (semitones: number) => void; onHumanize: (amount: number) => void;
 }
-
-export function TransformBar({
-  noteCount,
-  selectedCount,
-  onQuantize,
-  onTranspose,
-  onHumanize,
-}: TransformBarProps) {
-  const [expanded, setExpanded] = useState(false);
-  const [grid, setGrid] = useState(0.25);
-  const [strength, setStrength] = useState(100);
-  const [humanizeAmount, setHumanizeAmount] = useState(30);
-  const disabled = noteCount === 0;
-
-  return (
-    <section className="relative z-20 mx-auto w-full max-w-6xl shrink-0" aria-label="Note Lab">
-      <div className="hardware-panel flex min-h-12 flex-wrap items-center justify-between gap-2 px-3 py-2 sm:px-4">
-        <button
-          type="button"
-          aria-expanded={expanded}
-          aria-controls="note-lab-controls"
-          onClick={() => setExpanded((open) => !open)}
-          title="Expand note editing transforms"
-          className="flex items-center gap-2.5 rounded-lg p-1 text-left hover:text-white"
-        >
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#293954] text-[var(--accent)]">
-            <SlidersHorizontal size={15} aria-hidden="true" />
-          </div>
-          <div>
-            <span className="block text-[12px] font-bold leading-4 text-[var(--text-main)]">Note Lab</span>
-            <span className="block text-[10px] leading-4 text-[var(--text-subtle)]">
-              Timing · pitch · feel
-            </span>
-          </div>
-          {expanded
-            ? <ChevronUp size={14} className="ml-1 text-[var(--text-muted)]" aria-hidden="true" />
-            : <ChevronDown size={14} className="ml-1 text-[var(--text-muted)]" aria-hidden="true" />}
-        </button>
-        <p className="text-[11px] text-[var(--text-muted)]">
-          {selectedCount > 0
-            ? selectedCount + " selected · affects selection"
-            : noteCount > 0
-              ? noteCount + " notes · affects all"
-              : "Generate or import MIDI to edit"}
-        </p>
-      </div>
-
-      {expanded && (
-        <div id="note-lab-controls" className="hardware-panel mt-2 grid gap-3 p-3 lg:grid-cols-3">
-          <div className="studio-group flex flex-col gap-3 p-4">
-            <div className="flex items-center gap-2">
-              <Grid3X3 size={16} className="text-[var(--accent)]" aria-hidden="true" />
-              <h3 className="studio-heading">Quantize</h3>
-            </div>
-            <p className="studio-meta">
-              Pull note starts toward the grid without flattening their timing.
-            </p>
-            <div className="flex items-center gap-3">
-              <div className="w-24 shrink-0">
-                <label className="studio-field-label mb-1.5 block">Grid</label>
-                <CustomDropdown
-                  ariaLabel="Quantization grid"
-                  options={SNAP_OPTIONS.filter((option) => option.value > 0)}
-                  value={grid}
-                  onChange={(value) => setGrid(Number(value))}
-                />
-              </div>
-              <label className="min-w-0 flex-1">
-                <span className="studio-field-label mb-2 flex items-center justify-between gap-2">
-                  <span>Strength</span>
-                  <span className="font-mono text-[11px] font-normal normal-case tracking-normal text-[var(--text-main)]">
-                    {strength}%
-                  </span>
-                </span>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={5}
-                  value={strength}
-                  aria-label="Quantize strength"
-                  onChange={(event) => setStrength(Number(event.target.value))}
-                  className="h-8 w-full cursor-pointer"
-                />
-              </label>
-            </div>
-            <button
-              type="button"
-              onClick={() => onQuantize(grid, strength)}
-              disabled={disabled || strength === 0}
-              title="Quantize note starts, keeping note lengths unchanged"
-              className="hardware-btn mt-auto h-9 w-full text-xs"
-            >
-              Apply quantize
-            </button>
-          </div>
-
-          <div className="studio-group flex flex-col gap-3 p-4">
-            <div className="flex items-center gap-2">
-              <MoveUpRight size={16} className="text-[var(--accent)]" aria-hidden="true" />
-              <h3 className="studio-heading">Transpose</h3>
-            </div>
-            <p className="studio-meta">
-              Shift selected pitches in semitones or octaves.
-            </p>
-            <div className="mt-auto grid grid-cols-4 gap-1.5">
-              {[-12, -1, 1, 12].map((semitones) => (
-                <button
-                  type="button"
-                  key={semitones}
-                  disabled={disabled}
-                  onClick={() => onTranspose(semitones)}
-                  aria-label={"Transpose " + (semitones > 0 ? "up " : "down ") + Math.abs(semitones) + " semitones"}
-                  title={Math.abs(semitones) === 12 ? "One octave" : "One semitone"}
-                  className="hardware-btn h-9 font-mono text-xs"
-                >
-                  {semitones > 0 ? "+" : ""}{semitones}
-                </button>
-              ))}
-            </div>
-            <p className="text-[10px] leading-4 text-[var(--text-subtle)]">
-              Pitches outside the MIDI range are unchanged.
-            </p>
-          </div>
-
-          <div className="studio-group flex flex-col gap-3 p-4">
-            <div className="flex items-center gap-2">
-              <WandSparkles size={16} className="text-[var(--accent)]" aria-hidden="true" />
-              <h3 className="studio-heading">Humanize</h3>
-            </div>
-            <p className="studio-meta">
-              Add a little variation to timing and velocity.
-            </p>
-            <label className="mt-auto">
-              <span className="studio-field-label mb-1 flex items-center justify-between">
-                <span>Amount</span>
-                <span className="font-mono text-[11px] font-normal normal-case tracking-normal text-[var(--text-main)]">
-                  {humanizeAmount}%
-                </span>
-              </span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                value={humanizeAmount}
-                aria-label="Humanization amount"
-                onChange={(event) => setHumanizeAmount(Number(event.target.value))}
-                className="h-8 w-full cursor-pointer"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={() => onHumanize(humanizeAmount)}
-              disabled={disabled || humanizeAmount === 0}
-              title="Apply timing and velocity variation"
-              className="hardware-btn h-9 w-full text-xs"
-            >
-              Apply humanize
-            </button>
-          </div>
-        </div>
-      )}
+export function TransformBar(p: TransformBarProps) {
+  const [grid, setGrid] = useState(0.25), [strength, setStrength] = useState(100), [amount, setAmount] = useState(25);
+  const disabled = p.noteCount === 0;
+  return <div className="inspector-content transform-panel">
+    <div className="panel-intro"><span className="eyebrow">NOTE LAB</span><h2>Make it your own.</h2><p>Every change is undoable.</p></div>
+    <div className="scope-pill"><span className="scope-dot" /><strong>{p.scopeLabel}</strong><span>{p.noteCount} notes</span></div>
+    <section className="field-section"><h3>Quantize timing</h3><p className="field-description">Tighten the groove, keep the feel.</p>
+      <div className="field-heading"><label>Grid</label><div className="compact-select"><CustomDropdown ariaLabel="Quantization grid" value={grid} onChange={v => setGrid(Number(v))} options={SNAP_OPTIONS.filter(o => o.value > 0)} /></div></div>
+      <div className="field-heading"><label>Strength</label><output>{strength}<span>%</span></output></div>
+      <CustomSlider min={0} max={100} step={5} value={strength} onChange={setStrength} label="Quantize strength" />
+      <button className="secondary-button wide" disabled={disabled || strength === 0} onClick={() => p.onQuantize(grid, strength)}>Apply quantize</button>
     </section>
-  );
+    <section className="field-section"><h3>Transpose pitch</h3><div className="transpose-grid">
+      {[-12, -1, 1, 12].map(n => <button key={n} className="secondary-button" disabled={disabled} onClick={() => p.onTranspose(n)}
+        aria-label={"Transpose " + (n < 0 ? "down " : "up ") + Math.abs(n) + " semitones"}>
+        {n < 0 ? <ArrowDown size={13} /> : <ArrowUp size={13} />}{Math.abs(n) === 12 ? "Oct" : "1"}</button>)}
+    </div></section>
+    <section className="field-section"><div className="field-heading"><h3>Humanize</h3><output>{amount}<span>%</span></output></div>
+      <p className="field-description">Subtle timing and velocity variation.</p>
+      <CustomSlider min={0} max={100} step={5} value={amount} onChange={setAmount} label="Humanization amount" />
+      <button className="secondary-button wide" disabled={disabled || amount === 0} onClick={() => p.onHumanize(amount)}>Apply humanize</button>
+    </section>
+    <section className="field-section"><div className="field-heading"><h3>Swing</h3><output>{p.swingAmount}<span>%</span></output></div>
+      <CustomSlider min={0} max={100} value={p.swingAmount} onChange={p.onSwingAmountChange} label="Swing amount" />
+      <button className="secondary-button wide" disabled={disabled || p.swingAmount === 0} onClick={p.onApplySwing}>Apply swing</button>
+    </section>
+    <section className="field-section"><h3>Reshape</h3><div className="field-pair"><CustomDropdown ariaLabel="Chop length" value={p.noteLength} onChange={v => p.onNoteLengthChange(Number(v))} options={NOTE_LENGTH_OPTIONS} />
+      <button className="secondary-button" disabled={disabled} onClick={p.onChop}><Scissors size={14} />Chop</button></div>
+      <button className="text-button wide" disabled={disabled} onClick={p.onDuplicateBar}><CopyPlus size={14} />Duplicate playhead bar</button>
+    </section>
+  </div>;
 }

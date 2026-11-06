@@ -5,3 +5,9 @@ coverage/
 .DS_Store
 *.log
 .env*
+
+# Browser review output
+browser-report/
+
+__pycache__/
+*.pyc

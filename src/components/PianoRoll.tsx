@@ -7,7 +7,8 @@ import {
   useState,
 } from "react";
 import { Note } from "@tonaljs/tonal";
-import { Music2 } from "lucide-react";
+import { Sparkles, Pencil } from "lucide-react";
+import { ensureBarsCoverNotes } from "../lib/transforms";
 import { ProgressionData, NoteEvent, getScaleChromas } from "../lib/theory";
 import { initAudio, playNote } from "../lib/audio";
 import { trackIndexOf } from "../lib/tracks";
@@ -22,7 +23,6 @@ import {
   MIN_VELOCITY,
   MIN_ZOOM,
   NOTE_HEIGHT,
-  PIANO_ROLL_HEIGHT,
   SCALE_STAMPS,
   VELOCITY_LANE_HEIGHT,
   clamp,
@@ -35,6 +35,8 @@ export interface PianoRollProps {
   /** null shows all tracks; an index shows one editable track lane. */
   focusedTrack: number | null;
   statusLabel: string;
+  fitRequest: number;
+  onStartBlank: () => void;
   onGenerate: () => void;
   onLoadFile: (file: File) => void;
   root: string;
@@ -105,12 +107,15 @@ const TOOL_HINTS: Record<ToolMode, string> = {
   select: "Drag to lasso · Shift to add",
   stamp: "Click to place a chord or scale",
   cut: "Drag across notes to split",
+  pan: "Drag to move the canvas · F to fit pattern",
 };
 
 export function PianoRoll({
   progression,
   focusedTrack,
   statusLabel,
+  fitRequest,
+  onStartBlank,
   onGenerate,
   onLoadFile,
   root,
@@ -139,12 +144,21 @@ export function PianoRoll({
   const [lassoState, setLassoState] = useState<BoxState | null>(null);
   const [sliceState, setSliceState] = useState<BoxState | null>(null);
   const [containerWidth, setContainerWidth] = useState(1200);
+  const [rowHeight, setRowHeight] = useState(NOTE_HEIGHT);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const emptyImportRef = useRef<HTMLInputElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const isScrubbingRef = useRef(false);
+  const activePointer = useRef<number | null>(null);
+  const panRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
+  const beginGesture = (event: React.PointerEvent) => {
+    event.preventDefault();
+    activePointer.current = event.pointerId;
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    scrollRef.current?.focus({ preventScroll: true });
+  };
   const zoomAnchorRef = useRef<{ tick: number; offsetPx: number } | null>(null);
 
   const snapTick = snapResolution > 0 ? snapResolution : FREE_SNAP;
@@ -171,10 +185,10 @@ export function PianoRoll({
     ) || 0;
   const contentBars = Math.max(
     progression?.totalBars || 4,
-    Math.ceil(maxNoteEndTick / 4) + 8, // 8 bars padding
+    Math.ceil(maxNoteEndTick / 4) + 1, // One spare bar, not eight screens of empty canvas.
   );
   const visibleBars = Math.ceil(containerWidth / (zoomX * 4));
-  const totalDisplayBars = Math.max(contentBars, visibleBars + 4);
+  const totalDisplayBars = Math.max(contentBars, visibleBars);
   const contentWidth = totalDisplayBars * 4 * zoomX;
 
   useEffect(() => {
@@ -197,11 +211,41 @@ export function PianoRoll({
       : 64;
     scrollRef.current.scrollTop = Math.max(
       0,
-      (MAX_MIDI - avgMidi) * NOTE_HEIGHT - scrollRef.current.clientHeight / 2,
+      (MAX_MIDI - avgMidi) * rowHeight - scrollRef.current.clientHeight / 2,
     );
     scrollRef.current.scrollLeft = 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recenter only on new sequences
   }, [scrollAnchorKey]);
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !progression) return;
+    const end = Math.max(progression.totalBars * 4, ...progression.notes.map(n => n.timeStart + n.duration), 4);
+    onZoomChange(clamp((el.clientWidth - KEYBOARD_WIDTH - 30) / end, MIN_ZOOM, MAX_ZOOM));
+    const visibleNotes = progression.notes.filter(n => focusedTrack === null || trackIndexOf(n) === focusedTrack);
+    const center = visibleNotes.length ? (Math.min(...visibleNotes.map(n => n.midi)) + Math.max(...visibleNotes.map(n => n.midi))) / 2 : 60;
+    const pitchSpan = visibleNotes.length ? Math.max(...visibleNotes.map(n => n.midi)) - Math.min(...visibleNotes.map(n => n.midi)) + 7 : 28;
+    const usableHeight = el.clientHeight - VELOCITY_LANE_HEIGHT - 64;
+    const fittedHeight = Math.round(clamp(usableHeight / pitchSpan, 10, 24));
+    setRowHeight(fittedHeight);
+    el.scrollLeft = 0;
+    const frame = requestAnimationFrame(() => {
+      el.scrollTop = Math.max(0, (MAX_MIDI - center + 0.5) * fittedHeight - usableHeight / 2);
+    });
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Fit is an explicit action, not a reaction to every edited note.
+  }, [fitRequest]);
+
+  // Separate stems that share a quantized onset so chord velocities remain individually reachable.
+  const velocityOffsets = useMemo(() => {
+    const counts = new Map<number, number>();
+    return progression?.notes.map(note => {
+      const tick = Math.round(note.timeStart * 16);
+      const rank = counts.get(tick) ?? 0;
+      counts.set(tick, rank + 1);
+      return rank * 7;
+    }) ?? [];
+  }, [progression]);
 
   // Follow the playhead.
   useEffect(() => {
@@ -338,16 +382,22 @@ export function PianoRoll({
     [progression, zoomX, totalDisplayBars, onScrub],
   );
 
-  const handleTimelineMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleTimelinePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 || !progression) return;
+    beginGesture(e);
     isScrubbingRef.current = true;
     onScrubStateChange(true);
     updateScrubPosition(e.clientX);
   };
 
-  const handleGridMouseDown = async (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
+  const handleGridPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if ((e.button !== 0 && e.button !== 1) || !e.isPrimary) return;
     if (!progression) return;
+    beginGesture(e);
+    if ((toolMode === "pan" || e.button === 1) && scrollRef.current) {
+      panRef.current = { x: e.clientX, y: e.clientY, left: scrollRef.current.scrollLeft, top: scrollRef.current.scrollTop };
+      return;
+    }
 
     if (!e.shiftKey && toolMode !== "select") {
       onSelectionChange(new Set());
@@ -361,7 +411,7 @@ export function PianoRoll({
       snapResolution > 0
         ? Math.round(x / (zoomX * snapTick)) * snapTick
         : x / zoomX;
-    const midi = clamp(MAX_MIDI - Math.floor(y / NOTE_HEIGHT), 0, MAX_MIDI);
+    const midi = clamp(MAX_MIDI - Math.floor(y / rowHeight), 0, MAX_MIDI);
 
     if (toolMode === "select") {
       setLassoState({ startX: x, startY: y, currentX: x, currentY: y });
@@ -374,12 +424,6 @@ export function PianoRoll({
       return;
     }
 
-    try {
-      await initAudio();
-    } catch {
-      // Drawing / stamping should not depend on the browser allowing audio.
-    }
-
     if (toolMode === "stamp") {
       const isScale = !!SCALE_STAMPS[stampType];
       const intervals = CHORD_STAMPS[stampType] || SCALE_STAMPS[stampType];
@@ -389,7 +433,6 @@ export function PianoRoll({
         .filter((m) => m <= MAX_MIDI)
         .map((chordMidi) => {
           const name = Note.fromMidi(chordMidi) || "C4";
-          if (!isScale) playNote(name, 0.5, 0.8);
           return {
             midi: chordMidi,
             name,
@@ -399,15 +442,14 @@ export function PianoRoll({
             trackIndex: focusedTrack ?? 0,
           };
         });
-      commit((prev) =>
-        prev ? { ...prev, notes: [...prev.notes, ...newNotes] } : prev,
-      );
+      commit((prev) => prev ? ensureBarsCoverNotes({ ...prev, notes: [...prev.notes, ...newNotes] }) : prev);
+      if (!isScale) void initAudio().then(() => newNotes.forEach(n => playNote(n.name, 0.5, n.velocity, focusedTrack ?? 0))).catch(() => {});
       return;
     }
 
     // Default: draw a single note.
     const name = Note.fromMidi(midi) || "C4";
-    playNote(name, noteLength, 0.8, focusedTrack ?? 0);
+    void initAudio().then(() => playNote(name, 0.25, 0.8, focusedTrack ?? 0)).catch(() => {});
     setDragDrawState({
       startTick: tick,
       startMidi: midi,
@@ -418,11 +460,12 @@ export function PianoRoll({
     });
   };
 
-  const handleNoteMouseDown = (e: React.MouseEvent, index: number) => {
-    if (toolMode === "cut") return;
+  const handleNotePointerDown = (e: React.PointerEvent, index: number) => {
+    if (toolMode === "cut" || toolMode === "pan" || e.button === 1) return;
     e.stopPropagation();
     if (e.button !== 0) return;
     if (!progression) return;
+    beginGesture(e);
 
     let targets: number[] = [index];
     if (selectedIndices.has(index)) {
@@ -450,11 +493,12 @@ export function PianoRoll({
     });
   };
 
-  const handleNoteResizeMouseDown = (e: React.MouseEvent, index: number) => {
-    if (toolMode === "cut") return;
+  const handleNoteResizePointerDown = (e: React.PointerEvent, index: number) => {
+    if (toolMode === "cut" || toolMode === "pan" || e.button === 1) return;
     e.stopPropagation();
     if (e.button !== 0) return;
     if (!progression) return;
+    beginGesture(e);
 
     let targets: number[] = [index];
     if (selectedIndices.has(index)) {
@@ -473,10 +517,11 @@ export function PianoRoll({
     });
   };
 
-  const handleVelocityBarMouseDown = (e: React.MouseEvent, index: number) => {
+  const handleVelocityBarPointerDown = (e: React.PointerEvent, index: number) => {
     e.stopPropagation();
     if (e.button !== 0) return;
     if (!progression) return;
+    beginGesture(e);
 
     let targets: number[] = [index];
     if (selectedIndices.has(index)) {
@@ -520,16 +565,22 @@ export function PianoRoll({
   // The handlers live in a ref so the single mount-time listener always sees
   // fresh state (no stale-closure bugs, no listener churn per drag frame).
   const dragHandlersRef = useRef({
-    onMove: (_e: MouseEvent) => {},
-    onUp: (_e: MouseEvent) => {},
+    onMove: (_e: PointerEvent) => {},
+    onUp: (_e: PointerEvent) => {},
   });
 
-  const onDragMove = (e: MouseEvent) => {
+  const onDragMove = (e: PointerEvent) => {
+    if (e.pointerId !== activePointer.current) return;
+    if (panRef.current && scrollRef.current) {
+      scrollRef.current.scrollLeft = panRef.current.left - (e.clientX - panRef.current.x);
+      scrollRef.current.scrollTop = panRef.current.top - (e.clientY - panRef.current.y);
+      return;
+    }
     if (dragState) {
       const dx = e.clientX - dragState.startX;
       const dy = e.clientY - dragState.startY;
       const tickDelta = Math.round(dx / (zoomX * snapTick)) * snapTick;
-      const midiDelta = -Math.round(dy / NOTE_HEIGHT);
+      const midiDelta = -Math.round(dy / rowHeight);
       setDragState((prev) => (prev ? { ...prev, tickDelta, midiDelta } : null));
     } else if (dragResizeState) {
       const dx = e.clientX - dragResizeState.startX;
@@ -558,7 +609,10 @@ export function PianoRoll({
     }
   };
 
-  const onDragUp = (e: MouseEvent) => {
+  const onDragUp = (e: PointerEvent) => {
+    if (e.pointerId !== activePointer.current) return;
+    activePointer.current = null;
+    panRef.current = null;
     if (isScrubbingRef.current) {
       isScrubbingRef.current = false;
       onScrubStateChange(false);
@@ -568,7 +622,7 @@ export function PianoRoll({
     if (dragState) {
       const finished = dragState;
       commit((prev) => {
-        if (!prev) return prev;
+        if (!prev || (finished.tickDelta === 0 && finished.midiDelta === 0)) return prev;
         const newNotes = [...prev.notes];
         finished.notes.forEach((dn) => {
           const newTick = Math.max(0, dn.startTick + finished.tickDelta);
@@ -580,7 +634,7 @@ export function PianoRoll({
             name: Note.fromMidi(newMidi) || newNotes[dn.index].name,
           };
         });
-        return { ...prev, notes: newNotes };
+        return ensureBarsCoverNotes({ ...prev, notes: newNotes });
       });
       if (finished.tickDelta !== 0 || finished.midiDelta !== 0) {
         finished.notes.slice(0, 8).forEach((dn) => {
@@ -596,7 +650,7 @@ export function PianoRoll({
     if (dragResizeState) {
       const finished = dragResizeState;
       commit((prev) => {
-        if (!prev) return prev;
+        if (!prev || finished.durationDelta === 0) return prev;
         const newNotes = [...prev.notes];
         finished.notes.forEach((dn) => {
           newNotes[dn.index] = {
@@ -604,7 +658,7 @@ export function PianoRoll({
             duration: Math.max(snapTick, dn.startDuration + finished.durationDelta),
           };
         });
-        return { ...prev, notes: newNotes };
+        return ensureBarsCoverNotes({ ...prev, notes: newNotes });
       });
       setDragResizeState(null);
     }
@@ -612,7 +666,7 @@ export function PianoRoll({
     if (dragVelocityState) {
       const finished = dragVelocityState;
       commit((prev) => {
-        if (!prev) return prev;
+        if (!prev || finished.velocityDelta === 0) return prev;
         const newNotes = [...prev.notes];
         finished.notes.forEach((dn) => {
           newNotes[dn.index] = {
@@ -624,7 +678,7 @@ export function PianoRoll({
             ),
           };
         });
-        return { ...prev, notes: newNotes };
+        return ensureBarsCoverNotes({ ...prev, notes: newNotes });
       });
       setDragVelocityState(null);
     }
@@ -635,10 +689,11 @@ export function PianoRoll({
         if (!prev) return prev;
         return {
           ...prev,
-          notes: sliceNotes(prev.notes, finished, zoomX, snapTick, focusedTrack),
+          notes: sliceNotes(prev.notes, finished, zoomX, snapTick, focusedTrack, rowHeight),
         };
       });
       setSliceState(null);
+      onSelectionChange(new Set());
     }
 
     if (lassoState) {
@@ -651,9 +706,9 @@ export function PianoRoll({
       progression?.notes.forEach((n, i) => {
         if (focusedTrack !== null && trackIndexOf(n) !== focusedTrack) return;
         const nx = n.timeStart * zoomX;
-        const ny = (MAX_MIDI - n.midi) * NOTE_HEIGHT;
+        const ny = (MAX_MIDI - n.midi) * rowHeight;
         const nw = n.duration * zoomX;
-        if (nx < rightP && nx + nw > leftP && ny < bottomP && ny + NOTE_HEIGHT > topP) {
+        if (nx < rightP && nx + nw > leftP && ny < bottomP && ny + rowHeight > topP) {
           newSelected.add(i);
         }
       });
@@ -665,7 +720,7 @@ export function PianoRoll({
       const finished = dragDrawState;
       commit((prev) =>
         prev
-          ? { ...prev, notes: [...prev.notes, drawnNote(finished, snapTick, zoomX)] }
+          ? ensureBarsCoverNotes({ ...prev, notes: [...prev.notes, drawnNote(finished, snapTick, zoomX)] })
           : prev,
       );
       setDragDrawState(null);
@@ -679,133 +734,75 @@ export function PianoRoll({
   });
 
   useEffect(() => {
-    const onMove = (e: MouseEvent) => dragHandlersRef.current.onMove(e);
-    const onUp = (e: MouseEvent) => dragHandlersRef.current.onUp(e);
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+    const onMove = (e: PointerEvent) => dragHandlersRef.current.onMove(e);
+    const onUp = (e: PointerEvent) => dragHandlersRef.current.onUp(e);
+    const cancel = () => {
+      activePointer.current = null; panRef.current = null; isScrubbingRef.current = false;
+      setDragState(null); setDragDrawState(null); setDragResizeState(null); setDragVelocityState(null); setLassoState(null); setSliceState(null);
+      onScrubStateChange(false);
+      onLivePreview(null);
     };
-  }, []);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", cancel);
+    window.addEventListener("blur", cancel);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", cancel);
+      window.removeEventListener("blur", cancel);
+    };
+  }, [onScrubStateChange, onLivePreview]);
 
   // ----- Render -----
   return (
-    <section
-      aria-label="Piano roll editor"
-      className="hardware-panel relative z-10 mx-auto flex w-full max-w-6xl min-h-[340px] flex-1 flex-col overflow-hidden p-3 sm:p-4"
-    >
-      <header className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div>
-          <p className="studio-kicker mb-1">Arrangement / Editor</p>
-          <h2 className="flex items-center gap-2 text-[16px] font-bold tracking-[-0.025em] text-[var(--text-main)]">
-            Piano roll
-            {focusedTrack !== null && (
-              <span className="rounded-md border border-[var(--accent)]/30 bg-[#2b3957] px-2 py-0.5 text-[10px] font-medium tracking-normal text-[#c3d0ff]">
-                Track {focusedTrack + 1}
-              </span>
-            )}
-          </h2>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          {progression && (
-            <span className="hidden max-w-[240px] truncate text-[11px] text-[var(--text-muted)] md:block" title={TOOL_HINTS[toolMode]}>
-              {selectedIndices.size > 0
-                ? selectedIndices.size + " notes selected"
-                : TOOL_HINTS[toolMode]}
-            </span>
-          )}
-          <span className="rounded-lg border border-[var(--border-color)] bg-[var(--surface-soft)] px-3 py-1.5 font-mono text-[11px] tabular-nums text-[var(--text-muted)]">
-            {statusLabel}
-          </span>
-        </div>
-      </header>
-      <div className="relative flex flex-1 flex-col overflow-hidden rounded-[10px] border border-[var(--border-strong)] bg-[var(--piano-black)]">
-        <div
-          className="overflow-auto w-full h-full relative"
-          ref={scrollRef}
-          onContextMenu={(e) => e.preventDefault()}
-        >
+    <section aria-label="Piano roll editor" className="piano-editor">
+        <div className="piano-viewport" ref={scrollRef} tabIndex={0} role="region" aria-label="Piano roll canvas"
+          onContextMenu={e => e.preventDefault()}>
           {!progression ? (
-            <div className="absolute inset-0 flex items-center justify-center overflow-y-auto bg-[#101825] px-4 py-6">
-              <div
-                className="pointer-events-none absolute inset-0 opacity-40"
-                aria-hidden="true"
-                style={{
-                  backgroundImage: "linear-gradient(rgba(160,180,220,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(160,180,220,0.06) 1px, transparent 1px)",
-                  backgroundSize: "30px 30px",
-                }}
-              />
-              <div className="relative flex max-w-md flex-col items-center text-center">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-[#4b5c83] bg-[#293a5a] text-[var(--accent)]" aria-hidden="true">
-                  <Music2 size={22} />
-                </div>
-                <p className="studio-kicker mb-2">New session</p>
-                <h3 className="text-xl font-semibold tracking-tight text-white">
-                  Start with a pattern
-                </h3>
-                <p className="studio-meta mt-2 leading-relaxed">
-                  Generate a progression to edit in the piano roll, or import a MIDI file to pick up where you left off.
-                </p>
-                <div className="mt-6 flex flex-wrap justify-center gap-2.5">
-                  <button
-                    type="button"
-                    className="hardware-btn hardware-btn-primary h-10 px-5 text-xs"
-                    onClick={onGenerate}
-                  >
-                    Generate pattern
-                  </button>
-                  <input
-                    type="file"
-                    ref={emptyImportRef}
-                    accept=".mid,.midi"
-                    className="sr-only"
-                    tabIndex={-1}
-                    aria-hidden="true"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) onLoadFile(file);
-                      event.target.value = "";
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="hardware-btn h-10 px-5 text-xs"
-                    onClick={() => emptyImportRef.current?.click()}
-                  >
-                    Import MIDI
-                  </button>
-                </div>
-                <p className="mt-5 text-[11px] text-[var(--text-subtle)]">
-                  Press <kbd className="rounded border border-[var(--border-strong)] px-1.5 py-0.5 font-mono">?</kbd> for shortcuts
-                </p>
+            <div className="pattern-empty">
+              <div className="empty-motif" aria-hidden="true"><span /><span /><span /><span /><span /></div>
+              <span className="eyebrow">FROM A SPARK TO A SEQUENCE</span>
+              <h2>Your next idea starts here.</h2>
+              <p>Generate a progression, draw something new,<br />or drop a MIDI file to make it your own.</p>
+              <div className="empty-actions">
+                <button className="primary-button" onClick={onGenerate}><Sparkles size={15} />Generate pattern</button>
+                <button className="secondary-button" onClick={onStartBlank}><Pencil size={14} />Start blank</button>
               </div>
+              <input type="file" ref={emptyImportRef} accept=".mid,.midi" className="hidden" aria-label="Import MIDI into empty project" onChange={event => {
+                const file = event.target.files?.[0]; if (file) onLoadFile(file); event.target.value = "";
+              }} />
+              <button className="text-button empty-hint" onClick={() => emptyImportRef.current?.click()}>Or import your own MIDI</button>
             </div>
           ) : (
-            <div className="flex flex-col relative min-w-full w-max pb-6 pr-12">
+            <div className="piano-content">
               {/* Top Header Row (Sticky) */}
               <div className="flex sticky top-0 z-50">
                 <div
-                  className="h-[40px] sticky left-0 z-50 bg-[#1b2636] border-b border-r border-[var(--border-color)] flex-shrink-0"
+                  className="piano-timeline sticky left-0 z-50 border-r border-[var(--border-color)] flex-shrink-0"
                   style={{ width: `${KEYBOARD_WIDTH}px` }}
                 />
                 <div
                   ref={timelineRef}
-                  onMouseDown={handleTimelineMouseDown}
-                  className="h-[40px] bg-[#1b2636]/90 backdrop-blur-sm border-b border-[var(--border-color)] relative cursor-pointer group flex-1"
-                  style={{ minWidth: `${contentWidth}px` }}
+                  onPointerDown={handleTimelinePointerDown}
+                  className="piano-timeline relative cursor-pointer group flex-1"
+                  style={{ minWidth: `${contentWidth}px`, touchAction: "none" }}
                   title="Click or drag to scrub playback"
                 >
                   <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-colors pointer-events-none" />
                   {Array.from({ length: totalDisplayBars }).map((_, i) => (
                     <div
                       key={`bar-${i}`}
-                      className="absolute text-[10px] font-bold text-[var(--text-muted)] font-mono top-3 pointer-events-none border-l-2 border-white/20 pl-1 h-full"
+                      className="measure-number absolute font-mono pointer-events-none border-l pl-2"
                       style={{ left: `${i * 4 * zoomX}px` }}
                     >
                       {i + 1}
                     </div>
                   ))}
+                  <div className="chord-strip" aria-label="Chord progression">
+                    {progression.chords.map((chord, i) => <div key={i} className="chord-chip" style={{ left: chord.timeStart * zoomX, width: chord.duration * zoomX }}><span className="chord-dot" />{chord.name}</div>)}
+                    {progression.chords.length === 0 && <span className="chord-chip" style={{ left: 0 }}>MIDI pattern</span>}
+                  </div>
                 </div>
               </div>
 
@@ -813,10 +810,10 @@ export function PianoRoll({
               <div className="flex relative">
                 {/* Left Sticky Keyboard */}
                 <div
-                  className="sticky left-0 z-40 bg-[#1b2636] shadow-[2px_0_5px_rgba(0,0,0,0.5)] border-r border-[var(--border-color)] flex-shrink-0"
+                  className="sticky left-0 z-40 bg-[#26312c] border-r border-[var(--border-strong)] flex-shrink-0"
                   style={{
                     width: `${KEYBOARD_WIDTH}px`,
-                    height: `${PIANO_ROLL_HEIGHT}px`,
+                    height: `${(MIDI_RANGE * rowHeight)}px`,
                   }}
                 >
                   {Array.from({ length: MIDI_RANGE }).map((_, i) => {
@@ -828,7 +825,7 @@ export function PianoRoll({
                     return (
                       <div
                         key={`key-${i}`}
-                        onMouseDown={async (e) => {
+                        onPointerDown={async (e) => {
                           if (e.button !== 0) return;
                           try {
                             await initAudio();
@@ -838,16 +835,16 @@ export function PianoRoll({
                           const name = Note.fromMidi(midi);
                           if (name) playNote(name);
                         }}
-                        className={`absolute w-full border-b border-[var(--border-color)] flex items-center justify-end pr-1 text-[8px] font-mono hover:brightness-125 cursor-pointer active:brightness-90
-                        ${isBlack ? "bg-[#101722] text-[var(--text-muted)]" : "bg-[var(--piano-white)] text-[var(--text-main)]"}
-                        ${isC ? "font-bold text-[var(--accent)] border-t border-[var(--border-color)]" : ""}
+                        className={`piano-key absolute w-full border-b border-[var(--border-color)] flex items-center justify-end pr-1 text-[8px] font-mono hover:brightness-125 cursor-pointer active:brightness-90
+                        ${isBlack ? "bg-[#19211f] text-[var(--text-muted)]" : "bg-[var(--piano-white)] text-[var(--text-main)]"}
+                        ${isC ? "octave-key font-bold text-[var(--accent)] border-t border-[var(--border-color)]" : ""}
                         ${isInScale ? "shadow-[inset_0_0_0_999px_rgba(94,124,246,0.08)]" : ""}`}
                         style={{
-                          top: `${i * NOTE_HEIGHT}px`,
-                          height: `${NOTE_HEIGHT}px`,
+                          top: `${i * rowHeight}px`,
+                          height: `${rowHeight}px`,
                         }}
                       >
-                        {isC ? `C${Math.floor(midi / 12) - 1}` : ""}
+                        {isC ? `C${Math.floor(midi / 12) - 1}` : !isBlack ? (Note.fromMidi(midi)?.replace(/-?\d+$/, "") ?? "") : ""}
                       </div>
                     );
                   })}
@@ -856,19 +853,22 @@ export function PianoRoll({
                 {/* Main Grid Area */}
                 <div
                   ref={gridRef}
-                  className="relative flex-1"
+                  data-testid="piano-grid"
+                  className="piano-grid relative flex-1"
                   style={{
                     minWidth: `${contentWidth}px`,
-                    height: `${PIANO_ROLL_HEIGHT}px`,
+                    height: `${(MIDI_RANGE * rowHeight)}px`,
+                    touchAction: "none",
+                    cursor: toolMode === "pan" ? "grab" : toolMode === "select" ? "default" : "crosshair",
                     backgroundImage: `
-                      linear-gradient(to bottom, rgba(177,195,231,0.08) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(163,185,169,0.08) 1px, transparent 1px),
                       linear-gradient(to right, var(--border-strong) 1px, transparent 1px),
-                      linear-gradient(to right, rgba(177,195,231,0.045) 1px, transparent 1px)
+                      linear-gradient(to right, rgba(163,185,169,0.05) 1px, transparent 1px)
                     `,
-                    backgroundSize: `100% ${NOTE_HEIGHT}px, ${zoomX * 4}px 100%, ${zoomX}px 100%`,
+                    backgroundSize: `100% ${rowHeight}px, ${zoomX * 4}px 100%, ${zoomX}px 100%`,
                     backgroundPosition: "0 0, 0 0, 0 0",
                   }}
-                  onMouseDown={handleGridMouseDown}
+                  onPointerDown={handleGridPointerDown}
                 >
                   {/* Row Background Tracks (black-key shading + diatonic scale tint) */}
                   {Array.from({ length: MIDI_RANGE }).map((_, i) => {
@@ -882,8 +882,8 @@ export function PianoRoll({
                         key={`h-${i}`}
                         className="absolute left-0 right-0 z-0 pointer-events-none"
                         style={{
-                          top: `${i * NOTE_HEIGHT}px`,
-                          height: `${NOTE_HEIGHT}px`,
+                          top: `${i * rowHeight}px`,
+                          height: `${rowHeight}px`,
                         }}
                       >
                         {isInScale && (
@@ -896,27 +896,13 @@ export function PianoRoll({
                     );
                   })}
 
-                  {/* Chord Markers */}
-                  {progression.chords.map((c, i) => (
-                    <div
-                      key={`c-${i}`}
-                      className="absolute z-20 rounded-md border border-[#4a6087] bg-[#293c5d] px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase text-[#e3e9ff] pointer-events-none"
-                      style={{
-                        left: `${c.timeStart * zoomX + 4}px`,
-                        top: "4px",
-                      }}
-                    >
-                      {c.name}
-                    </div>
-                  ))}
-
                   {/* Playhead */}
-                  {isPlaying && (
+                  {progression && (
                     <div
-                      className="absolute top-0 bottom-0 w-0 border-l-[2px] border-[#f78083] z-30 pointer-events-none"
+                      className="absolute top-0 bottom-0 w-0 border-l-[2px] border-[#dde2b0] z-30 pointer-events-none"
                       style={{ left: `${currentTick * zoomX}px` }}
                     >
-                      <div className="absolute top-0 left-[-6px] w-[13px] h-[13px] bg-[#f78083] rounded-b-sm"></div>
+                      <div className="absolute top-0 left-[-6px] w-[13px] h-[13px] bg-[#dde2b0] rounded-b-sm"></div>
                     </div>
                   )}
 
@@ -926,9 +912,9 @@ export function PianoRoll({
                       className="absolute z-20 pointer-events-none"
                       style={{
                         left: `${dragDrawState.startTick * zoomX}px`,
-                        top: `${(MAX_MIDI - dragDrawState.startMidi) * NOTE_HEIGHT}px`,
+                        top: `${(MAX_MIDI - dragDrawState.startMidi) * rowHeight}px`,
                         width: `${drawnNote(dragDrawState, snapTick, zoomX).duration * zoomX}px`,
-                        height: `${NOTE_HEIGHT}px`,
+                        height: `${rowHeight}px`,
                       }}
                     >
                       <div className="absolute inset-[1px] bg-emerald-400/80 border border-emerald-300 shadow-sm rounded-[3px]" />
@@ -993,12 +979,16 @@ export function PianoRoll({
                       currentTick >= renderTick &&
                       currentTick <= renderTick + renderDuration;
                     const isSelected = selectedIndices.has(i);
-                    const boxWidth = Math.max(zoomX / 4, renderDuration * zoomX);
+                    const boxWidth = Math.max(6, renderDuration * zoomX);
                     const showLabel = boxWidth >= 34 && !isPlayingNote;
 
                     return (
                       <div
                         key={i}
+                        data-testid="piano-note"
+                        data-note-index={i}
+                        data-midi={n.midi}
+                        data-selected={isSelected}
                         onContextMenu={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -1015,28 +1005,28 @@ export function PianoRoll({
                         style={{
                           left: `${renderTick * zoomX}px`,
                           width: `${boxWidth}px`,
-                          top: `${(MAX_MIDI - renderMidi) * NOTE_HEIGHT}px`,
-                          height: `${NOTE_HEIGHT}px`,
-                          opacity: isPlayingNote ? 1 : Math.max(0.4, n.velocity),
+                          top: `${(MAX_MIDI - renderMidi) * rowHeight}px`,
+                          height: `${rowHeight}px`,
+                          opacity: isPlayingNote ? 1 : Math.max(0.65, n.velocity),
                         }}
                       >
                         {/* Visual Box */}
                         <div
-                          className={`absolute inset-[1px] rounded-[3px] border shadow-sm transition-colors duration-100 overflow-hidden
+                          className={`piano-note absolute inset-[1px] rounded-[3px] border transition-colors duration-100 overflow-hidden
                             ${
                               isPlayingNote
-                                ? "bg-emerald-400 border-emerald-300 shadow-sm z-30"
+                                ? "bg-[#d3e8a0] border-[#f0f7d4] z-30"
                                 : isSelected
-                                  ? "bg-violet-500 border-violet-400 shadow-sm z-20"
+                                  ? "piano-note-selected bg-[#8d8eb9] border-[#c1c2e2] z-20"
                                   : hasTrackColors && n.trackIndex !== undefined
                                     ? `${getTrackColorClasses(n.trackIndex)} group-hover:brightness-110`
-                                    : "bg-[var(--accent)] border-blue-400 group-hover:brightness-110"
+                                    : "bg-[#9bc496] border-[#bdd8ac] group-hover:brightness-110"
                             }
                           `}
                         >
                           {showLabel && (
                             <span className={
-                              "pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 select-none font-mono text-[10px] font-semibold " +
+                              "piano-note-label pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 select-none font-mono text-[10px] font-semibold " +
                               (isSelected ? "text-white" : "text-[#172237]")
                             }>
                               {Note.fromMidi(renderMidi) || ""}
@@ -1045,14 +1035,16 @@ export function PianoRoll({
                         </div>
 
                         {/* Hit Areas */}
-                        <div className="absolute inset-0 z-30">
+                        <div className="absolute inset-0 z-30" style={{ touchAction: "none" }}>
                           <div
-                            onMouseDown={(e) => handleNoteMouseDown(e, i)}
+                            data-testid="note-move"
+                            onPointerDown={(e) => handleNotePointerDown(e, i)}
                             className="absolute left-0 top-0 bottom-0 right-[8px] sm:right-[10px] cursor-move"
                             style={{ minWidth: "4px" }}
                           />
                           <div
-                            onMouseDown={(e) => handleNoteResizeMouseDown(e, i)}
+                            data-testid="note-resize"
+                            onPointerDown={(e) => handleNoteResizePointerDown(e, i)}
                             className="absolute right-[-6px] w-[14px] sm:w-[16px] top-0 bottom-0 cursor-ew-resize flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                           >
                             <div className="w-[4px] h-[60%] bg-white/80 rounded-[1px] shadow-sm pointer-events-none" />
@@ -1067,13 +1059,13 @@ export function PianoRoll({
               {/* Velocity Lane */}
               <div className="flex sticky bottom-0 z-40">
                 <div
-                  className="sticky left-0 z-40 bg-[#1b2636] border-t border-r border-[var(--border-color)] flex-shrink-0 flex items-center justify-center"
+                  className="sticky left-0 z-40 bg-[#26312c] border-t border-r border-[var(--border-strong)] flex-shrink-0 flex items-center justify-center"
                   style={{
                     width: `${KEYBOARD_WIDTH}px`,
                     height: `${VELOCITY_LANE_HEIGHT}px`,
                   }}
                 >
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                  <span className="velocity-label">
                     Vel
                   </span>
                 </div>
@@ -1107,17 +1099,18 @@ export function PianoRoll({
                     }
 
                     const isSelected = selectedIndices.has(i);
-                    const barWidth = Math.max(zoomX / 4, n.duration * zoomX);
-                    const barHeight = renderVelocity * VELOCITY_LANE_HEIGHT;
+                    const barWidth = 8;
+                    const barHeight = Math.max(3, renderVelocity * (VELOCITY_LANE_HEIGHT - 12));
 
                     return (
                       <div
                         key={`vel-${i}`}
-                        onMouseDown={(e) => handleVelocityBarMouseDown(e, i)}
+                        onPointerDown={(e) => handleVelocityBarPointerDown(e, i)}
                         className="absolute inset-y-0 cursor-ns-resize group"
                         style={{
-                          left: `${n.timeStart * zoomX}px`,
+                          left: `${n.timeStart * zoomX + velocityOffsets[i]}px`,
                           width: `${barWidth}px`,
+                          touchAction: "none",
                         }}
                       >
                         <div
@@ -1129,7 +1122,7 @@ export function PianoRoll({
                                   ? "bg-violet-500 border-violet-400"
                                   : hasTrackColors && n.trackIndex !== undefined
                                     ? `${getTrackColorClasses(n.trackIndex)} group-hover:brightness-110`
-                                    : "bg-[var(--accent)] border-blue-400 group-hover:brightness-110"
+                                    : "bg-[#9bc496] border-[#bdd8ac] group-hover:brightness-110"
                             }
                           `}
                           style={{ height: `${barHeight}px` }}
@@ -1142,7 +1135,7 @@ export function PianoRoll({
             </div>
           )}
         </div>
-      </div>
+        <footer className="editor-footnote"><span>{TOOL_HINTS[toolMode]}</span><span>{selectedIndices.size > 0 ? <strong>{selectedIndices.size} selected</strong> : progression ? progression.notes.length + " notes" : "No notes yet"} · {statusLabel}</span></footer>
     </section>
   );
 }
@@ -1175,6 +1168,7 @@ function sliceNotes(
   zoomX: number,
   snapTick: number,
   focusedTrack: number | null = null,
+  rowHeight: number = NOTE_HEIGHT,
 ): NoteEvent[] {
   const minLineX = Math.min(slice.startX, slice.currentX);
   const maxLineX = Math.max(slice.startX, slice.currentX);
@@ -1188,9 +1182,9 @@ function sliceNotes(
       continue;
     }
     const nx = n.timeStart * zoomX;
-    const ny = (MAX_MIDI - n.midi) * NOTE_HEIGHT;
+    const ny = (MAX_MIDI - n.midi) * rowHeight;
     const nw = n.duration * zoomX;
-    const nh = NOTE_HEIGHT;
+    const nh = rowHeight;
 
     const isVerticalCut = Math.abs(maxLineX - minLineX) < 10;
     // Interpolate the line's x at this note's row for diagonal cuts.

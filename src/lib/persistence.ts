@@ -121,12 +121,14 @@ function isValidSession(v: unknown): v is SavedSession {
 
 /** Best-effort autosave. Swallows quota errors and environments where
  *  localStorage is unavailable entirely (private browsing, SSR, tests). */
-export function saveSession(session: SavedSession): void {
+export function saveSession(session: SavedSession): boolean {
   try {
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    return true;
   } catch {
     // No console.warn: private-browsing/quota errors fire on every autosave
     // tick in that mode, which would spam the console on ordinary use.
+    return false;
   }
 }
 
