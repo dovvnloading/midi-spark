@@ -48,6 +48,8 @@ import { EditToolbar, ToolMode } from "./components/EditToolbar";
 import { TransformBar } from "./components/TransformBar";
 import { TrackStudio } from "./components/TrackStudio";
 import { PianoRoll } from "./components/PianoRoll";
+import { ShortcutHelp } from "./components/ShortcutHelp";
+import { StatusToast, type Notice, type NoticeKind } from "./components/StatusToast";
 
 function sequenceEnd(progression: ProgressionData): number {
   const maxNoteEnd = progression.notes.reduce(
@@ -124,6 +126,21 @@ export default function App() {
 
   const [livePreview, setLivePreview] = useState<ProgressionData | null>(null);
   const [isDraggingMidi, setIsDraggingMidi] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const noticeSequence = useRef(0);
+
+  const notify = useCallback((message: string, kind: NoticeKind = "info") => {
+    setNotice({ id: ++noticeSequence.current, message, kind });
+  }, []);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timeout = setTimeout(() => {
+      setNotice((current) => current?.id === notice.id ? null : current);
+    }, notice.kind === "error" ? 6500 : 4200);
+    return () => clearTimeout(timeout);
+  }, [notice]);
 
   const isPlayingRef = useRef(false);
   const isLoopingRef = useRef(true);
@@ -148,12 +165,10 @@ export default function App() {
     setSelectedNoteIndices(new Set());
   }, [redoHistory]);
 
+  // AudioContext should only start from a user gesture. Restore the
+  // selection without starting the audio engine on page load.
   useEffect(() => {
-    initAudio().then(() => {
-      if (savedSession?.synthType) {
-        setSynthType(savedSession.synthType);
-      }
-    });
+    setSynthType(savedSession?.synthType ?? "classic");
   }, [savedSession]);
 
   // Mixer changes (including mute/solo) update gain buses without restarting
@@ -208,7 +223,13 @@ export default function App() {
 
   const handlePlay = useCallback(async () => {
     if (!progression) return;
-    await initAudio();
+    try {
+      await initAudio();
+    } catch (error) {
+      console.error(error);
+      notify("Audio could not start. Check browser permissions and try Play again.", "error");
+      return;
+    }
     const endTick = sequenceEnd(progression);
     let startTick = currentTick;
     if (startTick >= endTick) {
@@ -235,7 +256,7 @@ export default function App() {
       startTick,
       isLoopingRef.current,
     );
-  }, [progression, bpm, currentTick]);
+  }, [progression, bpm, currentTick, notify]);
 
   const handleStop = useCallback(() => {
     setIsPlaying(false);
@@ -304,12 +325,12 @@ export default function App() {
   const handleClearSavedSession = useCallback(() => {
     clearTimeout(autosaveTimeoutRef.current);
     clearSession();
-  }, []);
+    notify("Saved session cleared. Current work stays open; future edits will autosave.", "info");
+  }, [notify]);
 
   // ----- Generation -----
 
-  const handleGenerate = useCallback(async () => {
-    await initAudio();
+  const handleGenerate = useCallback(() => {
     const seq = generateSequence(root, mode, bars, dissonance, complexity);
     commit(seq);
     setSelectedNoteIndices(new Set());
@@ -317,11 +338,11 @@ export default function App() {
     setFocusedTrack(null);
     setCurrentTick(0);
     setScrollAnchorKey((k) => k + 1);
-  }, [root, mode, bars, dissonance, complexity, commit]);
+    notify("Generated a " + seq.totalBars + "-bar pattern in " + root + " " + mode + ".", "success");
+  }, [root, mode, bars, dissonance, complexity, commit, notify]);
 
-  const handleGenerateVariations = useCallback(async () => {
+  const handleGenerateVariations = useCallback(() => {
     if (!progression) return;
-    await initAudio();
     const seq = applyVariationToProgression(
       progression,
       Math.min(100, dissonance + 15),
@@ -332,7 +353,8 @@ export default function App() {
     commit(seq);
     setSelectedNoteIndices(new Set());
     setCurrentTick(0);
-  }, [progression, dissonance, complexity, root, mode, commit]);
+    notify("Rhythmic variation added. Undo with Ctrl/⌘+Z.", "success");
+  }, [progression, dissonance, complexity, root, mode, commit, notify]);
 
   // ----- MIDI file I/O -----
 
@@ -345,14 +367,15 @@ export default function App() {
     link.download = `midi-spark_${root}_${mode}.mid`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }, [progression, bpm, root, mode]);
+    notify("MIDI file exported and ready for your DAW.", "success");
+  }, [progression, bpm, root, mode, notify]);
 
   const loadMidiFile = useCallback(
     async (file: File) => {
       try {
         const { progression: parsed, bpm: fileBpm } = await parseMidiFile(file);
         if (parsed.notes.length === 0) {
-          alert("No notes found in that MIDI file.");
+          notify("This MIDI file contains no melodic notes to import.", "error");
           return;
         }
         const detected = detectKeyFromProgression(parsed);
@@ -367,12 +390,13 @@ export default function App() {
         setFocusedTrack(null);
         setCurrentTick(0);
         setScrollAnchorKey((k) => k + 1);
+        notify("Imported " + file.name + " · " + parsed.notes.length + " notes.", "success");
       } catch (err) {
         console.error(err);
-        alert("Failed to parse MIDI file");
+        notify("Couldn't read this MIDI file. Try another .mid or .midi file.", "error");
       }
     },
-    [commit],
+    [commit, notify],
   );
 
   // ----- Editing -----
@@ -517,14 +541,22 @@ export default function App() {
   // state; the old effect-with-deps version acted on stale history.
   const keyHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
   const onKeyDown = (e: KeyboardEvent) => {
+    if (shortcutsOpen) return;
     const target = e.target as HTMLElement | null;
-    if (
-      target &&
-      (target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.tagName === "SELECT" ||
-        target.isContentEditable)
-    ) {
+    // Controls and dialogs own their keyboard input. Space must not toggle
+    // playback while activating a focused button.
+    if (target?.closest(
+      'input, textarea, select, button, [role="spinbutton"], [role="slider"], [role="listbox"], [role="dialog"], [contenteditable="true"]',
+    )) return;
+
+    if (e.key === "?" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      setShortcutsOpen(true);
+      return;
+    }
+    if (e.key === "Escape" && selectedNoteIndices.size > 0) {
+      e.preventDefault();
+      setSelectedNoteIndices(new Set());
       return;
     }
 
@@ -559,7 +591,10 @@ export default function App() {
       return;
     }
     if (e.key === "Delete" || e.key === "Backspace") {
-      deleteSelected();
+      if (selectedNoteIndices.size > 0) {
+        e.preventDefault();
+        deleteSelected();
+      }
       return;
     }
     if (e.code === "Space") {
@@ -614,7 +649,10 @@ export default function App() {
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
     const lower = file.name.toLowerCase();
-    if (!lower.endsWith(".mid") && !lower.endsWith(".midi")) return;
+    if (!lower.endsWith(".mid") && !lower.endsWith(".midi")) {
+      notify("Only .mid and .midi files are supported.", "error");
+      return;
+    }
     await loadMidiFile(file);
   };
 
