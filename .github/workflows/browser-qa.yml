@@ -1,0 +1,53 @@
+name: Browser UX checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  chromium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install app
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Install Playwright (system Chrome)
+        run: |
+          python -m pip install playwright==1.57.0
+          command -v google-chrome || command -v chromium
+      - name: Start production preview
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/preview.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/preview.log
+          exit 1
+      - name: Browser interaction and responsive acceptance
+        run: CHROMIUM_PATH=/usr/bin/google-chrome python scripts/browser_smoke.py --url http://127.0.0.1:4173 --output browser-report
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-review
+          path: browser-report/
+          retention-days: 7
+          if-no-files-found: warn
