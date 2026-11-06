@@ -40,6 +40,33 @@ describe("MIDI export/import round-trip", () => {
     expect(progression.totalBars).toBe(2);
   });
 
+  it("preserves distinct source tracks on export instead of flattening them", async () => {
+    const multi: ProgressionData = {
+      notes: [
+        { midi: 60, name: "C4", timeStart: 0, duration: 1, velocity: 0.8, trackIndex: 0 },
+        { midi: 64, name: "E4", timeStart: 1, duration: 1, velocity: 0.6, trackIndex: 1 },
+        { midi: 67, name: "G4", timeStart: 2, duration: 1, velocity: 0.7, trackIndex: 1 },
+      ],
+      chords: [],
+      totalBars: 1,
+    };
+    const buffer = await exportToMidiBlob(multi, 120).arrayBuffer();
+    const exported = new Midi(buffer);
+    expect(exported.tracks).toHaveLength(2);
+    expect(exported.tracks[0].notes.map((n) => n.midi)).toEqual([60]);
+    expect(exported.tracks[1].notes.map((n) => n.midi)).toEqual([64, 67]);
+
+    const imported = parseMidiBuffer(buffer);
+    expect(imported.progression.notes.map((n) => n.trackIndex)).toEqual([0, 1, 1]);
+  });
+
+  it("keeps generated and untagged notes on a single track", async () => {
+    const buffer = await exportToMidiBlob(testProgression, 120).arrayBuffer();
+    const exported = new Midi(buffer);
+    expect(exported.tracks).toHaveLength(1);
+    expect(exported.tracks[0].name).toBe("Midi Spark");
+  });
+
   it("preserves the exported tempo", async () => {
     const { bpm } = await roundTrip(testProgression, 87);
     expect(Math.round(bpm!)).toBe(87);

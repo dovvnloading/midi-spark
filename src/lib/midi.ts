@@ -8,23 +8,37 @@ export interface ImportedMidi {
   bpm: number | null;
 }
 
-/** Serialize a progression to a standard MIDI file (format 1, 480 PPQ). */
+/** Serialize a progression at 480 PPQ, preserving imported track separation.
+ *  Untagged/generated notes belong to track 0; percussion was already omitted
+ *  by the importer. Instrument/channel metadata is not currently retained. */
 export function exportToMidiBlob(data: ProgressionData, bpm: number): Blob {
   const midi = new Midi();
   midi.header.setTempo(bpm);
   const ppq = midi.header.ppq;
-
-  const track = midi.addTrack();
-  track.name = "Midi Spark";
+  const groups = new Map<number, NoteEvent[]>();
 
   for (const note of data.notes) {
     if (note.duration <= 0) continue;
-    track.addNote({
-      midi: note.midi,
-      ticks: Math.max(0, Math.round(note.timeStart * ppq)),
-      durationTicks: Math.max(1, Math.round(note.duration * ppq)),
-      velocity: Math.min(1, Math.max(0, note.velocity)),
-    });
+    const index = note.trackIndex === undefined ? 0 : Math.max(0, Math.trunc(note.trackIndex));
+    if (!groups.has(index)) groups.set(index, []);
+    groups.get(index)?.push(note);
+  }
+
+  if (groups.size === 0) groups.set(0, []);
+  const sortedGroups = [...groups.entries()].sort(([a], [b]) => a - b);
+  for (const [sourceIndex, notes] of sortedGroups) {
+    const track = midi.addTrack();
+    track.name = sortedGroups.length === 1
+      ? "Midi Spark"
+      : "Midi Spark - Track " + (sourceIndex + 1);
+    for (const note of notes) {
+      track.addNote({
+        midi: note.midi,
+        ticks: Math.max(0, Math.round(note.timeStart * ppq)),
+        durationTicks: Math.max(1, Math.round(note.duration * ppq)),
+        velocity: Math.min(1, Math.max(0, note.velocity)),
+      });
+    }
   }
 
   return new Blob([midi.toArray()], { type: "audio/midi" });
