@@ -15,7 +15,7 @@ const progression: ProgressionData = {
     { midi: 67, name: "G4", timeStart: 3.8, duration: 0.5, velocity: 0.7 },
   ],
   chords: [{ name: "Cmaj7", timeStart: 0, duration: 4 }],
-  totalBars: 1,
+  totalBars: 2,
 };
 
 describe("Note Lab transforms", () => {
@@ -89,9 +89,9 @@ describe("Note Lab transforms", () => {
   it("extends bar count when an edit would run off the canvas", () => {
     const longer = ensureBarsCoverNotes({
       ...progression,
-      notes: [{ ...progression.notes[0], timeStart: 4, duration: 2 }],
+      notes: [{ ...progression.notes[0], timeStart: 8, duration: 2 }],
     });
-    expect(longer.totalBars).toBe(2);
+    expect(longer.totalBars).toBe(3);
     expect(ensureBarsCoverNotes(progression)).toBe(progression);
   });
 });
