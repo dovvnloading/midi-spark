@@ -1,0 +1,27 @@
+name: Workbench review
+
+on:
+  push:
+    branches: [ux/canvas-first-workbench]
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck && npm run lint -- --max-warnings 0 && npm test && npm run build
+      - name: Package reproducible review workspace
+        run: tar -czf /tmp/workspace.tgz src tests public node_modules package.json package-lock.json tsconfig.json vite.config.ts vitest.config.ts eslint.config.js index.html README.md .github .gitignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workbench-workspace
+          path: /tmp/workspace.tgz
+          retention-days: 1
