@@ -658,7 +658,7 @@ export default function App() {
 
   return (
     <div
-      className="h-screen w-full flex overflow-hidden font-sans relative"
+      className="h-dvh min-h-0 w-full flex flex-col lg:flex-row overflow-hidden font-sans relative"
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -689,7 +689,7 @@ export default function App() {
         onAddVariation={handleGenerateVariations}
       />
 
-      <div className="flex-1 flex flex-col p-6 gap-6 overflow-hidden">
+      <main className="flex-1 min-w-0 min-h-0 flex flex-col p-3 lg:p-4 gap-3 overflow-y-auto">
         <TransportBar
           isPlaying={isPlaying}
           canPlay={!!progression}
@@ -710,6 +710,7 @@ export default function App() {
           onLoadFile={loadMidiFile}
           onExport={handleExport}
           onClearSavedSession={handleClearSavedSession}
+          onOpenShortcuts={() => setShortcutsOpen(true)}
         />
 
         <TrackStudio
@@ -749,13 +750,15 @@ export default function App() {
 
         <PianoRoll
           progression={progression}
+          onGenerate={handleGenerate}
+          onLoadFile={loadMidiFile}
           focusedTrack={visibleFocusedTrack}
           root={root}
           mode={mode}
           statusLabel={
             progression
               ? `${progression.totalBars} Bars | Root: ${root}-${mode}`
-              : "Waiting for Pattern..."
+              : "Ready to create"
           }
           selectedIndices={selectedNoteIndices}
           toolMode={toolMode}
@@ -774,7 +777,9 @@ export default function App() {
           onScrubStateChange={handleScrubStateChange}
           onLivePreview={setLivePreview}
         />
-      </div>
+      </main>
+      <ShortcutHelp open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <StatusToast notice={notice} onDismiss={() => setNotice(null)} />
     </div>
   );
 }
