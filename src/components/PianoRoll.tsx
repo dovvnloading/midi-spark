@@ -9,6 +9,7 @@ import {
 import { Note } from "@tonaljs/tonal";
 import { ProgressionData, NoteEvent, getScaleChromas } from "../lib/theory";
 import { initAudio, playNote } from "../lib/audio";
+import { trackIndexOf } from "../lib/tracks";
 import {
   CHORD_STAMPS,
   FREE_SNAP,
@@ -30,6 +31,8 @@ import { ToolMode } from "./EditToolbar";
 
 export interface PianoRollProps {
   progression: ProgressionData | null;
+  /** null shows all tracks; an index shows one editable track lane. */
+  focusedTrack: number | null;
   statusLabel: string;
   root: string;
   mode: "major" | "minor";
@@ -71,6 +74,7 @@ interface DragDrawState {
   startTick: number;
   startMidi: number;
   startDuration: number;
+  trackIndex?: number;
 }
 
 interface DragResizeState {
@@ -96,6 +100,7 @@ const BLACK_KEY_CLASSES = [1, 3, 6, 8, 10];
 
 export function PianoRoll({
   progression,
+  focusedTrack,
   statusLabel,
   root,
   mode,
@@ -375,6 +380,7 @@ export function PianoRoll({
             timeStart: tick,
             duration: isScale ? FREE_SNAP : noteLength, // scales place tiny guides
             velocity: isScale ? 0.1 : 0.8, // low velocity so guides render faint
+            trackIndex: focusedTrack ?? 0,
           };
         });
       commit((prev) =>
@@ -385,13 +391,14 @@ export function PianoRoll({
 
     // Default: draw a single note.
     const name = Note.fromMidi(midi) || "C4";
-    playNote(name, noteLength, 0.8);
+    playNote(name, noteLength, 0.8, focusedTrack ?? 0);
     setDragDrawState({
       startTick: tick,
       startMidi: midi,
       startX: e.clientX,
       currentX: e.clientX,
       startDuration: noteLength,
+      trackIndex: focusedTrack ?? 0,
     });
   };
 
@@ -610,7 +617,10 @@ export function PianoRoll({
       const finished = sliceState;
       commit((prev) => {
         if (!prev) return prev;
-        return { ...prev, notes: sliceNotes(prev.notes, finished, zoomX, snapTick) };
+        return {
+          ...prev,
+          notes: sliceNotes(prev.notes, finished, zoomX, snapTick, focusedTrack),
+        };
       });
       setSliceState(null);
     }
@@ -623,6 +633,7 @@ export function PianoRoll({
 
       const newSelected = new Set<number>(e.shiftKey ? selectedIndices : []);
       progression?.notes.forEach((n, i) => {
+        if (focusedTrack !== null && trackIndexOf(n) !== focusedTrack) return;
         const nx = n.timeStart * zoomX;
         const ny = (MAX_MIDI - n.midi) * NOTE_HEIGHT;
         const nw = n.duration * zoomX;
@@ -668,6 +679,11 @@ export function PianoRoll({
       <div className="flex justify-between items-start mb-6 shrink-0">
         <h2 className="text-sm font-bold uppercase tracking-widest">
           Piano Roll Sequencer
+          {focusedTrack !== null && (
+            <span className="ml-2 text-[10px] font-mono text-[var(--accent)]">
+              · Track {focusedTrack + 1} focused
+            </span>
+          )}
         </h2>
         <div className="text-[10px] font-mono px-3 py-1.5 hardware-display rounded uppercase text-[var(--text-muted)]">
           {statusLabel}
@@ -864,6 +880,9 @@ export function PianoRoll({
 
                   {/* Notes */}
                   {progression.notes.map((n, i) => {
+                    if (focusedTrack !== null && trackIndexOf(n) !== focusedTrack) {
+                      return null;
+                    }
                     const isDragging =
                       dragState && dragState.notes.some((dn) => dn.index === i);
                     const isResizing =
@@ -978,6 +997,9 @@ export function PianoRoll({
                   }}
                 >
                   {progression.notes.map((n, i) => {
+                    if (focusedTrack !== null && trackIndexOf(n) !== focusedTrack) {
+                      return null;
+                    }
                     const isVelocityDragging =
                       dragVelocityState &&
                       dragVelocityState.notes.some((dn) => dn.index === i);
@@ -1054,6 +1076,7 @@ function drawnNote(
     timeStart: draw.startTick,
     duration,
     velocity: 0.8,
+    trackIndex: draw.trackIndex,
   };
 }
 
@@ -1063,6 +1086,7 @@ function sliceNotes(
   slice: BoxState,
   zoomX: number,
   snapTick: number,
+  focusedTrack: number | null = null,
 ): NoteEvent[] {
   const minLineX = Math.min(slice.startX, slice.currentX);
   const maxLineX = Math.max(slice.startX, slice.currentX);
@@ -1071,6 +1095,10 @@ function sliceNotes(
 
   const result: NoteEvent[] = [];
   for (const n of notes) {
+    if (focusedTrack !== null && trackIndexOf(n) !== focusedTrack) {
+      result.push(n);
+      continue;
+    }
     const nx = n.timeStart * zoomX;
     const ny = (MAX_MIDI - n.midi) * NOTE_HEIGHT;
     const nw = n.duration * zoomX;
