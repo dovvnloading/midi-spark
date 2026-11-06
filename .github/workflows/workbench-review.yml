@@ -67,7 +67,11 @@ jobs:
           before = "page.get_by_role('button',name='Generate pattern',exact=True).click()"
           after = "page.get_by_role('button',name='Generate pattern',exact=False).click()"
           assert before in source
-          suite.write_text(source.replace(before, after))
+          source = source.replace(before, after)
+          quota_before = """page.evaluate("Storage.prototype.setItem = () => { throw new DOMException('Quota', 'QuotaExceededError'); }")"""
+          quota_after = """page.evaluate("() => { Storage.prototype.setItem = () => { throw new DOMException('Quota', 'QuotaExceededError'); }; }")"""
+          assert quota_before in source
+          suite.write_text(source.replace(quota_before, quota_after))
 
           workflow = Path('.github/workflows/browser-qa.yml')
           yml = workflow.read_text()
