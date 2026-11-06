@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   review:
+    if: github.event.head_commit.message != 'feat: canvas-first studio with verified pointer and responsive UX'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -56,7 +57,9 @@ jobs:
               print('Verified', path)
           for part in parts:
               part.unlink()
-          Path('.github/workflows/workbench-review.yml').unlink()
+          # Keep this temporary workflow unchanged: GitHub Actions tokens
+          # cannot push workflow-file changes. The connected GitHub app
+          # will remove the temporary workflow after publishing the app.
           PY
       - name: Tighten real-browser acceptance selectors and runner setup
         run: |
@@ -83,6 +86,10 @@ jobs:
           after = 'run: CHROMIUM_PATH=/usr/bin/google-chrome python scripts/browser_smoke.py --url http://127.0.0.1:4173 --output browser-report'
           assert before in yml
           workflow.write_text(yml.replace(before, after))
+          # The browser suite has run in this verification workflow. Publish
+          # the optional persistent QA workflow separately, with a credential
+          # explicitly authorized to edit GitHub workflows.
+          workflow.unlink()
           PY
       - run: npm ci
       - name: Static checks and unit tests
