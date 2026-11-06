@@ -45,9 +45,9 @@ Generate chord progressions from musical parameters:
 
 ### Note Lab — Precision + Feel
 
-Expand **Note Lab** below the edit toolbar for three undoable, selection-aware
+Open **Transform** in the inspector for undoable, selection-aware
 transforms. Select notes first to target only those notes, or leave nothing
-selected to affect the whole pattern:
+selected to affect the focused track (the whole pattern in All tracks):
 
 * **Quantize** — pull note starts toward the nearest 1/4, 1/8, 1/16 or 1/32
   grid line. Strength from 0–100% lets you tighten a groove without flattening
@@ -72,9 +72,9 @@ MIDI notes. Effects are shared per synth preset.
 Click a track's name to **focus that lane** in the piano roll: only its notes
 and velocity bars appear, and notes drawn or stamped there are assigned to the
 focused track. Lasso and slice operate only within the focused lane, and
-`Ctrl+A` selects its visible notes. **All lanes** restores the combined view.
-Note Lab transforms and CHOP still affect *all* notes if you don't explicitly
-select any; use selection when you want to restrict those operations.
+`Ctrl+A` selects its visible notes. **All tracks** restores the combined view.
+Note Lab transforms and CHOP honor the focused track when nothing is selected.
+A selection further restricts the operation. The inspector displays the scope.
 
 Track controls and focus are session-local. Mix settings autosave for a future
 visit but are not embedded in exported MIDI. Imported track names, MIDI program
@@ -105,15 +105,35 @@ instrument, track mixer, snap/note-length, zoom) are autosaved to `localStorage`
 restored on your next visit. A "Clear saved session" control (next to Load
 MIDI) resets this without touching your current in-progress work.
 
-## Getting started
+## The canvas-first workspace
 
-1. Pick a key, mode, and how much tension or rhythmic complexity you want.
-2. Choose **Generate a pattern** in the empty piano roll or **Generate Chord Progression** in the sidebar. On narrow screens, tap **Settings** to open the generation controls.
-3. Press **Space** to play, or hit **Load MIDI** / **Import MIDI** to bring in a pattern. Use **?** or the keyboard icon in the transport to see all shortcuts.
+The transport and file actions stay in a compact top bar. The piano roll occupies
+the remaining working area, with a persistent chord lane and individually editable
+velocity stems. One inspector switches between **Compose**, **Transform**, and
+**Tracks** without pushing the canvas offscreen. On small screens the inspector is
+a dismissible side sheet.
 
-The main workspace scrolls vertically on shorter displays, and the transport and editing toolbars scroll sideways when there are more controls than can fit onscreen. The piano-roll canvas scrolls independently in both directions.
+**Create:** choose a key, tension, rhythm and length in Compose, then Generate.
+A blank session is available from the empty state for drawing by hand. Generate is
+also available with Ctrl/⌘+G. Generation replaces the current pattern; Undo restores it.
 
-Editing feedback appears as a small, dismissible notification rather than a blocking alert. Generate and import work even before the browser grants audio permission; audio starts when you press Play or audition a note.
+**Edit:** select Draw, Select, Stamp, Slice or Hand. Mouse, pen and touch use the
+same pointer gestures; Hand pans the canvas without modifying notes. Fit (F)
+frames the pattern horizontally and vertically. Use Ctrl/⌘+wheel for horizontal
+zoom, or Shift+wheel to move through the timeline. The visible keyboard keeps the
+full MIDI range available even when the pattern is framed.
+
+**Transform:** selected notes take priority. Without a selection, transformations
+affect the focused track, or the whole pattern in All tracks view. An empty track
+never falls back to editing hidden tracks. The scope and note count are displayed
+above quantize, transpose, humanize, swing and reshape actions.
+
+**Mix:** track focus, instrument, level, mute and solo are in Tracks. Mix settings
+change browser playback, not the exported MIDI note velocities or programs.
+
+The status bar reports the actual autosave result. If browser storage fails,
+export MIDI to retain your work. The More menu contains shortcuts and Clear
+browser autosave; clearing autosave does not erase the working pattern.
 
 ## Keyboard Shortcuts
 
@@ -129,7 +149,10 @@ Editing feedback appears as a small, dismissible notification rather than a bloc
 | `Ctrl+wheel` | Zoom (anchored at cursor) |
 | `Shift+wheel` | Horizontal scroll |
 | `?` | Open in-app keyboard shortcut guide |
-| `Escape` | Clear note selection (or close shortcut help) |
+| `Escape` | Clear note selection (or close help / mobile inspector) |
+| `B` / `V` / `S` / `C` / `H` | Draw / Select / Stamp / Slice / Hand |
+| `F` | Fit the complete pattern to the canvas |
+| `Ctrl/⌘+G` | Generate a new pattern |
 
 `Ctrl+C` only intercepts the shortcut when notes are selected — with nothing
 selected, normal browser text-copy still works everywhere on the page.
@@ -197,3 +220,26 @@ Every push to `main` deploys to GitHub Pages via `.github/workflows/deploy-pages
 ## License
 
 [MIT](LICENSE) — designed and developed by Matthew Wesney.
+
+## Browser regression checks
+
+`.github/workflows/browser-qa.yml` builds the app and exercises the production
+bundle in Chromium. It checks pointer drawing, selection/undo, dragging, resize,
+emulated touch and cancellation, Hand panning, focused-track transformations,
+mute/solo/level, playback controls, dialog focus, mobile inspector navigation,
+real browser reload persistence, MIDI download/re-import, and layout at six
+viewport sizes from 375px to 1440px. Screenshots and geometry are retained as CI
+artifacts. These are browser-emulation checks, not a claim of Safari or physical
+phone/stylus-device certification.
+
+To reproduce locally (Python 3.11+ and Node 22):
+
+```bash
+npm ci
+npm run build
+python -m pip install playwright==1.57.0
+python -m playwright install chromium
+npm run preview -- --host 127.0.0.1 --port 4173
+# In another terminal:
+python scripts/browser_smoke.py --url http://127.0.0.1:4173
+```

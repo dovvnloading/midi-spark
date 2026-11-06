@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Upload } from "lucide-react";
+import { Upload, Check, HardDrive, Music2 } from "lucide-react";
 import {
   generateSequence,
   ProgressionData,
@@ -43,6 +43,8 @@ import {
   type TrackSettings,
 } from "./lib/tracks";
 import { Sidebar } from "./components/Sidebar";
+import { Inspector, type InspectorTab } from "./components/Inspector";
+import { editScope } from "./lib/editScope";
 import { TransportBar } from "./components/TransportBar";
 import { EditToolbar, ToolMode } from "./components/EditToolbar";
 import { TransformBar } from "./components/TransformBar";
@@ -120,6 +122,18 @@ export default function App() {
   );
   const [zoomX, setZoomX] = useState(savedSession?.zoomX ?? 60);
   const [swingAmount, setSwingAmount] = useState(0);
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>("compose");
+  const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
+  const [desktopInspectorOpen, setDesktopInspectorOpen] = useState(true);
+  const [fitRequest, setFitRequest] = useState(0);
+  const [saveState, setSaveState] = useState<"saving" | "saved" | "unavailable" | "cleared">("saved");
+  const editTargets = useMemo(() => editScope(progression?.notes ?? [], selectedNoteIndices, visibleFocusedTrack), [progression, selectedNoteIndices, visibleFocusedTrack]);
+  const scopeLabel = selectedNoteIndices.size > 0 ? "Selected notes" : visibleFocusedTrack !== null ? (tracks.find(t => t.index === visibleFocusedTrack)?.name ?? "Focused track") : "Entire pattern";
+  const toggleInspector = () => {
+    if (window.matchMedia("(max-width: 760px)").matches) setMobileInspectorOpen(open => !open);
+    else setDesktopInspectorOpen(open => !open);
+  };
+  const openTracks = () => { setInspectorTab("tracks"); setDesktopInspectorOpen(true); setMobileInspectorOpen(true); };
 
   // Bumped when a new sequence should re-center the piano roll.
   const [scrollAnchorKey, setScrollAnchorKey] = useState(0);
@@ -143,6 +157,10 @@ export default function App() {
   }, [notice]);
 
   const isPlayingRef = useRef(false);
+  const playRequest = useRef(0);
+  const startingAudio = useRef(false);
+  const sequenceEndRef = useRef(0);
+  useEffect(() => { sequenceEndRef.current = progression ? sequenceEnd(progression) : 0; }, [progression]);
   const isLoopingRef = useRef(true);
   const isScrubbingRef = useRef(false);
   // Copied notes, normalized so the earliest timeStart among them is 0. A ref
@@ -180,7 +198,7 @@ export default function App() {
   // Debounced autosave of the session so a hard reload can restore it.
   useEffect(() => {
     autosaveTimeoutRef.current = setTimeout(() => {
-      saveSession({
+      const saved = saveSession({
         progression,
         root,
         mode,
@@ -194,6 +212,7 @@ export default function App() {
         zoomX,
         trackMix,
       });
+      setSaveState(saved ? "saved" : "unavailable");
     }, 400);
     return () => clearTimeout(autosaveTimeoutRef.current);
   }, [
@@ -222,14 +241,19 @@ export default function App() {
   // ----- Transport -----
 
   const handlePlay = useCallback(async () => {
-    if (!progression) return;
+    if (!progression?.notes.length || startingAudio.current) return;
+    const request = ++playRequest.current;
+    startingAudio.current = true;
     try {
       await initAudio();
     } catch (error) {
       console.error(error);
       notify("Audio could not start. Check browser permissions and try Play again.", "error");
       return;
+    } finally {
+      startingAudio.current = false;
     }
+    if (request !== playRequest.current) return;
     const endTick = sequenceEnd(progression);
     let startTick = currentTick;
     if (startTick >= endTick) {
@@ -244,7 +268,7 @@ export default function App() {
       {
         onTick: (tick) => {
           if (!isScrubbingRef.current) {
-            setCurrentTick(isLoopingRef.current ? tick % endTick : tick);
+            setCurrentTick(isLoopingRef.current && sequenceEndRef.current > 0 ? tick % sequenceEndRef.current : tick);
           }
         },
         onEnded: () => {
@@ -259,6 +283,7 @@ export default function App() {
   }, [progression, bpm, currentTick, notify]);
 
   const handleStop = useCallback(() => {
+    playRequest.current++;
     setIsPlaying(false);
     isPlayingRef.current = false;
     setCurrentTick(0);
@@ -302,6 +327,10 @@ export default function App() {
 
   const handleTrackChange = useCallback(
     (index: number, changes: Partial<TrackSettings>) => {
+      if (tracks.length === 1 && changes.synthType) {
+        setSynthTypeState(changes.synthType);
+        setSynthType(changes.synthType);
+      }
       setTrackOverrides((prev) => ({
         ...prev,
         [index]: {
@@ -310,7 +339,7 @@ export default function App() {
         },
       }));
     },
-    [trackMix, synthType],
+    [trackMix, synthType, tracks.length],
   );
 
   const handleFocusTrack = useCallback((index: number | null) => {
@@ -325,12 +354,14 @@ export default function App() {
   const handleClearSavedSession = useCallback(() => {
     clearTimeout(autosaveTimeoutRef.current);
     clearSession();
+    setSaveState("cleared");
     notify("Saved session cleared. Current work stays open; future edits will autosave.", "info");
   }, [notify]);
 
   // ----- Generation -----
 
   const handleGenerate = useCallback(() => {
+    handleStop();
     const seq = generateSequence(root, mode, bars, dissonance, complexity);
     commit(seq);
     setSelectedNoteIndices(new Set());
@@ -338,8 +369,10 @@ export default function App() {
     setFocusedTrack(null);
     setCurrentTick(0);
     setScrollAnchorKey((k) => k + 1);
+    setFitRequest(k => k + 1);
+    setMobileInspectorOpen(false);
     notify("Generated a " + seq.totalBars + "-bar pattern in " + root + " " + mode + ".", "success");
-  }, [root, mode, bars, dissonance, complexity, commit, notify]);
+  }, [root, mode, bars, dissonance, complexity, commit, notify, handleStop]);
 
   const handleGenerateVariations = useCallback(() => {
     if (!progression) return;
@@ -384,32 +417,39 @@ export default function App() {
         if (fileBpm) {
           setBpm(clamp(Math.round(fileBpm), MIN_BPM, MAX_BPM));
         }
+        handleStop();
         commit(parsed);
         setSelectedNoteIndices(new Set());
         setTrackOverrides({});
         setFocusedTrack(null);
         setCurrentTick(0);
         setScrollAnchorKey((k) => k + 1);
+        setFitRequest(k => k + 1);
+        setMobileInspectorOpen(false);
+        if (listTracks(parsed).length > 1) setInspectorTab("tracks");
         notify("Imported " + file.name + " · " + parsed.notes.length + " notes.", "success");
       } catch (err) {
         console.error(err);
         notify("Couldn't read this MIDI file. Try another .mid or .midi file.", "error");
       }
     },
-    [commit, notify],
+    [commit, notify, handleStop],
   );
 
   // ----- Editing -----
 
   const handleChopSelected = useCallback(() => {
-    const selected = selectedNoteIndices;
+    const selected = editTargets;
+    if (selected.size === 0) return;
     commit((prev) => {
       if (!prev) return prev;
       const chopLen = noteLength;
       const newNotes: typeof prev.notes = [];
+      let changed = false;
       prev.notes.forEach((n, i) => {
-        const shouldChop = selected.size === 0 || selected.has(i);
+        const shouldChop = selected.has(i);
         if (shouldChop && n.duration > chopLen + 0.001) {
+          changed = true;
           let t = n.timeStart;
           const end = n.timeStart + n.duration;
           while (t < end - 0.001) {
@@ -422,10 +462,10 @@ export default function App() {
           newNotes.push(n);
         }
       });
-      return { ...prev, notes: newNotes };
+      return changed ? { ...prev, notes: newNotes } : prev;
     });
     setSelectedNoteIndices(new Set());
-  }, [selectedNoteIndices, noteLength, commit]);
+  }, [editTargets, noteLength, commit]);
 
   const deleteSelected = useCallback(() => {
     const selected = selectedNoteIndices;
@@ -471,6 +511,7 @@ export default function App() {
     const pasted = clip.map((n) => ({
       ...n,
       timeStart: n.timeStart + pasteTick,
+      ...(visibleFocusedTrack === null ? {} : { trackIndex: visibleFocusedTrack }),
     }));
     commit((prev) =>
       prev
@@ -478,11 +519,19 @@ export default function App() {
         : prev,
     );
     setSelectedNoteIndices(new Set(pasted.map((_, i) => startIndex + i)));
-  }, [progression, currentTick, commit]);
+  }, [progression, currentTick, commit, visibleFocusedTrack]);
 
   const handleApplySwing = useCallback(() => {
-    commit((prev) => (prev ? applySwing(prev, swingAmount) : prev));
-  }, [swingAmount, commit]);
+    if (editTargets.size === 0) return;
+    commit((prev) => {
+      if (!prev) return prev;
+      const targeted = prev.notes.filter((_, i) => editTargets.has(i));
+      const swung = applySwing({ ...prev, notes: targeted }, swingAmount);
+      if (swung.notes.every((n, i) => n === targeted[i])) return prev;
+      let index = 0;
+      return ensureBarsCoverNotes({ ...prev, notes: prev.notes.map((n, i) => editTargets.has(i) ? swung.notes[index++] : n) });
+    });
+  }, [swingAmount, commit, editTargets]);
 
   const handleDuplicateBar = useCallback(() => {
     const barStart = Math.floor(currentTick / 4) * 4;
@@ -490,7 +539,7 @@ export default function App() {
     commit((prev) => {
       if (!prev) return prev;
       const barNotes = prev.notes.filter(
-        (n) => n.timeStart >= barStart && n.timeStart < barEnd,
+        (n, index) => editTargets.has(index) && n.timeStart >= barStart && n.timeStart < barEnd,
       );
       if (barNotes.length === 0) return prev;
       const duplicated = barNotes.map((n) => ({
@@ -499,33 +548,36 @@ export default function App() {
       }));
       return ensureBarsCoverNotes({ ...prev, notes: [...prev.notes, ...duplicated] });
     });
-  }, [currentTick, commit]);
+  }, [currentTick, commit, editTargets]);
 
   // ----- Note Lab: selection-aware, undoable transforms -----
 
   const handleQuantize = useCallback(
     (grid: number, strength: number) => {
-      const selection = selectedNoteIndices;
+      const selection = editTargets;
+      if (selection.size === 0) return;
       commit((prev) =>
         prev ? quantizeNotes(prev, grid, strength, selection) : prev,
       );
     },
-    [selectedNoteIndices, commit],
+    [editTargets, commit],
   );
 
   const handleTranspose = useCallback(
     (semitones: number) => {
-      const selection = selectedNoteIndices;
+      const selection = editTargets;
+      if (selection.size === 0) return;
       commit((prev) =>
         prev ? transposeNotes(prev, semitones, selection) : prev,
       );
     },
-    [selectedNoteIndices, commit],
+    [editTargets, commit],
   );
 
   const handleHumanize = useCallback(
     (amount: number) => {
-      const selection = selectedNoteIndices;
+      const selection = editTargets;
+      if (selection.size === 0) return;
       // Seed before dispatch. Recreate the RNG inside the reducer updater so
       // React StrictMode's double evaluation yields exactly the same notes.
       const seed = Math.floor(Math.random() * 0x100000000);
@@ -533,7 +585,7 @@ export default function App() {
         prev ? humanizeNotes(prev, amount, selection, seededRandom(seed)) : prev,
       );
     },
-    [selectedNoteIndices, commit],
+    [editTargets, commit],
   );
 
   // ----- Keyboard shortcuts -----
@@ -541,25 +593,25 @@ export default function App() {
   // state; the old effect-with-deps version acted on stale history.
   const keyHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
   const onKeyDown = (e: KeyboardEvent) => {
-    if (shortcutsOpen) return;
-    const target = e.target as HTMLElement | null;
-    // Controls and dialogs own their keyboard input. Space must not toggle
-    // playback while activating a focused button.
-    if (target?.closest(
-      'input, textarea, select, button, [role="spinbutton"], [role="slider"], [role="listbox"], [role="dialog"], [contenteditable="true"]',
-    )) return;
-
+    if (e.defaultPrevented || shortcutsOpen) return;
+    const target = e.target instanceof HTMLElement ? e.target : null;
+    if (target?.closest('input, textarea, select, [role="dialog"], dialog, [contenteditable="true"]')) return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "g") {
+      e.preventDefault(); if (!e.repeat) handleGenerate(); return;
+    }
     if (e.key === "?" && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault();
-      setShortcutsOpen(true);
+      e.preventDefault(); setShortcutsOpen(true); return;
+    }
+    if (e.key === "Escape") {
+      if (mobileInspectorOpen) setMobileInspectorOpen(false);
+      else setSelectedNoteIndices(new Set());
       return;
     }
-    if (e.key === "Escape" && selectedNoteIndices.size > 0) {
-      e.preventDefault();
-      setSelectedNoteIndices(new Set());
-      return;
+    if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+      const modes: Record<string, ToolMode> = { b: "draw", v: "select", s: "stamp", c: "cut", h: "pan" };
+      if (modes[e.key.toLowerCase()]) { setToolMode(modes[e.key.toLowerCase()]); return; }
+      if (e.key.toLowerCase() === "f") { e.preventDefault(); setFitRequest(k => k + 1); return; }
     }
-
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
       e.preventDefault();
       if (e.shiftKey) redo();
@@ -586,6 +638,7 @@ export default function App() {
       return;
     }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
+      if (!clipboardRef.current?.length) return;
       e.preventDefault();
       handlePasteClipboard();
       return;
@@ -598,6 +651,7 @@ export default function App() {
       return;
     }
     if (e.code === "Space") {
+      if (e.repeat || target?.closest('button, summary, [role="tab"]')) return;
       e.preventDefault();
       if (isPlayingRef.current) handleStop();
       else handlePlay();
@@ -656,130 +710,59 @@ export default function App() {
     await loadMidiFile(file);
   };
 
+  const startBlank = () => {
+    handleStop();
+    commit({ notes: [], chords: [], totalBars: bars });
+    setSelectedNoteIndices(new Set()); setTrackOverrides({}); setFocusedTrack(null);
+    setToolMode("draw"); setScrollAnchorKey(k => k + 1); setFitRequest(k => k + 1); setMobileInspectorOpen(false);
+  };
+  const hasNotes = !!progression?.notes.length;
+  const displayedSynth = tracks.length === 1 ? trackMix[tracks[0].index]?.synthType ?? synthType : synthType;
   return (
-    <div
-      className="h-dvh min-h-0 w-full flex flex-col lg:flex-row overflow-hidden font-sans relative"
-      onDragEnter={handleDragEnter}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      {isDraggingMidi && (
-        <div className="absolute inset-0 z-[100] bg-[var(--piano-black)]/80 backdrop-blur-sm flex items-center justify-center border-4 border-dashed border-[var(--accent)] font-bold text-2xl text-[var(--accent)] pointer-events-none">
-          <div className="flex flex-col items-center gap-4">
-            <Upload size={48} className="animate-bounce" />
-            <span>Drop MIDI file to load</span>
+    <div className={"workbench" + (!desktopInspectorOpen ? " inspector-collapsed" : "")} onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+      {isDraggingMidi && <div className="file-drop-overlay"><Upload size={36} /><h2>Drop your MIDI here</h2><p>Your current pattern is recoverable with Undo.</p></div>}
+      <TransportBar isPlaying={isPlaying} canPlay={hasNotes} canUndo={canUndo} canRedo={canRedo} isLooping={isLooping} bpm={bpm} currentTick={currentTick}
+        onPlay={handlePlay} onStop={handleStop} onUndo={undo} onRedo={redo} onToggleLoop={toggleLooping} onBpmChange={setBpm}
+        onLoadFile={loadMidiFile} onExport={handleExport} onClearSavedSession={handleClearSavedSession} onOpenShortcuts={() => setShortcutsOpen(true)} onToggleInspector={toggleInspector} />
+      <div className="workspace">
+        <Inspector tab={inspectorTab} onTabChange={setInspectorTab} mobileOpen={mobileInspectorOpen} onClose={() => setMobileInspectorOpen(false)}
+          compose={<Sidebar root={root} mode={mode} dissonance={dissonance} complexity={complexity} bars={bars} canVary={hasNotes}
+            synthType={displayedSynth} multiTrack={tracks.length > 1} onSynthChange={handleSynthChange} onOpenTracks={openTracks}
+            onRootChange={setRoot} onModeChange={setMode} onDissonanceChange={setDissonance} onComplexityChange={setComplexity} onBarsChange={setBars}
+            onGenerate={handleGenerate} onAddVariation={handleGenerateVariations} />}
+          transform={<TransformBar noteCount={editTargets.size} selectedCount={selectedNoteIndices.size} scopeLabel={scopeLabel}
+            onQuantize={handleQuantize} onTranspose={handleTranspose} onHumanize={handleHumanize} swingAmount={swingAmount}
+            onSwingAmountChange={setSwingAmount} onApplySwing={handleApplySwing} noteLength={noteLength} onNoteLengthChange={setNoteLength}
+            onChop={handleChopSelected} onDuplicateBar={handleDuplicateBar} />}
+          tracks={<TrackStudio tracks={tracks} mixer={trackMix} defaultSynth={synthType} focusedTrack={visibleFocusedTrack} onFocusTrack={handleFocusTrack} onChange={handleTrackChange} />}
+        />
+        <main className="editor-main" aria-label="MIDI editor">
+          <div className="editor-context"><div className="editor-title"><Music2 size={16} /><h1>Piano roll</h1><span className="context-separator">/</span>
+            <span>{progression ? root + " " + mode : "New session"}</span></div>
+            <div className="editor-context-right">{progression && <><span className="pattern-length">{progression.totalBars} bars</span>
+              <select aria-label="Edit track" value={visibleFocusedTrack ?? "all"} onChange={event => handleFocusTrack(event.target.value === "all" ? null : Number(event.target.value))}>
+                <option value="all">All tracks</option>{tracks.map(t => <option key={t.index} value={t.index}>{t.name}</option>)}
+              </select></>}
+              <span className="time-signature">4/4</span>
+            </div>
           </div>
-        </div>
-      )}
-
-      <Sidebar
-        root={root}
-        mode={mode}
-        dissonance={dissonance}
-        complexity={complexity}
-        bars={bars}
-        canVary={!!progression}
-        onRootChange={setRoot}
-        onModeChange={setMode}
-        onDissonanceChange={setDissonance}
-        onComplexityChange={setComplexity}
-        onBarsChange={setBars}
-        onGenerate={handleGenerate}
-        onAddVariation={handleGenerateVariations}
-      />
-
-      <main className="flex-1 min-w-0 min-h-0 flex flex-col p-3 lg:p-4 gap-3 overflow-y-auto">
-        <TransportBar
-          isPlaying={isPlaying}
-          canPlay={!!progression}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          followPlayback={followPlayback}
-          isLooping={isLooping}
-          bpm={bpm}
-          synthType={synthType}
-          multiTrack={tracks.length > 1}
-          onPlay={handlePlay}
-          onStop={handleStop}
-          onUndo={undo}
-          onRedo={redo}
-          onToggleFollow={() => setFollowPlayback((f) => !f)}
-          onToggleLoop={toggleLooping}
-          onBpmChange={setBpm}
-          onSynthChange={handleSynthChange}
-          onLoadFile={loadMidiFile}
-          onExport={handleExport}
-          onClearSavedSession={handleClearSavedSession}
-          onOpenShortcuts={() => setShortcutsOpen(true)}
-        />
-
-        <EditToolbar
-          toolMode={toolMode}
-          stampType={stampType}
-          noteLength={noteLength}
-          snapResolution={snapResolution}
-          zoomX={zoomX}
-          swingAmount={swingAmount}
-          hasNotes={!!progression?.notes.length}
-          onToolModeChange={setToolMode}
-          onStampTypeChange={setStampType}
-          onNoteLengthChange={setNoteLength}
-          onSnapResolutionChange={setSnapResolution}
-          onZoomChange={setZoomX}
-          onSwingAmountChange={setSwingAmount}
-          onChop={handleChopSelected}
-          onDuplicateBar={handleDuplicateBar}
-          onApplySwing={handleApplySwing}
-        />
-        <TrackStudio
-          tracks={tracks}
-          mixer={trackMix}
-          defaultSynth={synthType}
-          focusedTrack={visibleFocusedTrack}
-          onFocusTrack={handleFocusTrack}
-          onChange={handleTrackChange}
-        />
-
-
-        <PianoRoll
-          progression={progression}
-          onGenerate={handleGenerate}
-          onLoadFile={loadMidiFile}
-          focusedTrack={visibleFocusedTrack}
-          root={root}
-          mode={mode}
-          statusLabel={
-            progression
-              ? `${progression.totalBars} bars · ${root} ${mode}`
-              : "Ready to create"
-          }
-          selectedIndices={selectedNoteIndices}
-          toolMode={toolMode}
-          stampType={stampType}
-          noteLength={noteLength}
-          snapResolution={snapResolution}
-          zoomX={zoomX}
-          isPlaying={isPlaying}
-          currentTick={currentTick}
-          followPlayback={followPlayback}
-          scrollAnchorKey={scrollAnchorKey}
-          onSelectionChange={setSelectedNoteIndices}
-          commit={commit}
-          onZoomChange={setZoomX}
-          onScrub={handleScrub}
-          onScrubStateChange={handleScrubStateChange}
-          onLivePreview={setLivePreview}
-        />
-        <TransformBar
-          noteCount={progression?.notes.length ?? 0}
-          selectedCount={selectedNoteIndices.size}
-          onQuantize={handleQuantize}
-          onTranspose={handleTranspose}
-          onHumanize={handleHumanize}
-        />
-
-      </main>
+          <EditToolbar toolMode={toolMode} stampType={stampType} noteLength={noteLength} snapResolution={snapResolution} zoomX={zoomX}
+            followPlayback={followPlayback} inspectorOpen={desktopInspectorOpen} onToolModeChange={setToolMode} onStampTypeChange={setStampType}
+            onNoteLengthChange={setNoteLength} onSnapResolutionChange={setSnapResolution} onZoomChange={setZoomX}
+            onToggleFollow={() => setFollowPlayback(f => !f)} onFit={() => setFitRequest(k => k + 1)} onToggleInspector={toggleInspector} />
+          <PianoRoll progression={progression} focusedTrack={visibleFocusedTrack} root={root} mode={mode} statusLabel={scopeLabel}
+            onGenerate={handleGenerate} onStartBlank={startBlank} onLoadFile={loadMidiFile} selectedIndices={selectedNoteIndices}
+            toolMode={toolMode} stampType={stampType} noteLength={noteLength} snapResolution={snapResolution} zoomX={zoomX}
+            fitRequest={fitRequest} isPlaying={isPlaying} currentTick={currentTick} followPlayback={followPlayback}
+            scrollAnchorKey={scrollAnchorKey} onSelectionChange={setSelectedNoteIndices} commit={commit} onZoomChange={setZoomX}
+            onScrub={handleScrub} onScrubStateChange={handleScrubStateChange} onLivePreview={setLivePreview} />
+        </main>
+      </div>
+      <footer className="app-status"><span className="save-status">{saveState === "saved" ? <Check size={12} /> : <HardDrive size={12} />}
+        {saveState === "saved" ? "Saved in this browser" : saveState === "unavailable" ? "Autosave unavailable — export to keep your work" : saveState === "cleared" ? "Browser autosave cleared" : "Saving…"}</span>
+        <span className="status-hints"><kbd>Space</kbd> Play / stop <i>·</i><kbd>B</kbd> Draw <i>·</i><kbd>V</kbd> Select <i>·</i><kbd>H</kbd> Hand</span>
+        <button onClick={() => setShortcutsOpen(true)} aria-label="Open keyboard shortcuts"><kbd>?</kbd><span>Shortcuts</span></button>
+      </footer>
       <ShortcutHelp open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <StatusToast notice={notice} onDismiss={() => setNotice(null)} />
     </div>
