@@ -727,25 +727,33 @@ export function PianoRoll({
           onContextMenu={(e) => e.preventDefault()}
         >
           {!progression ? (
-            <div className="absolute inset-0 flex items-center justify-center px-4 py-8 bg-[radial-gradient(ellipse_at_center,rgba(94,124,246,0.12),transparent_65%)]">
-              <div className="flex flex-col items-center text-center max-w-sm">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-[var(--accent)]/10 border border-[var(--accent)]/30 mb-5 text-2xl" aria-hidden="true">
-                  ♫
+            <div className="absolute inset-0 flex items-center justify-center overflow-y-auto bg-[#101825] px-4 py-6">
+              <div
+                className="pointer-events-none absolute inset-0 opacity-40"
+                aria-hidden="true"
+                style={{
+                  backgroundImage: "linear-gradient(rgba(160,180,220,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(160,180,220,0.06) 1px, transparent 1px)",
+                  backgroundSize: "30px 30px",
+                }}
+              />
+              <div className="relative flex max-w-md flex-col items-center text-center">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-[#4b5c83] bg-[#293a5a] text-[var(--accent)]" aria-hidden="true">
+                  <Music2 size={22} />
                 </div>
-                <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">
-                  Make something unexpected.
+                <p className="studio-kicker mb-2">New session</p>
+                <h3 className="text-xl font-semibold tracking-tight text-white">
+                  Start with a pattern
                 </h3>
-                <p className="text-sm text-[var(--text-muted)] mt-2 leading-relaxed">
-                  Choose a key, adjust the tension, and generate a MIDI loop.
-                  Or pick up where you left off by importing a file.
+                <p className="studio-meta mt-2 leading-relaxed">
+                  Generate a progression to edit in the piano roll, or import a MIDI file to pick up where you left off.
                 </p>
-                <div className="flex flex-wrap justify-center gap-3 mt-6">
+                <div className="mt-6 flex flex-wrap justify-center gap-2.5">
                   <button
                     type="button"
-                    className="hardware-btn hardware-btn-primary px-5 h-11 text-xs uppercase tracking-wide"
+                    className="hardware-btn hardware-btn-primary h-10 px-5 text-xs"
                     onClick={onGenerate}
                   >
-                    Generate a pattern
+                    Generate pattern
                   </button>
                   <input
                     type="file"
@@ -762,14 +770,14 @@ export function PianoRoll({
                   />
                   <button
                     type="button"
-                    className="hardware-btn px-5 h-11 text-xs uppercase tracking-wide"
+                    className="hardware-btn h-10 px-5 text-xs"
                     onClick={() => emptyImportRef.current?.click()}
                   >
                     Import MIDI
                   </button>
                 </div>
-                <p className="mt-5 text-xs text-[var(--text-muted)]">
-                  Space to play · Press ? for keyboard shortcuts
+                <p className="mt-5 text-[11px] text-[var(--text-subtle)]">
+                  Press <kbd className="rounded border border-[var(--border-strong)] px-1.5 py-0.5 font-mono">?</kbd> for shortcuts
                 </p>
               </div>
             </div>
@@ -778,13 +786,13 @@ export function PianoRoll({
               {/* Top Header Row (Sticky) */}
               <div className="flex sticky top-0 z-50">
                 <div
-                  className="h-[40px] sticky left-0 z-50 bg-[#16181d] border-b border-r border-[var(--border-color)] flex-shrink-0"
+                  className="h-[40px] sticky left-0 z-50 bg-[#1b2636] border-b border-r border-[var(--border-color)] flex-shrink-0"
                   style={{ width: `${KEYBOARD_WIDTH}px` }}
                 />
                 <div
                   ref={timelineRef}
                   onMouseDown={handleTimelineMouseDown}
-                  className="h-[40px] bg-[#16181d]/90 backdrop-blur-sm border-b border-[var(--border-color)] relative cursor-pointer group flex-1"
+                  className="h-[40px] bg-[#1b2636]/90 backdrop-blur-sm border-b border-[var(--border-color)] relative cursor-pointer group flex-1"
                   style={{ minWidth: `${contentWidth}px` }}
                   title="Click or drag to scrub playback"
                 >
@@ -805,7 +813,7 @@ export function PianoRoll({
               <div className="flex relative">
                 {/* Left Sticky Keyboard */}
                 <div
-                  className="sticky left-0 z-40 bg-[#16181d] shadow-[2px_0_5px_rgba(0,0,0,0.5)] border-r border-[var(--border-color)] flex-shrink-0"
+                  className="sticky left-0 z-40 bg-[#1b2636] shadow-[2px_0_5px_rgba(0,0,0,0.5)] border-r border-[var(--border-color)] flex-shrink-0"
                   style={{
                     width: `${KEYBOARD_WIDTH}px`,
                     height: `${PIANO_ROLL_HEIGHT}px`,
@@ -831,7 +839,7 @@ export function PianoRoll({
                           if (name) playNote(name);
                         }}
                         className={`absolute w-full border-b border-[var(--border-color)] flex items-center justify-end pr-1 text-[8px] font-mono hover:brightness-125 cursor-pointer active:brightness-90
-                        ${isBlack ? "bg-[#111216] text-[var(--text-muted)]" : "bg-[var(--piano-white)] text-[var(--text-main)]"}
+                        ${isBlack ? "bg-[#101722] text-[var(--text-muted)]" : "bg-[var(--piano-white)] text-[var(--text-main)]"}
                         ${isC ? "font-bold text-[var(--accent)] border-t border-[var(--border-color)]" : ""}
                         ${isInScale ? "shadow-[inset_0_0_0_999px_rgba(94,124,246,0.08)]" : ""}`}
                         style={{
@@ -853,9 +861,9 @@ export function PianoRoll({
                     minWidth: `${contentWidth}px`,
                     height: `${PIANO_ROLL_HEIGHT}px`,
                     backgroundImage: `
-                      linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px),
-                      linear-gradient(to right, var(--border-color) 1px, transparent 1px),
-                      linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px)
+                      linear-gradient(to bottom, rgba(177,195,231,0.08) 1px, transparent 1px),
+                      linear-gradient(to right, var(--border-strong) 1px, transparent 1px),
+                      linear-gradient(to right, rgba(177,195,231,0.045) 1px, transparent 1px)
                     `,
                     backgroundSize: `100% ${NOTE_HEIGHT}px, ${zoomX * 4}px 100%, ${zoomX}px 100%`,
                     backgroundPosition: "0 0, 0 0, 0 0",
@@ -892,7 +900,7 @@ export function PianoRoll({
                   {progression.chords.map((c, i) => (
                     <div
                       key={`c-${i}`}
-                      className="absolute text-[10px] font-mono font-bold text-white bg-[var(--accent)]/50 border border-[var(--accent)]/30 px-1.5 py-0.5 rounded shadow-sm z-20 backdrop-blur-sm uppercase pointer-events-none"
+                      className="absolute z-20 rounded-md border border-[#4a6087] bg-[#293c5d] px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase text-[#e3e9ff] pointer-events-none"
                       style={{
                         left: `${c.timeStart * zoomX + 4}px`,
                         top: "4px",
@@ -905,10 +913,10 @@ export function PianoRoll({
                   {/* Playhead */}
                   {isPlaying && (
                     <div
-                      className="absolute top-0 bottom-0 w-0 border-l-[2px] border-[#fc3c3c] shadow-[0_0_12px_rgba(252,60,60,0.8)] z-30 pointer-events-none"
+                      className="absolute top-0 bottom-0 w-0 border-l-[2px] border-[#f78083] z-30 pointer-events-none"
                       style={{ left: `${currentTick * zoomX}px` }}
                     >
-                      <div className="absolute top-0 left-[-6px] w-[13px] h-[13px] bg-[#fc3c3c] rounded-b-sm shadow-[0_2px_4px_rgba(0,0,0,0.5)]"></div>
+                      <div className="absolute top-0 left-[-6px] w-[13px] h-[13px] bg-[#f78083] rounded-b-sm"></div>
                     </div>
                   )}
 
@@ -1017,9 +1025,9 @@ export function PianoRoll({
                           className={`absolute inset-[1px] rounded-[3px] border shadow-sm transition-colors duration-100 overflow-hidden
                             ${
                               isPlayingNote
-                                ? "bg-emerald-400 border-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.5)] z-30"
+                                ? "bg-emerald-400 border-emerald-300 shadow-sm z-30"
                                 : isSelected
-                                  ? "bg-violet-500 border-violet-400 shadow-[0_0_4px_rgba(139,92,246,0.5)] z-20"
+                                  ? "bg-violet-500 border-violet-400 shadow-sm z-20"
                                   : hasTrackColors && n.trackIndex !== undefined
                                     ? `${getTrackColorClasses(n.trackIndex)} group-hover:brightness-110`
                                     : "bg-[var(--accent)] border-blue-400 group-hover:brightness-110"
@@ -1027,7 +1035,7 @@ export function PianoRoll({
                           `}
                         >
                           {showLabel && (
-                            <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[8px] font-mono font-bold text-white/70 pointer-events-none select-none">
+                            <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[10px] font-mono font-semibold text-[#f5f7ff] pointer-events-none select-none">
                               {Note.fromMidi(renderMidi) || ""}
                             </span>
                           )}
@@ -1056,13 +1064,13 @@ export function PianoRoll({
               {/* Velocity Lane */}
               <div className="flex sticky bottom-0 z-40">
                 <div
-                  className="sticky left-0 z-40 bg-[#16181d] border-t border-r border-[var(--border-color)] flex-shrink-0 flex items-center justify-center"
+                  className="sticky left-0 z-40 bg-[#1b2636] border-t border-r border-[var(--border-color)] flex-shrink-0 flex items-center justify-center"
                   style={{
                     width: `${KEYBOARD_WIDTH}px`,
                     height: `${VELOCITY_LANE_HEIGHT}px`,
                   }}
                 >
-                  <span className="text-[8px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
                     Vel
                   </span>
                 </div>
