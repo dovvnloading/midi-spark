@@ -1,6 +1,6 @@
 import { Midi } from "@tonejs/midi";
 import { Note } from "@tonaljs/tonal";
-import { ProgressionData, NoteEvent } from "./theory";
+import { ProgressionData, NoteEvent, TrackMetadata } from "./theory";
 
 export interface ImportedMidi {
   progression: ProgressionData;
@@ -24,13 +24,28 @@ export function exportToMidiBlob(data: ProgressionData, bpm: number): Blob {
     groups.get(index)?.push(note);
   }
 
+  // Imported empty melodic tracks still carry names, programs and channels.
+  data.tracks?.forEach((track) => {
+    if (Number.isInteger(track.index) && track.index >= 0 && !groups.has(track.index)) {
+      groups.set(track.index, []);
+    }
+  });
   if (groups.size === 0) groups.set(0, []);
   const sortedGroups = [...groups.entries()].sort(([a], [b]) => a - b);
   for (const [sourceIndex, notes] of sortedGroups) {
     const track = midi.addTrack();
-    track.name = sortedGroups.length === 1
+    const meta = data.tracks?.find((item) => item.index === sourceIndex);
+    track.name = meta?.name || (sortedGroups.length === 1
       ? "Midi Spark"
-      : "Midi Spark - Track " + (sourceIndex + 1);
+      : "Midi Spark - Track " + (sourceIndex + 1));
+    if (meta?.program !== undefined && Number.isInteger(meta.program) &&
+        meta.program >= 0 && meta.program <= 127) {
+      track.instrument.number = meta.program;
+    }
+    if (meta?.channel !== undefined && Number.isInteger(meta.channel) &&
+        meta.channel >= 0 && meta.channel <= 15 && meta.channel !== 9) {
+      track.channel = meta.channel;
+    }
     for (const note of notes) {
       track.addNote({
         midi: note.midi,
@@ -54,9 +69,16 @@ export function parseMidiBuffer(buffer: ArrayBuffer): ImportedMidi {
   const ppq = midi.header.ppq || 480;
 
   const notes: NoteEvent[] = [];
+  const tracks: TrackMetadata[] = [];
   let trackIndex = 0;
   for (const track of midi.tracks) {
     if (track.channel === 9) continue; // General MIDI percussion
+    tracks.push({
+      index: trackIndex,
+      name: track.name || "Track " + (trackIndex + 1),
+      program: track.instrument.number,
+      channel: track.channel,
+    });
     for (const n of track.notes) {
       notes.push({
         name: n.name || Note.fromMidi(n.midi) || "C4",
@@ -76,7 +98,7 @@ export function parseMidiBuffer(buffer: ArrayBuffer): ImportedMidi {
 
   const firstTempo = midi.header.tempos[0];
   return {
-    progression: { notes, chords: [], totalBars },
+    progression: { notes, chords: [], totalBars, tracks },
     bpm: firstTempo ? firstTempo.bpm : null,
   };
 }

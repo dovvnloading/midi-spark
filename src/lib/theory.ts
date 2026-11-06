@@ -22,10 +22,21 @@ export interface ChordEvent {
   duration: number;
 }
 
+export interface TrackMetadata {
+  index: number;
+  name: string;
+  /** General MIDI program (0-127), if known. */
+  program?: number;
+  /** Original MIDI channel (0-15); percussion is not imported. */
+  channel?: number;
+}
+
 export interface ProgressionData {
   notes: NoteEvent[];
   chords: ChordEvent[];
   totalBars: number;
+  /** Original melodic-track headers; generated sessions may omit these. */
+  tracks?: TrackMetadata[];
 }
 
 export const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11];

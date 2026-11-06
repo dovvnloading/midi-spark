@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Upload } from "lucide-react";
 import {
   generateSequence,
@@ -14,6 +14,7 @@ import {
   updateProgressionLive,
   stopAudio,
   setSynthType,
+  setTrackMixer,
   seekAudio,
   SynthType,
 } from "./lib/audio";
@@ -33,10 +34,19 @@ import {
   SavedSession,
 } from "./lib/persistence";
 import { useHistory } from "./hooks/useHistory";
+import {
+  defaultTrackSettings,
+  listTracks,
+  reconcileTrackMix,
+  trackIndexOf,
+  type TrackMix,
+  type TrackSettings,
+} from "./lib/tracks";
 import { Sidebar } from "./components/Sidebar";
 import { TransportBar } from "./components/TransportBar";
 import { EditToolbar, ToolMode } from "./components/EditToolbar";
 import { TransformBar } from "./components/TransformBar";
+import { TrackStudio } from "./components/TrackStudio";
 import { PianoRoll } from "./components/PianoRoll";
 
 function sequenceEnd(progression: ProgressionData): number {
@@ -84,6 +94,19 @@ export default function App() {
   } = useHistory<ProgressionData | null>(savedSession?.progression ?? null);
   const [selectedNoteIndices, setSelectedNoteIndices] = useState<Set<number>>(
     new Set(),
+  );
+  const [focusedTrack, setFocusedTrack] = useState<number | null>(null);
+  const [trackOverrides, setTrackOverrides] = useState<TrackMix>(
+    savedSession?.trackMix ?? {},
+  );
+  const tracks = useMemo(() => listTracks(progression), [progression]);
+  const visibleFocusedTrack =
+    focusedTrack !== null && tracks.some((track) => track.index === focusedTrack)
+      ? focusedTrack
+      : null;
+  const trackMix = useMemo(
+    () => reconcileTrackMix(progression, trackOverrides, synthType),
+    [progression, trackOverrides, synthType],
   );
 
   // Editing tools
@@ -133,6 +156,12 @@ export default function App() {
     });
   }, [savedSession]);
 
+  // Mixer changes (including mute/solo) update gain buses without restarting
+  // playback or rewriting the underlying MIDI note data.
+  useEffect(() => {
+    setTrackMixer(trackMix);
+  }, [trackMix]);
+
   // Debounced autosave of the session so a hard reload can restore it.
   useEffect(() => {
     autosaveTimeoutRef.current = setTimeout(() => {
@@ -148,6 +177,7 @@ export default function App() {
         snapResolution,
         noteLength,
         zoomX,
+        trackMix,
       });
     }, 400);
     return () => clearTimeout(autosaveTimeoutRef.current);
@@ -163,6 +193,7 @@ export default function App() {
     snapResolution,
     noteLength,
     zoomX,
+    trackMix,
   ]);
 
   // Keep the audio engine in sync with edits (including live drag previews),
@@ -237,6 +268,33 @@ export default function App() {
   const handleSynthChange = useCallback((type: SynthType) => {
     setSynthTypeState(type);
     setSynthType(type);
+    // The transport's global instrument picker retains the original
+    // single-track behavior. Multitrack patches live in Track Studio.
+    if (tracks.length <= 1 && tracks.length > 0) {
+      const id = tracks[0].index;
+      setTrackOverrides((prev) => ({
+        ...prev,
+        [id]: { ...(trackMix[id] ?? defaultTrackSettings(id, type)), synthType: type },
+      }));
+    }
+  }, [tracks, trackMix]);
+
+  const handleTrackChange = useCallback(
+    (index: number, changes: Partial<TrackSettings>) => {
+      setTrackOverrides((prev) => ({
+        ...prev,
+        [index]: {
+          ...(prev[index] ?? trackMix[index] ?? defaultTrackSettings(index, synthType)),
+          ...changes,
+        },
+      }));
+    },
+    [trackMix, synthType],
+  );
+
+  const handleFocusTrack = useCallback((index: number | null) => {
+    setFocusedTrack(index);
+    setSelectedNoteIndices(new Set());
   }, []);
 
   // Only affects what happens on a future reload — does not touch the
@@ -255,6 +313,8 @@ export default function App() {
     const seq = generateSequence(root, mode, bars, dissonance, complexity);
     commit(seq);
     setSelectedNoteIndices(new Set());
+    setTrackOverrides({});
+    setFocusedTrack(null);
     setCurrentTick(0);
     setScrollAnchorKey((k) => k + 1);
   }, [root, mode, bars, dissonance, complexity, commit]);
@@ -303,6 +363,8 @@ export default function App() {
         }
         commit(parsed);
         setSelectedNoteIndices(new Set());
+        setTrackOverrides({});
+        setFocusedTrack(null);
         setCurrentTick(0);
         setScrollAnchorKey((k) => k + 1);
       } catch (err) {
@@ -354,9 +416,15 @@ export default function App() {
 
   const selectAll = useCallback(() => {
     if (progression) {
-      setSelectedNoteIndices(new Set(progression.notes.map((_, i) => i)));
+      setSelectedNoteIndices(new Set(
+        progression.notes
+          .map((note, i) =>
+            visibleFocusedTrack === null || trackIndexOf(note) === visibleFocusedTrack ? i : -1,
+          )
+          .filter((index) => index >= 0),
+      ));
     }
-  }, [progression]);
+  }, [progression, visibleFocusedTrack]);
 
   const handleCopySelected = useCallback(() => {
     if (!progression || selectedNoteIndices.size === 0) return;
@@ -606,6 +674,15 @@ export default function App() {
           onClearSavedSession={handleClearSavedSession}
         />
 
+        <TrackStudio
+          tracks={tracks}
+          mixer={trackMix}
+          defaultSynth={synthType}
+          focusedTrack={visibleFocusedTrack}
+          onFocusTrack={handleFocusTrack}
+          onChange={handleTrackChange}
+        />
+
         <EditToolbar
           toolMode={toolMode}
           stampType={stampType}
@@ -634,6 +711,7 @@ export default function App() {
 
         <PianoRoll
           progression={progression}
+          focusedTrack={visibleFocusedTrack}
           root={root}
           mode={mode}
           statusLabel={

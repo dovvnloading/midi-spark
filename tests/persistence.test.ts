@@ -74,6 +74,33 @@ describe("saveSession / loadSession", () => {
     expect(loadSession()).toEqual(sampleSession);
   });
 
+  it("round-trips imported track metadata and custom mixer settings", () => {
+    const session: SavedSession = {
+      ...sampleSession,
+      progression: {
+        ...sampleProgression,
+        tracks: [
+          { index: 0, name: "Bass", program: 33, channel: 2 },
+          { index: 1, name: "Lead", program: 81, channel: 3 },
+        ],
+      },
+      trackMix: {
+        0: { synthType: "classic", muted: false, solo: false, level: 0.5 },
+        1: { synthType: "pluck", muted: true, solo: false, level: 0.8 },
+      },
+    };
+    saveSession(session);
+    expect(loadSession()).toEqual(session);
+  });
+
+  it("rejects corrupt mixer preferences rather than restoring invalid audio gain", () => {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+      ...sampleSession,
+      trackMix: { 0: { synthType: "unknown", level: -8, muted: "no", solo: false } },
+    }));
+    expect(loadSession()).toBeNull();
+  });
+
   it("round-trips a null progression (no sequence generated yet)", () => {
     const session: SavedSession = { ...sampleSession, progression: null };
     saveSession(session);
