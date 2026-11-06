@@ -20,6 +20,13 @@ import {
 import { exportToMidiBlob, parseMidiFile } from "./lib/midi";
 import { MAX_BPM, MIN_BPM, clamp } from "./lib/constants";
 import {
+  ensureBarsCoverNotes,
+  humanizeNotes,
+  quantizeNotes,
+  seededRandom,
+  transposeNotes,
+} from "./lib/transforms";
+import {
   loadSession,
   saveSession,
   clearSession,
@@ -29,6 +36,7 @@ import { useHistory } from "./hooks/useHistory";
 import { Sidebar } from "./components/Sidebar";
 import { TransportBar } from "./components/TransportBar";
 import { EditToolbar, ToolMode } from "./components/EditToolbar";
+import { TransformBar } from "./components/TransformBar";
 import { PianoRoll } from "./components/PianoRoll";
 
 function sequenceEnd(progression: ProgressionData): number {
@@ -373,7 +381,9 @@ export default function App() {
       timeStart: n.timeStart + pasteTick,
     }));
     commit((prev) =>
-      prev ? { ...prev, notes: [...prev.notes, ...pasted] } : prev,
+      prev
+        ? ensureBarsCoverNotes({ ...prev, notes: [...prev.notes, ...pasted] })
+        : prev,
     );
     setSelectedNoteIndices(new Set(pasted.map((_, i) => startIndex + i)));
   }, [progression, currentTick, commit]);
@@ -395,9 +405,44 @@ export default function App() {
         ...n,
         timeStart: n.timeStart + 4,
       }));
-      return { ...prev, notes: [...prev.notes, ...duplicated] };
+      return ensureBarsCoverNotes({ ...prev, notes: [...prev.notes, ...duplicated] });
     });
   }, [currentTick, commit]);
+
+  // ----- Note Lab: selection-aware, undoable transforms -----
+
+  const handleQuantize = useCallback(
+    (grid: number, strength: number) => {
+      const selection = selectedNoteIndices;
+      commit((prev) =>
+        prev ? quantizeNotes(prev, grid, strength, selection) : prev,
+      );
+    },
+    [selectedNoteIndices, commit],
+  );
+
+  const handleTranspose = useCallback(
+    (semitones: number) => {
+      const selection = selectedNoteIndices;
+      commit((prev) =>
+        prev ? transposeNotes(prev, semitones, selection) : prev,
+      );
+    },
+    [selectedNoteIndices, commit],
+  );
+
+  const handleHumanize = useCallback(
+    (amount: number) => {
+      const selection = selectedNoteIndices;
+      // Seed before dispatch. Recreate the RNG inside the reducer updater so
+      // React StrictMode's double evaluation yields exactly the same notes.
+      const seed = Math.floor(Math.random() * 0x100000000);
+      commit((prev) =>
+        prev ? humanizeNotes(prev, amount, selection, seededRandom(seed)) : prev,
+      );
+    },
+    [selectedNoteIndices, commit],
+  );
 
   // ----- Keyboard shortcuts -----
   // The handler lives in a ref so a single window listener always sees fresh
@@ -577,6 +622,14 @@ export default function App() {
           onChop={handleChopSelected}
           onDuplicateBar={handleDuplicateBar}
           onApplySwing={handleApplySwing}
+        />
+
+        <TransformBar
+          noteCount={progression?.notes.length ?? 0}
+          selectedCount={selectedNoteIndices.size}
+          onQuantize={handleQuantize}
+          onTranspose={handleTranspose}
+          onHumanize={handleHumanize}
         />
 
         <PianoRoll

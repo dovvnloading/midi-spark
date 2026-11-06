@@ -43,6 +43,24 @@ Generate chord progressions from musical parameters:
 * Snap grid from 1/4 down to 1/32 or free placement, `Ctrl+wheel` zoom to cursor
 * Full undo/redo history (50 steps)
 
+### Note Lab — Precision + Feel
+
+Expand **Note Lab** below the edit toolbar for three undoable, selection-aware
+transforms. Select notes first to target only those notes, or leave nothing
+selected to affect the whole pattern:
+
+* **Quantize** — pull note starts toward the nearest 1/4, 1/8, 1/16 or 1/32
+  grid line. Strength from 0–100% lets you tighten a groove without flattening
+  its feel; note durations remain unchanged.
+* **Transpose** — nudge pitches ±1 semitone or ±12 semitones (one octave).
+  Out-of-range MIDI pitches are left unchanged, never clipped to other notes.
+* **Humanize** — introduce controllable timing and velocity variations. Runs
+  are randomized but stable under React StrictMode; every application is one
+  undoable operation.
+
+Paste and Duplicate Bar now automatically extend the piano-roll canvas when
+notes spill past the end of the current sequence.
+
 ### Built-In Sound Engine
 
 Five Tone.js synthesizer presets, each with its own effect chain: Classic Analog,
@@ -56,7 +74,9 @@ live during playback — including while dragging notes.
   percussion, and auto-detects the key
 * Multi-track files are tagged per source track and colored distinctly in the
   piano roll (single-track imports render identically to a generated sequence)
-* Export produces a standard 480-PPQ MIDI file with tempo, ready for any DAW
+* Export produces a standard 480-PPQ MIDI file with tempo, ready for any DAW;
+  imported melodic track separation is preserved on export (instrument programs
+  and MIDI channel assignments are not yet retained)
 
 ### Session Persistence
 
@@ -117,6 +137,7 @@ src/
     Sidebar.tsx           generation controls
     TransportBar.tsx      play/stop, undo/redo, BPM, instrument, import/export
     EditToolbar.tsx       tool modes, stamps, chop/length/snap/zoom
+    TransformBar.tsx      Note Lab: quantize, transpose, humanize
     PianoRoll.tsx         grid, keys, timeline, notes, pointer interactions
     CustomDropdown.tsx    themed listbox
     CustomSlider.tsx      themed slider
@@ -126,6 +147,7 @@ src/
     useHistory.ts         reducer-based undo/redo store
   lib/
     theory.ts             progression generation, dissonance, key detection, swing
+    transforms.ts         selection-aware MIDI note transforms
     audio.ts              Tone.js synths, FX racks, transport
     midi.ts               MIDI file import/export (@tonejs/midi)
     persistence.ts        localStorage session save/load/clear
