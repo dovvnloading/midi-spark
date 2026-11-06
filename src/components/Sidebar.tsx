@@ -96,6 +96,9 @@ export function Sidebar({
             onChange={(v) => onModeChange(v as "major" | "minor")}
           />
         </div>
+        <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
+          These settings shape your next generation. Existing MIDI notes stay in place.
+        </p>
       </div>
 
       <div className="flex flex-col gap-4">

@@ -14,6 +14,7 @@ export interface TransportBarProps {
   isLooping: boolean;
   bpm: number;
   synthType: SynthType;
+  multiTrack: boolean;
   onPlay: () => void;
   onStop: () => void;
   onUndo: () => void;
@@ -37,6 +38,7 @@ export function TransportBar({
   isLooping,
   bpm,
   synthType,
+  multiTrack,
   onPlay,
   onStop,
   onUndo,
@@ -152,23 +154,32 @@ export function TransportBar({
             />
           </div>
 
-          <div className="flex items-center space-x-2 px-4 h-10 hardware-display rounded-full sm:ml-2 shrink-0">
-            <span className="text-xs font-semibold uppercase opacity-60">
-              Instrument:
-            </span>
-            <div className="w-44 -mr-2 shrink-0">
-              <CustomDropdown
-                ariaLabel="Default instrument"
-                options={SYNTH_OPTIONS.map((o) => ({
-                  label: o.label,
-                  value: o.value,
-                }))}
-                value={synthType}
-                onChange={(v) => onSynthChange(v as SynthType)}
-                className="bg-transparent border-none mt-[-2px]"
-              />
+          {multiTrack ? (
+            <div
+              className="flex items-center gap-2 px-4 h-10 hardware-display rounded-full sm:ml-2 shrink-0 text-[11px] text-[var(--text-muted)]"
+              title="Individual track instruments, mute/solo and volume are set in Track Studio below."
+            >
+              Instruments: Track Studio
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center space-x-2 px-4 h-10 hardware-display rounded-full sm:ml-2 shrink-0">
+              <span className="text-xs font-semibold uppercase opacity-70">
+                Instrument
+              </span>
+              <div className="w-44 -mr-2 shrink-0">
+                <CustomDropdown
+                  ariaLabel="Instrument preset"
+                  options={SYNTH_OPTIONS.map((o) => ({
+                    label: o.label,
+                    value: o.value,
+                  }))}
+                  value={synthType}
+                  onChange={(v) => onSynthChange(v as SynthType)}
+                  className="bg-transparent border-none mt-[-2px]"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">

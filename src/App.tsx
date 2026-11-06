@@ -699,6 +699,7 @@ export default function App() {
           isLooping={isLooping}
           bpm={bpm}
           synthType={synthType}
+          multiTrack={tracks.length > 1}
           onPlay={handlePlay}
           onStop={handleStop}
           onUndo={undo}
