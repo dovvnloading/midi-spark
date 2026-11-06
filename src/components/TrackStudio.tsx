@@ -1,12 +1,12 @@
 import { Layers, Eye } from "lucide-react";
 import type { SynthType } from "../lib/audio";
-import { SYNTH_OPTIONS } from "../lib/constants";
+import { SoundPicker } from "./SoundPicker";
 import { defaultTrackSettings, trackIsAudible, type TrackMix, type TrackDescriptor, type TrackSettings } from "../lib/tracks";
-import { CustomDropdown } from "./CustomDropdown";
 import { CustomSlider } from "./CustomSlider";
 export interface TrackStudioProps {
   tracks: TrackDescriptor[]; mixer: TrackMix; defaultSynth: SynthType; focusedTrack: number | null;
   onFocusTrack: (track: number | null) => void; onChange: (track: number, changes: Partial<TrackSettings>) => void;
+  onPreviewError?: (message: string) => void;
 }
 export function TrackStudio(p: TrackStudioProps) {
   return <div className="inspector-content track-panel">
@@ -25,7 +25,7 @@ export function TrackStudio(p: TrackStudioProps) {
           <div className="track-toggles"><button aria-label={(setting.muted ? "Unmute " : "Mute ") + track.name} aria-pressed={setting.muted} onClick={() => p.onChange(track.index, { muted: !setting.muted })}>M</button>
             <button aria-label={(setting.solo ? "Unsolo " : "Solo ") + track.name} aria-pressed={setting.solo} onClick={() => p.onChange(track.index, { solo: !setting.solo })}>S</button></div>
           </div>
-          <CustomDropdown ariaLabel={track.name + " instrument"} options={[...SYNTH_OPTIONS]} value={setting.synthType} onChange={v => p.onChange(track.index, { synthType: v as SynthType })} />
+          <SoundPicker label={track.name + " instrument"} value={setting.synthType} onChange={type => p.onChange(track.index, { synthType: type })} onPreviewError={p.onPreviewError} />
           <div className="field-heading"><label>Level</label><output>{Math.round(setting.level * 100)}<span>%</span></output></div>
           <CustomSlider min={0} max={100} value={Math.round(setting.level * 100)} label={track.name + " volume"} onChange={v => p.onChange(track.index, { level: v / 100 })} />
           <div className="track-audibility"><span className={audible ? "audible-dot" : "silent-dot"} />{audible ? "Audible" : "Silent"}<span>Preview mix only</span></div>

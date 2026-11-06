@@ -18,7 +18,7 @@ export interface TrackDescriptor {
 }
 
 export const TRACK_PRESET_TYPES: readonly SynthType[] = [
-  "classic", "epiano", "pad", "pluck", "dream",
+  "classic", "epiano", "warmPad", "pluck", "sub", "lead", "choir", "tines", "analogBass", "marimba",
 ];
 
 export function trackIndexOf(note: NoteEvent): number {

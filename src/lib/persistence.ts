@@ -1,6 +1,7 @@
 import { ProgressionData, NoteEvent, ChordEvent, TrackMetadata } from "./theory";
 import type { TrackMix } from "./tracks";
 import type { SynthType } from "./audio";
+import { PRESET_IDS } from "./presets";
 
 /** Versioned so an incompatible future shape change can invalidate old saves
  *  cleanly (loadSession just won't find this key) instead of crashing on a
@@ -23,13 +24,7 @@ export interface SavedSession {
   trackMix?: TrackMix;
 }
 
-const SYNTH_TYPES: ReadonlySet<string> = new Set([
-  "classic",
-  "epiano",
-  "pad",
-  "pluck",
-  "dream",
-]);
+const SYNTH_TYPES: ReadonlySet<string> = PRESET_IDS;
 
 function isFiniteNumber(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v);

@@ -69,13 +69,7 @@ export const SNAP_OPTIONS = [
   { label: "1/32", value: 0.125 },
 ];
 
-export const SYNTH_OPTIONS = [
-  { label: "Classic Analog", value: "classic" },
-  { label: "Electric Piano", value: "epiano" },
-  { label: "Atmospheric Pad", value: "pad" },
-  { label: "Modern Pluck", value: "pluck" },
-  { label: "Dreamwave", value: "dream" },
-] as const;
+export { SYNTH_OPTIONS } from "./presets";
 
 /** Fallback grid resolution (in quarters) when snap is set to "Line" (free). */
 export const FREE_SNAP = 0.015625;
