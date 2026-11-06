@@ -47,6 +47,20 @@ describe("Note Lab transforms", () => {
     expect(transposeNotes(edge, 0)).toBe(edge);
   });
 
+  it("keeps chord labels unchanged when an out-of-range note cannot follow a transpose", () => {
+    const edge: ProgressionData = {
+      notes: [
+        { midi: 60, name: "C4", timeStart: 0, duration: 1, velocity: 0.8 },
+        { midi: 127, name: "G9", timeStart: 0, duration: 1, velocity: 0.8 },
+      ],
+      chords: [{ name: "C", timeStart: 0, duration: 1 }],
+      totalBars: 1,
+    };
+    const moved = transposeNotes(edge, 1);
+    expect(moved.notes.map((note) => note.midi)).toEqual([61, 127]);
+    expect(moved.chords).toBe(edge.chords);
+  });
+
   it("quantizes starts at partial strength, retaining duration and selection", () => {
     const result = quantizeNotes(progression, 0.25, 50, new Set([0]));
     expect(result.notes[0].timeStart).toBe(0.06);

@@ -55,10 +55,11 @@ export function transposeNotes(
   });
   if (updated === data) return data;
   // When every note is transposed, chord labels should follow the new harmony.
-  const allNotesTargeted =
-    !selection || selection.size === 0 ||
-    data.notes.every((_, i) => selection.has(i));
-  return allNotesTargeted
+  const allNotesShifted =
+    (!selection || selection.size === 0 ||
+      data.notes.every((_, i) => selection.has(i))) &&
+    data.notes.every((note) => note.midi + semitones >= 0 && note.midi + semitones <= 127);
+  return allNotesShifted
     ? {
         ...updated,
         chords: updated.chords.map((chord) => ({
