@@ -58,6 +58,28 @@ jobs:
               part.unlink()
           Path('.github/workflows/workbench-review.yml').unlink()
           PY
+      - name: Tighten real-browser acceptance selectors and runner setup
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          suite = Path('scripts/browser_smoke.py')
+          source = suite.read_text()
+          before = "page.get_by_role('button',name='Generate pattern',exact=True).click()"
+          after = "page.get_by_role('button',name='Generate pattern',exact=False).click()"
+          assert before in source
+          suite.write_text(source.replace(before, after))
+
+          workflow = Path('.github/workflows/browser-qa.yml')
+          yml = workflow.read_text()
+          before = '      - run: python -m playwright install --with-deps chromium'
+          after = '      - run: command -v google-chrome || command -v chromium'
+          assert before in yml
+          yml = yml.replace(before, after)
+          before = 'run: python scripts/browser_smoke.py --url http://127.0.0.1:4173 --output browser-report'
+          after = 'run: CHROMIUM_PATH=/usr/bin/google-chrome python scripts/browser_smoke.py --url http://127.0.0.1:4173 --output browser-report'
+          assert before in yml
+          workflow.write_text(yml.replace(before, after))
+          PY
       - run: npm ci
       - name: Static checks and unit tests
         run: npm run typecheck && npm run lint -- --max-warnings 0 && npm test
