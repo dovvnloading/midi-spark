@@ -714,15 +714,6 @@ export default function App() {
           onOpenShortcuts={() => setShortcutsOpen(true)}
         />
 
-        <TrackStudio
-          tracks={tracks}
-          mixer={trackMix}
-          defaultSynth={synthType}
-          focusedTrack={visibleFocusedTrack}
-          onFocusTrack={handleFocusTrack}
-          onChange={handleTrackChange}
-        />
-
         <EditToolbar
           toolMode={toolMode}
           stampType={stampType}
@@ -741,14 +732,15 @@ export default function App() {
           onDuplicateBar={handleDuplicateBar}
           onApplySwing={handleApplySwing}
         />
-
-        <TransformBar
-          noteCount={progression?.notes.length ?? 0}
-          selectedCount={selectedNoteIndices.size}
-          onQuantize={handleQuantize}
-          onTranspose={handleTranspose}
-          onHumanize={handleHumanize}
+        <TrackStudio
+          tracks={tracks}
+          mixer={trackMix}
+          defaultSynth={synthType}
+          focusedTrack={visibleFocusedTrack}
+          onFocusTrack={handleFocusTrack}
+          onChange={handleTrackChange}
         />
+
 
         <PianoRoll
           progression={progression}
@@ -759,7 +751,7 @@ export default function App() {
           mode={mode}
           statusLabel={
             progression
-              ? `${progression.totalBars} Bars | Root: ${root}-${mode}`
+              ? `${progression.totalBars} bars · ${root} ${mode}`
               : "Ready to create"
           }
           selectedIndices={selectedNoteIndices}
@@ -779,6 +771,14 @@ export default function App() {
           onScrubStateChange={handleScrubStateChange}
           onLivePreview={setLivePreview}
         />
+        <TransformBar
+          noteCount={progression?.notes.length ?? 0}
+          selectedCount={selectedNoteIndices.size}
+          onQuantize={handleQuantize}
+          onTranspose={handleTranspose}
+          onHumanize={handleHumanize}
+        />
+
       </main>
       <ShortcutHelp open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <StatusToast notice={notice} onDismiss={() => setNotice(null)} />
