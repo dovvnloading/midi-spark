@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { Note } from "@tonaljs/tonal";
+import { Music2 } from "lucide-react";
 import { ProgressionData, NoteEvent, getScaleChromas } from "../lib/theory";
 import { initAudio, playNote } from "../lib/audio";
 import { trackIndexOf } from "../lib/tracks";
@@ -99,6 +100,12 @@ interface BoxState {
 }
 
 const BLACK_KEY_CLASSES = [1, 3, 6, 8, 10];
+const TOOL_HINTS: Record<ToolMode, string> = {
+  draw: "Click to draw · drag for length",
+  select: "Drag to lasso · Shift to add",
+  stamp: "Click to place a chord or scale",
+  cut: "Drag across notes to split",
+};
 
 export function PianoRoll({
   progression,
@@ -684,22 +691,36 @@ export function PianoRoll({
 
   // ----- Render -----
   return (
-    <div className="flex-1 min-h-[320px] hardware-panel p-3 sm:p-4 lg:p-5 z-10 relative w-full max-w-6xl mx-auto flex flex-col overflow-hidden">
-      <div className="flex flex-wrap justify-between items-center gap-2 mb-3 shrink-0">
-        <h2 className="text-sm font-bold uppercase tracking-widest">
-          Piano Roll Sequencer
-          {focusedTrack !== null && (
-            <span className="ml-2 text-[10px] font-mono text-[var(--accent)]">
-              · Track {focusedTrack + 1} focused
+    <section
+      aria-label="Piano roll editor"
+      className="hardware-panel relative z-10 mx-auto flex w-full max-w-6xl min-h-[340px] flex-1 flex-col overflow-hidden p-3 sm:p-4"
+    >
+      <header className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div>
+          <p className="studio-kicker mb-1">Arrangement / Editor</p>
+          <h2 className="flex items-center gap-2 text-[16px] font-bold tracking-[-0.025em] text-[var(--text-main)]">
+            Piano roll
+            {focusedTrack !== null && (
+              <span className="rounded-md border border-[var(--accent)]/30 bg-[#2b3957] px-2 py-0.5 text-[10px] font-medium tracking-normal text-[#c3d0ff]">
+                Track {focusedTrack + 1}
+              </span>
+            )}
+          </h2>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          {progression && (
+            <span className="hidden max-w-[240px] truncate text-[11px] text-[var(--text-muted)] md:block" title={TOOL_HINTS[toolMode]}>
+              {selectedIndices.size > 0
+                ? selectedIndices.size + " notes selected"
+                : TOOL_HINTS[toolMode]}
             </span>
           )}
-        </h2>
-        <div className="text-[10px] font-mono px-3 py-1.5 hardware-display rounded uppercase text-[var(--text-muted)]">
-          {statusLabel}
+          <span className="rounded-lg border border-[var(--border-color)] bg-[var(--surface-soft)] px-3 py-1.5 font-mono text-[11px] tabular-nums text-[var(--text-muted)]">
+            {statusLabel}
+          </span>
         </div>
-      </div>
-
-      <div className="flex-1 hardware-display relative border border-[var(--border-color)] bg-[var(--piano-black)] overflow-hidden flex flex-col">
+      </header>
+      <div className="relative flex flex-1 flex-col overflow-hidden rounded-[10px] border border-[var(--border-strong)] bg-[var(--piano-black)]">
         <div
           className="overflow-auto w-full h-full relative"
           ref={scrollRef}
@@ -1111,7 +1132,7 @@ export function PianoRoll({
           )}
         </div>
       </div>
-    </div>
+    </section>
   );
 }
 
