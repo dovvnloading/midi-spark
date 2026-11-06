@@ -70,7 +70,7 @@ export function TransportBar({
       role="region"
       aria-label="Transport and file controls. Scroll horizontally for additional controls."
       tabIndex={0}
-      className="hardware-panel toolbar-scroll relative z-30 mx-auto w-full max-w-6xl min-w-0 shrink-0 overflow-x-auto"
+      className="hardware-panel toolbar-scroll sticky top-0 z-50 mx-auto w-full max-w-6xl min-w-0 shrink-0 overflow-x-auto"
     >
       <div className="flex h-[70px] min-w-max items-center justify-between gap-5 px-3 sm:px-4">
         <div className="flex shrink-0 items-center gap-3">
