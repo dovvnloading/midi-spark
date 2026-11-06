@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Play, Repeat, Square, Trash2, Undo2, Redo2 } from "lucide-react";
+import { Play, Repeat, Square, Trash2, Undo2, Redo2, Keyboard } from "lucide-react";
 import { CustomDropdown } from "./CustomDropdown";
 import { DraggableNumberInput } from "./DraggableNumberInput";
 import { MIN_BPM, MAX_BPM, SYNTH_OPTIONS } from "../lib/constants";
@@ -25,6 +25,7 @@ export interface TransportBarProps {
   onLoadFile: (file: File) => void;
   onExport: () => void;
   onClearSavedSession: () => void;
+  onOpenShortcuts: () => void;
 }
 
 export function TransportBar({
@@ -47,12 +48,18 @@ export function TransportBar({
   onLoadFile,
   onExport,
   onClearSavedSession,
+  onOpenShortcuts,
 }: TransportBarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="w-full max-w-6xl mx-auto overflow-x-auto scrollbar-hide hardware-panel z-30 relative shrink-0">
-      <div className="min-w-max h-16 px-4 sm:px-6 flex justify-between items-center gap-4">
+    <div
+      role="region"
+      aria-label="Transport controls. Scroll horizontally for more actions."
+      tabIndex={0}
+      className="w-full max-w-6xl mx-auto min-w-0 overflow-x-auto toolbar-scroll hardware-panel z-30 relative shrink-0"
+    >
+      <div className="min-w-max h-16 px-3 sm:px-5 flex justify-between items-center gap-4">
         <div className="flex items-center gap-3 sm:gap-4">
           {isPlaying ? (
             <button
@@ -160,6 +167,15 @@ export function TransportBar({
         </div>
 
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          <button
+            type="button"
+            onClick={onOpenShortcuts}
+            aria-label="Keyboard shortcuts (question mark)"
+            title="Keyboard shortcuts (?)"
+            className="hardware-btn w-10 h-10 rounded-full shrink-0"
+          >
+            <Keyboard size={16} />
+          </button>
           <input
             type="file"
             accept=".mid,.midi"
@@ -173,7 +189,7 @@ export function TransportBar({
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="hardware-btn h-10 px-4 sm:px-6 text-[10px] uppercase tracking-widest flex gap-2 font-bold items-center shrink-0"
+            className="hardware-btn h-10 px-4 sm:px-6 text-[11px] uppercase tracking-wide flex gap-2 font-bold items-center shrink-0"
           >
             Load MIDI
           </button>
@@ -188,7 +204,7 @@ export function TransportBar({
           <button
             onClick={onExport}
             disabled={!canPlay}
-            className="hardware-btn hardware-btn-primary h-10 px-4 sm:px-6 text-[10px] uppercase tracking-widest flex gap-2 font-bold items-center shrink-0"
+            className="hardware-btn hardware-btn-primary h-10 px-4 sm:px-6 text-[11px] uppercase tracking-wide flex gap-2 font-bold items-center shrink-0"
           >
             Export MIDI
           </button>

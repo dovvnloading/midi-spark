@@ -90,7 +90,12 @@ export function EditToolbar({
   onApplySwing,
 }: EditToolbarProps) {
   return (
-    <div className="w-full max-w-6xl mx-auto overflow-x-auto scrollbar-hide z-20 relative shrink-0 mb-[-12px]">
+    <div
+      role="region"
+      aria-label="Piano roll editing tools. Scroll horizontally for more controls."
+      tabIndex={0}
+      className="w-full max-w-6xl mx-auto overflow-x-auto toolbar-scroll z-20 relative shrink-0"
+    >
       <div className="min-w-max flex items-center justify-between px-4 sm:px-6 pb-2 sm:pb-0 gap-4">
         <div className="flex hardware-display p-1 shrink-0">
           {TOOL_BUTTONS.map(({ mode, title, Icon, activeClass }) => (

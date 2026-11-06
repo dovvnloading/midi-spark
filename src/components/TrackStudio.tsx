@@ -62,7 +62,7 @@ export function TrackStudio({
       {expanded && (
         <div
           id="track-studio-strips"
-          className="hardware-panel mt-2 p-3 flex gap-3 overflow-x-auto"
+          className="hardware-panel mt-2 p-3 flex gap-3 overflow-x-auto toolbar-scroll"
         >
           {tracks.map((track) => {
             const setting = mixer[track.index] ??
