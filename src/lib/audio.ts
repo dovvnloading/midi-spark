@@ -421,7 +421,7 @@ export function resumeAudio(): void {
 }
 
 /** Seeking never converts via BPM; that would shift musical positions after a tempo change. */
-export function seekAudio(quarter: number): void {
+export function seekAudio(quarter: number): number {
   const transport = Tone.getTransport();
   let position = Math.max(0, Math.min(playbackEndQuarters || quarter, quarter));
   if (playbackLooping && (position < playbackLoopRange.start || position >= playbackLoopRange.end)) {
@@ -432,6 +432,7 @@ export function seekAudio(quarter: number): void {
   if (!playbackLooping && playbackState === "playing" && position >= playbackEndQuarters) {
     finishPlayback(playbackEpoch);
   }
+  return position;
 }
 
 export function playNote(
