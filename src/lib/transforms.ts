@@ -92,17 +92,8 @@ export function quantizeNotes(
   });
 }
 
-/** Stable pseudo-random stream: seed outside a history dispatch, recreate inside it.
- *  React StrictMode can call a reducer twice, so transforms must be repeatable. */
-export function seededRandom(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let value = Math.imul(state ^ (state >>> 15), 1 | state);
-    value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
-}
+/** Existing imports remain supported; theory and transforms share one PRNG. */
+export { seededRandom } from "./random";
 
 /** At 100%, jitter starts up to ±0.16 quarter notes and velocity up to ±0.2. */
 export function humanizeNotes(
