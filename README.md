@@ -6,9 +6,36 @@
 
 **Live app: [dovvnloading.github.io/midi-spark](https://dovvnloading.github.io/midi-spark/)**
 
-<img width="1568" height="891" alt="Midi Spark piano roll interface" src="https://github.com/user-attachments/assets/be62c0bd-ae6c-47f6-bde2-9f0f0e0cb93a" />
+<p align="center">
+  <a href="docs/screenshots/desktop-editor.png">
+    <img src="docs/screenshots/desktop-editor.png" alt="MIDI Spark desktop studio: a four-bar MIDI pattern in the piano roll, with chord lane, velocity editor, sound selection, and playback controls" width="1200" />
+  </a>
+</p>
 
 Midi Spark is a mathematical MIDI generation tool for exploring chord progressions, rhythmic complexity, and dissonance. It generates, edits, previews, imports, and exports MIDI sequences with built-in synthesizers and an interactive piano roll — entirely in your browser, no account or install required.
+
+## Interface gallery
+
+Real Chromium screenshots from the [browser regression suite](scripts/browser_smoke.py), including the desktop editor and responsive mobile layouts. Select any image for the full-resolution view.
+
+### Edit and transform
+
+[![Note Lab view: quantize, transpose and humanize tools beside the piano roll](docs/screenshots/note-lab.png)](docs/screenshots/note-lab.png)
+
+### Mobile workspace
+
+| Compose inspector | Piano roll |
+| :---: | :---: |
+| <a href="docs/screenshots/mobile-compose.png"><img src="docs/screenshots/mobile-compose.png" alt="375px mobile Compose inspector with key and scale, sound preview, and pattern-generation controls" width="280" /></a> | <a href="docs/screenshots/mobile-piano-roll.png"><img src="docs/screenshots/mobile-piano-roll.png" alt="390px mobile piano roll with notes, editing controls, and playback transport" width="280" /></a> |
+
+### First-run experience
+
+<details>
+<summary>View the new-session empty state</summary>
+
+<a href="docs/screenshots/empty-state.png"><img src="docs/screenshots/empty-state.png" alt="MIDI Spark initial desktop workspace with actions to generate a pattern, start blank, or import MIDI" width="1200" /></a>
+
+</details>
 
 ## Features
 
