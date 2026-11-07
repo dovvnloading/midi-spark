@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   capture:
-    if: github.event.head_commit.message != 'docs: add verified UI screenshots'
+    if: "github.event.head_commit.message != 'docs: add verified UI screenshots'"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
