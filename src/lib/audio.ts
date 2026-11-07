@@ -241,7 +241,6 @@ export async function auditionPreset(type: SynthType): Promise<void> {
 }
 
 let endingEventId: number | null = null;
-let tickEventId: number | null = null;
 let playbackEpoch = 0;
 let playbackState: "stopped" | "playing" | "paused" = "stopped";
 let playbackCallbacks: PlaybackCallbacks | null = null;
@@ -351,7 +350,6 @@ export function playProgression(
   transport.stop();
   transport.cancel();
   endingEventId = null;
-  tickEventId = null;
   currentPart?.dispose();
   releasePlaybackVoices();
   transport.ticks = 0;
@@ -380,7 +378,7 @@ export function playProgression(
   currentPart.start(0);
 
   // Capture the position while Tone calls us, rather than after a Draw delay.
-  tickEventId = transport.scheduleRepeat((time) => {
+  transport.scheduleRepeat((time) => {
     const quarter = ticksToQuarters(transport.ticks, transport.PPQ);
     Tone.getDraw().schedule(() => {
       if (epoch === playbackEpoch && playbackState === "playing") callbacks.onTick(quarter);
@@ -451,7 +449,6 @@ export function stopAudio(): void {
   transport.stop();
   transport.cancel();
   endingEventId = null;
-  tickEventId = null;
   currentPart?.dispose();
   currentPart = null;
   releasePlaybackVoices();
