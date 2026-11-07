@@ -50,6 +50,10 @@ Generate chord progressions from musical parameters:
 * **Groove complexity** — sustained pads, syncopated stabs (tresillo, offbeat
   anticipation), or 8th/16th-note arpeggio engines with voice-leading between bars
 * **Loop length** — 4 to 16 bars
+* **Generation layers** — keep the original single-track output or optionally
+  split each generated pattern into independent **Bass** and **Harmony** tracks.
+  The same note pitches, timing, velocities, and chord labels are preserved
+  when switching generation mode.
 
 ### Interactive Piano Roll
 
@@ -88,13 +92,18 @@ selected to affect the focused track (the whole pattern in All tracks):
 Paste and Duplicate Bar now automatically extend the piano-roll canvas when
 notes spill past the end of the current sequence.
 
-### Track Studio — Multitrack Playback & Editing
+### Track Studio — Native Track Creation, Mixing & Editing
 
-After you load a multitrack MIDI file, **Track Studio** presents a strip for
-each source track. Every strip has its own instrument preset, level fader,
-mute button, and multi-solo button. Tracks have independent synth voices
-and gain buses, so mix changes can be heard during playback without changing
-MIDI notes. Effects are shared per synth preset.
+**Track Studio** works with generated songs and imported MIDI alike. Choose
+**Bass + Harmony** in Compose to generate two separately editable musical layers,
+or use **Add track** to make a blank melody, pad, or counterpoint lane. Rename,
+duplicate, and delete tracks directly in the mixer. A track with notes requires
+confirmation before deletion, and Undo restores deleted notes and metadata.
+
+Every strip has its own instrument preset, level fader, mute button, and
+multi-solo button. Tracks have independent synth voices and gain buses, so
+mix changes can be heard during playback without changing MIDI notes. Effects
+are shared per synth preset.
 
 Click a track's name to **focus that lane** in the piano roll: only its notes
 and velocity bars appear, and notes drawn or stamped there are assigned to the
@@ -103,10 +112,13 @@ focused track. Lasso and slice operate only within the focused lane, and
 Note Lab transforms and CHOP honor the focused track when nothing is selected.
 A selection further restricts the operation. The inspector displays the scope.
 
-Track controls and focus are session-local. Mix settings autosave for a future
-visit but are not embedded in exported MIDI. Imported track names, MIDI program
-numbers, and channel assignments are retained and written back on export,
-independently of the chosen browser synth presets.
+Track focus and mixer controls are session-local. Mix settings autosave for a
+future visit but are not embedded in exported MIDI. Track names, note separation,
+General MIDI programs, and melodic channels are retained on export, independently
+of browser synth patches. New tracks receive a safe unused melodic MIDI channel
+(channel 10 is reserved for percussion), up to MIDI's 15 melodic channels. Empty
+tracks survive export/import with their names; since an empty MIDI track has no
+channel-bearing notes, a reader may report its channel as the default.
 
 ### Built-In Sound Engine
 
@@ -142,7 +154,8 @@ instrument programs preserved from imported files on export.
 ### Session Persistence
 
 Your last sequence and settings (key, mode, tension, complexity, bars, BPM,
-instrument, track mixer, snap/note-length, zoom) are autosaved to `localStorage` and
+generation mode, track names and identities, instrument, track mixer,
+snap/note-length, zoom) are autosaved to `localStorage` and
 restored on your next visit. A "Clear saved session" control (next to Load
 MIDI) resets this without touching your current in-progress work.
 
@@ -154,9 +167,10 @@ velocity stems. One inspector switches between **Compose**, **Transform**, and
 **Tracks** without pushing the canvas offscreen. On small screens the inspector is
 a dismissible side sheet.
 
-**Create:** choose a key, tension, rhythm and length in Compose, then Generate.
-A blank session is available from the empty state for drawing by hand. Generate is
-also available with Ctrl/⌘+G. Generation replaces the current pattern; Undo restores it.
+**Create:** choose a key, tension, rhythm, length and single-track or layered
+generation in Compose, then Generate. From a blank session, use Tracks → Add track
+to start a new instrument lane without importing anything. Generate is available
+with Ctrl/⌘+G. Generation replaces the current pattern; Undo restores it.
 
 **Edit:** select Draw, Select, Stamp, Slice or Hand. Mouse, pen and touch use the
 same pointer gestures; Hand pans the canvas without modifying notes. Fit (F)
@@ -256,6 +270,7 @@ src/
     theory.ts             progression generation, dissonance, key detection, swing
     transforms.ts         selection-aware MIDI note transforms
     tracks.ts             track identification, mixer state + solo rules
+    trackOperations.ts    add/rename/duplicate/delete, channel/ID allocation
     audio.ts              Tone.js synths, FX racks, transport
     midi.ts               MIDI file import/export (@tonejs/midi)
     persistence.ts        localStorage session save/load/clear
@@ -275,7 +290,7 @@ Every push to `main` deploys to GitHub Pages via `.github/workflows/deploy-pages
 `.github/workflows/browser-qa.yml` builds the app and exercises the production
 bundle in Chromium. It checks pointer drawing, selection/undo, dragging, resize,
 emulated touch and cancellation, Hand panning, focused-track transformations,
-mute/solo/level, playback controls, dialog focus, mobile inspector navigation,
+mute/solo/level, layered track creation/undo/export, playback controls, dialog focus, mobile inspector navigation,
 real browser reload persistence, MIDI download/re-import, and layout at six
 viewport sizes from 375px to 1440px. Screenshots and geometry are retained as CI
 artifacts. These are browser-emulation checks, not a claim of Safari or physical
