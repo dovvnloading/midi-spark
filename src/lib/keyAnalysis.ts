@@ -60,8 +60,9 @@ export function analyzeKeyFromProgression(progression: ProgressionData): KeyAnal
     counts[chroma(note.midi)] += duration * velocity * accent;
   }
   const total = counts.reduce((sum, weight) => sum + weight, 0);
-  const earliest = notes.length ? Math.min(...notes.map(note => note.timeStart)) : 0;
-  const latest = notes.length ? Math.max(...notes.map(note => note.timeStart)) : 0;
+  // Reductions handle long multitrack imports without spread-argument limits.
+  const earliest = notes.reduce((start, note) => Math.min(start, note.timeStart), Infinity);
+  const latest = notes.reduce((start, note) => Math.max(start, note.timeStart), -Infinity);
   const bassAt = (time: number) => {
     const simultaneous = notes.filter(note => Math.abs(note.timeStart - time) < 0.115);
     if (simultaneous.length === 0) return null;
