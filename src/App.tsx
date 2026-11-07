@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Upload, Check, HardDrive, Music2 } from "lucide-react";
 import {
   generateSequence,
@@ -124,6 +124,19 @@ export default function App() {
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("compose");
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
   const [desktopInspectorOpen, setDesktopInspectorOpen] = useState(true);
+  // Studio chrome is a workspace preference, separate from the musical session.
+  const [inspectorWidth, setInspectorWidth] = useState(() => {
+    try {
+      const stored = Number(window.localStorage.getItem("midi-spark:inspector-width"));
+      return stored >= 270 && stored <= 420 ? stored : 312;
+    } catch {
+      return 312;
+    }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("midi-spark:inspector-width", String(inspectorWidth)); }
+    catch { /* The studio remains usable with storage blocked. */ }
+  }, [inspectorWidth]);
   const [fitRequest, setFitRequest] = useState(0);
   const [saveState, setSaveState] = useState<"saving" | "saved" | "unavailable" | "cleared">("saved");
   const editTargets = useMemo(() => editScope(progression?.notes ?? [], selectedNoteIndices, visibleFocusedTrack), [progression, selectedNoteIndices, visibleFocusedTrack]);
@@ -832,13 +845,14 @@ export default function App() {
   const hasNotes = !!progression?.notes.length;
   const displayedSynth = tracks.length === 1 ? trackMix[tracks[0].index]?.synthType ?? synthType : synthType;
   return (
-    <div className={"workbench" + (!desktopInspectorOpen ? " inspector-collapsed" : "")} onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+    <div className={"workbench" + (!desktopInspectorOpen ? " inspector-collapsed" : "")} style={{ "--inspector-width": inspectorWidth + "px" } as CSSProperties} onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
       {isDraggingMidi && <div className="file-drop-overlay"><Upload size={36} /><h2>Drop your MIDI here</h2><p>Your current pattern is recoverable with Undo.</p></div>}
       <TransportBar isPlaying={isPlaying} isPaused={playbackState === "paused"} canPlay={hasNotes} canUndo={canUndo} canRedo={canRedo} isLooping={isLooping} bpm={bpm} currentTick={currentTick}
         onPlay={handlePlay} onPause={handlePause} onStop={handleStop} onUndo={undo} onRedo={redo} onToggleLoop={toggleLooping} onBpmChange={setBpm}
         onLoadFile={loadMidiFile} onExport={handleExport} onClearSavedSession={handleClearSavedSession} onOpenShortcuts={() => setShortcutsOpen(true)} onToggleInspector={toggleInspector} />
       <div className="workspace">
         <Inspector tab={inspectorTab} onTabChange={setInspectorTab} mobileOpen={mobileInspectorOpen} onClose={() => setMobileInspectorOpen(false)}
+          onToggle={toggleInspector} width={inspectorWidth} onResize={setInspectorWidth}
           compose={<Sidebar root={root} mode={mode} dissonance={dissonance} complexity={complexity} bars={bars} canVary={hasNotes}
             generationMode={generationMode} onGenerationModeChange={setGenerationMode}
             synthType={displayedSynth} multiTrack={tracks.length > 1} onSynthChange={handleSynthChange} onOpenTracks={openTracks}

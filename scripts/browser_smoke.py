@@ -35,6 +35,34 @@ with sync_playwright() as p:
  trigger=page.locator('.sound-picker-trigger').first.bounding_box()
  assert trigger and panel and trigger['y']+trigger['height']<=panel['y']+panel['height']-16
  record('Sound selection is discoverable without inspector scrolling')
+ # New composer shortcuts should update both fine-tuning controls without generating notes.
+ page.get_by_role('button',name='Groove',exact=True).click()
+ assert page.get_by_role('slider',name='Chord tension').input_value()=='34'
+ assert page.get_by_role('slider',name='Rhythmic detail').input_value()=='58'
+ page.get_by_role('button',name='Warm',exact=True).click()
+ assert page.get_by_role('slider',name='Chord tension').input_value()=='12'
+ assert page.get_by_role('slider',name='Rhythmic detail').input_value()=='18'
+ page.get_by_role('slider',name='Chord tension').fill('30')
+ page.get_by_role('slider',name='Rhythmic detail').fill('20')
+ record('Quick feel presets drive both expression controls and allow manual refinement')
+ # Desktop inspector resize should work with a keyboard and mouse, not just look draggable.
+ resizer=page.get_by_role('separator',name='Resize studio sidebar')
+ resizer.focus()
+ original_width=page.locator('#studio-inspector').bounding_box()['width']
+ page.keyboard.press('ArrowRight')
+ assert page.locator('#studio-inspector').bounding_box()['width'] > original_width
+ box=resizer.bounding_box()
+ page.mouse.move(box['x']+box['width']/2,box['y']+box['height']/2)
+ page.mouse.down()
+ page.mouse.move(box['x']+box['width']/2+34,box['y']+box['height']/2,steps=6)
+ page.mouse.up()
+ assert page.locator('#studio-inspector').bounding_box()['width'] > original_width+25
+ resizer.dblclick()
+ assert abs(page.locator('#studio-inspector').bounding_box()['width']-312) <= 2
+ dock=page.locator('.compose-actions').bounding_box()
+ panel=page.locator('.inspector-panel:not([hidden])').bounding_box()
+ assert dock['y'] >= panel['y'] and dock['y']+dock['height'] <= panel['y']+panel['height']+2
+ record('Keyboard and pointer sidebar resizing, reset, and pinned generation dock')
  # Curated preset library: search, category filtering, independent preview,
  # selection, and saved instrument state, all in the real browser.
  page.get_by_role('button',name='Preview sound: Classic Analog. Open sound library').click()
