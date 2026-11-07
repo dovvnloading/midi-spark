@@ -17,6 +17,8 @@ export interface SavedSession {
   dissonance: number;
   complexity: number;
   bars: number;
+  /** Optional so browser sessions saved before layered composition remain valid. */
+  generationMode?: "single" | "layers";
   synthType: SynthType;
   snapResolution: number;
   noteLength: number;
@@ -101,6 +103,7 @@ function isProgressionData(v: unknown): v is ProgressionData {
     Array.isArray(p.chords) &&
     p.chords.every(isChordEvent) &&
     isFiniteNumber(p.totalBars) &&
+    (p.nextTrackIndex === undefined || (Number.isInteger(p.nextTrackIndex) && (p.nextTrackIndex as number) >= 0)) &&
     (p.tracks === undefined || (Array.isArray(p.tracks) && p.tracks.every(isTrackMetadata)))
   );
 }
@@ -116,6 +119,7 @@ function isValidSession(v: unknown): v is SavedSession {
     isFiniteNumber(s.dissonance) &&
     isFiniteNumber(s.complexity) &&
     isFiniteNumber(s.bars) &&
+    (s.generationMode === undefined || s.generationMode === "single" || s.generationMode === "layers") &&
     typeof s.synthType === "string" &&
     SYNTH_TYPES.has(s.synthType) &&
     isFiniteNumber(s.snapResolution) &&
