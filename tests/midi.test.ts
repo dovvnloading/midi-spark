@@ -71,10 +71,13 @@ describe("MIDI export/import round-trip", () => {
     ]);
     expect(output.notes).toHaveLength(layered.notes.length);
     expect(new Set(output.notes.map(note => note.trackIndex))).toEqual(new Set([0, 1]));
-    expect(output.notes.map(note => [note.midi, note.timeStart, note.duration].map(value => Math.round(value * 480) / 480)))
-      .toEqual([...layered.notes]
-        .sort((a, b) => a.timeStart - b.timeStart || a.midi - b.midi)
-        .map(note => [note.midi, note.timeStart, note.duration].map(value => Math.round(value * 480) / 480)));
+    // Two notes can quantize to the same MIDI tick: compare event multisets,
+    // not their order before/after the 480-PPQ round-trip.
+    const normalize = (notes: ProgressionData["notes"]) =>
+      notes.map(note => [note.midi, note.timeStart, note.duration]
+        .map(value => Math.round(value * 480) / 480))
+        .sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
+    expect(normalize(output.notes)).toEqual(normalize(layered.notes));
   });
 
   it("exports manually created, renamed and duplicated tracks, including empty ones", async () => {
