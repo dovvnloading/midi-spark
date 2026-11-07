@@ -263,7 +263,17 @@ with sync_playwright() as p:
  assert [t['name'] for t in imported_layers['tracks']]==['Bass','Harmony','Melody','Melody copy']
  assert len(imported_layers['notes'])==len(persisted['progression']['notes'])
  record('Native four-track composition round-trips through MIDI export and re-import')
+ # Verify the backward-compatible single-track workflow independently and
+ # restore its preview sound picker before the legacy responsive assertions.
  page.get_by_role('tab',name='Compose',exact=True).click()
+ page.get_by_role('button',name='Single track',exact=True).click()
+ page.get_by_role('button',name='Generate pattern',exact=False).click()
+ single=snap(page)
+ assert single['generationMode']=='single'
+ assert single['progression'].get('tracks') is None
+ assert all(n.get('trackIndex') is None for n in single['progression']['notes'])
+ page.get_by_role('tab',name='Compose',exact=True).click()
+ record('Single-track generator remains the default-compatible, independent preview workflow')
  metrics=[]
  for width,height in [(1440,900),(1280,720),(1024,768),(768,1024),(390,844),(375,667)]:
   page.set_viewport_size({'width':width,'height':height});page.wait_for_timeout(100)
