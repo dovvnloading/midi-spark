@@ -241,6 +241,7 @@ export async function auditionPreset(type: SynthType): Promise<void> {
 }
 
 let endingEventId: number | null = null;
+let endingRevision = 0;
 let playbackEpoch = 0;
 let playbackState: "stopped" | "playing" | "paused" = "stopped";
 let playbackCallbacks: PlaybackCallbacks | null = null;
@@ -254,6 +255,8 @@ function releasePlaybackVoices(): void {
 }
 
 function clearEndingEvent(transport: ReturnType<typeof Tone.getTransport>): void {
+  // Also invalidate callbacks already queued by Tone before clear().
+  ++endingRevision;
   if (endingEventId !== null) {
     transport.clear(endingEventId);
     endingEventId = null;
@@ -303,8 +306,9 @@ function syncTransportBounds(data: ProgressionData, looping: boolean, loopRange:
     return;
   }
   const epoch = playbackEpoch;
+  const revision = endingRevision;
   endingEventId = transport.schedule(
-    () => finishPlayback(epoch),
+    () => { if (revision === endingRevision) finishPlayback(epoch); },
     quarterTime(end, transport.PPQ),
   );
 }
@@ -349,6 +353,7 @@ export function playProgression(
   playbackCallbacks = callbacks;
   transport.stop();
   transport.cancel();
+  ++endingRevision;
   endingEventId = null;
   currentPart?.dispose();
   releasePlaybackVoices();
