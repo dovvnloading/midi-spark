@@ -266,7 +266,7 @@ export function PianoRoll({
 
   // Follow the playhead.
   useEffect(() => {
-    if (isPlaying && followPlayback && !isScrubbingRef.current && scrollRef.current) {
+    if (isPlaying && followPlayback && !isScrubbingRef.current && !loopDragRef.current && scrollRef.current) {
       const targetScroll =
         currentTick * zoomX - scrollRef.current.clientWidth / 2;
       scrollRef.current.scrollLeft = Math.max(0, targetScroll);
