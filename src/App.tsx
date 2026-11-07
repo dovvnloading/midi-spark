@@ -163,6 +163,7 @@ export default function App() {
   useEffect(() => {
     if (!progression || !loopRegion) return;
     const clamped = normalizeLoopRange(loopRegion, sequenceEndQuarters(progression));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reconcile a now-shorter sequence exactly once
     if (clamped.start !== loopRegion.start || clamped.end !== loopRegion.end) setLoopRegion(clamped);
   }, [progression, loopRegion]);
   const isLoopingRef = useRef(savedSession?.isLooping ?? true);
