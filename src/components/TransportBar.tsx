@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
-import { AudioLines, Download, Play, Square, Repeat2, Undo2, Redo2, Upload, Keyboard, Trash2, MoreHorizontal, SlidersHorizontal } from "lucide-react";
+import { AudioLines, Download, Play, Pause, Square, Repeat2, Undo2, Redo2, Upload, Keyboard, Trash2, MoreHorizontal, SlidersHorizontal } from "lucide-react";
 import { MIN_BPM, MAX_BPM } from "../lib/constants";
 export interface TransportBarProps {
-  isPlaying: boolean; canPlay: boolean; canUndo: boolean; canRedo: boolean; isLooping: boolean; bpm: number; currentTick: number;
-  onPlay: () => void; onStop: () => void; onUndo: () => void; onRedo: () => void; onToggleLoop: () => void;
+  isPlaying: boolean; isPaused: boolean; canPlay: boolean; canUndo: boolean; canRedo: boolean; isLooping: boolean; bpm: number; currentTick: number;
+  onPlay: () => void; onPause: () => void; onStop: () => void; onUndo: () => void; onRedo: () => void; onToggleLoop: () => void;
   onBpmChange: (value: number) => void; onLoadFile: (file: File) => void; onExport: () => void;
   onClearSavedSession: () => void; onOpenShortcuts: () => void; onToggleInspector: () => void;
 }
@@ -22,10 +22,12 @@ export function TransportBar(p: TransportBarProps) {
   return <header className="app-header">
     <div className="wordmark"><span className="brand-mark"><AudioLines size={20} strokeWidth={1.8} /></span><span>midi<span className="wordmark-light">spark</span><span className="edition">STUDIO</span></span></div>
     <div className="transport" role="group" aria-label="Playback controls">
-      <button className={"play-button" + (p.isPlaying ? " playing" : "")} onClick={p.isPlaying ? p.onStop : p.onPlay} disabled={!p.canPlay}
-        aria-label={p.isPlaying ? "Stop playback" : "Play pattern"} title="Play / stop (Space)">
-        {p.isPlaying ? <Square size={13} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
+      <button className={"play-button" + (p.isPlaying ? " playing" : "")} onClick={p.isPlaying ? p.onPause : p.onPlay} disabled={!p.canPlay}
+        aria-label={p.isPlaying ? "Pause playback" : p.isPaused ? "Resume playback" : "Play pattern"} title="Play / pause (Space)">
+        {p.isPlaying ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
       </button>
+      <button className="icon-button" onClick={p.onStop} disabled={!p.isPlaying && !p.isPaused && p.currentTick === 0}
+        aria-label="Stop playback" title="Stop and return to bar 1"><Square size={14} fill="currentColor" /></button>
       <button className="icon-button loop-button" aria-pressed={p.isLooping} onClick={p.onToggleLoop} aria-label="Loop playback" title="Loop playback"><Repeat2 size={17} /></button>
       <span className="control-divider" />
       <label className="tempo-field"><input type="number" aria-label="Tempo" min={MIN_BPM} max={MAX_BPM} step={1}
