@@ -45,6 +45,7 @@ import {
   type TrackMix,
   type TrackSettings,
 } from "./lib/tracks";
+import { addTrack, deleteTrack, duplicateTrack, renameTrack } from "./lib/trackOperations";
 import { Sidebar } from "./components/Sidebar";
 import { Inspector, type InspectorTab } from "./components/Inspector";
 import { editScope } from "./lib/editScope";
@@ -71,6 +72,7 @@ export default function App() {
     savedSession?.complexity ?? 20,
   );
   const [bars, setBars] = useState(savedSession?.bars ?? 4);
+  const [generationMode, setGenerationMode] = useState<"single" | "layers">(savedSession?.generationMode ?? "single");
 
   // Transport / sound
   const [bpm, setBpm] = useState(savedSession?.bpm ?? 120);
@@ -211,6 +213,7 @@ export default function App() {
         dissonance,
         complexity,
         bars,
+        generationMode,
         synthType,
         snapResolution,
         noteLength,
@@ -230,6 +233,7 @@ export default function App() {
     dissonance,
     complexity,
     bars,
+    generationMode,
     synthType,
     snapResolution,
     noteLength,
@@ -384,6 +388,58 @@ export default function App() {
     setSelectedNoteIndices(new Set());
   }, []);
 
+  const handleAddTrack = useCallback(() => {
+    const base = progression ?? { notes: [], chords: [], totalBars: bars };
+    const created = addTrack(base);
+    if (!created) {
+      notify("All 15 melodic MIDI channels are in use. Remove a track before adding another.", "error");
+      return;
+    }
+    commit(created.progression);
+    // Override explicitly so a newly allocated ID never inherits stale mixer state.
+    setTrackOverrides(prev => ({
+      ...prev,
+      [created.index]: defaultTrackSettings(created.index, synthType),
+    }));
+    setFocusedTrack(created.index);
+    setSelectedNoteIndices(new Set());
+    openTracks();
+    notify("Added a new track. Draw or stamp notes into the focused lane.", "success");
+  }, [progression, bars, commit, synthType, notify]);
+
+  const handleRenameTrack = useCallback((index: number, name: string) => {
+    commit(prev => prev ? renameTrack(prev, index, name) : prev);
+  }, [commit]);
+
+  const handleDuplicateTrack = useCallback((index: number) => {
+    if (!progression) return;
+    const duplicate = duplicateTrack(progression, index);
+    if (!duplicate) {
+      notify("Could not duplicate: all melodic MIDI channels are in use.", "error");
+      return;
+    }
+    commit(duplicate.progression);
+    const source = trackMix[index] ?? defaultTrackSettings(index, synthType);
+    setTrackOverrides(prev => ({
+      ...prev,
+      [duplicate.index]: { ...source, solo: false },
+    }));
+    setFocusedTrack(duplicate.index);
+    setSelectedNoteIndices(new Set());
+    notify("Duplicated the track and its notes. Undo to restore the previous arrangement.", "success");
+  }, [progression, commit, trackMix, synthType, notify]);
+
+  const handleDeleteTrack = useCallback((index: number) => {
+    if (!progression) return;
+    const updated = deleteTrack(progression, index);
+    if (updated === progression) return;
+    commit(updated);
+    setSelectedNoteIndices(new Set());
+    setFocusedTrack(previous => previous === index ? null : previous);
+    // Retain session-local overrides for Undo; nextTrackIndex prevents accidental reuse.
+    notify("Track removed. Undo restores its notes and metadata.", "info");
+  }, [progression, commit, notify]);
+
   // Only affects what happens on a future reload — does not touch the
   // current in-memory working state. Cancels any in-flight debounced
   // autosave first, otherwise a save already scheduled before this click
@@ -399,18 +455,23 @@ export default function App() {
 
   const handleGenerate = useCallback(() => {
     handleStop();
-    const seq = generateSequence(root, mode, bars, dissonance, complexity);
+    const layered = generationMode === "layers";
+    const seq = generateSequence(root, mode, bars, dissonance, complexity, layered);
     commit(seq);
     setSelectedNoteIndices(new Set());
-    setTrackOverrides({});
+    setTrackOverrides(layered ? {
+      0: defaultTrackSettings(0, "sub"),
+      1: { ...defaultTrackSettings(1, synthType), synthType },
+    } : {});
+    if (layered) setInspectorTab("tracks");
     setFocusedTrack(null);
     setLoopRegion(null);
     setCurrentTick(0);
     setScrollAnchorKey((k) => k + 1);
     setFitRequest(k => k + 1);
     setMobileInspectorOpen(false);
-    notify("Generated a " + seq.totalBars + "-bar pattern in " + root + " " + mode + ".", "success");
-  }, [root, mode, bars, dissonance, complexity, commit, notify, handleStop]);
+    notify("Generated a " + seq.totalBars + "-bar pattern in " + root + " " + mode + (layered ? " with separate Bass and Harmony tracks." : "."), "success");
+  }, [root, mode, bars, dissonance, complexity, generationMode, synthType, commit, notify, handleStop]);
 
   const handleGenerateVariations = useCallback(() => {
     if (!progression) return;
@@ -768,6 +829,7 @@ export default function App() {
       <div className="workspace">
         <Inspector tab={inspectorTab} onTabChange={setInspectorTab} mobileOpen={mobileInspectorOpen} onClose={() => setMobileInspectorOpen(false)}
           compose={<Sidebar root={root} mode={mode} dissonance={dissonance} complexity={complexity} bars={bars} canVary={hasNotes}
+            generationMode={generationMode} onGenerationModeChange={setGenerationMode}
             synthType={displayedSynth} multiTrack={tracks.length > 1} onSynthChange={handleSynthChange} onOpenTracks={openTracks}
             onRootChange={setRoot} onModeChange={setMode} onDissonanceChange={setDissonance} onComplexityChange={setComplexity} onBarsChange={setBars}
             onGenerate={handleGenerate} onAddVariation={handleGenerateVariations} onPreviewError={message => notify(message, "error")} />}
@@ -775,7 +837,10 @@ export default function App() {
             onQuantize={handleQuantize} onTranspose={handleTranspose} onHumanize={handleHumanize} swingAmount={swingAmount}
             onSwingAmountChange={setSwingAmount} onApplySwing={handleApplySwing} noteLength={noteLength} onNoteLengthChange={setNoteLength}
             onChop={handleChopSelected} onDuplicateBar={handleDuplicateBar} />}
-          tracks={<TrackStudio tracks={tracks} mixer={trackMix} defaultSynth={synthType} focusedTrack={visibleFocusedTrack} onFocusTrack={handleFocusTrack} onChange={handleTrackChange} onPreviewError={message => notify(message, "error")} />}
+          tracks={<TrackStudio tracks={tracks} mixer={trackMix} defaultSynth={synthType} focusedTrack={visibleFocusedTrack}
+            onFocusTrack={handleFocusTrack} onChange={handleTrackChange} onAddTrack={handleAddTrack}
+            onRenameTrack={handleRenameTrack} onDuplicateTrack={handleDuplicateTrack} onDeleteTrack={handleDeleteTrack}
+            onPreviewError={message => notify(message, "error")} />}
         />
         <main className="editor-main" aria-label="MIDI editor">
           <div className="editor-context"><div className="editor-title"><Music2 size={16} /><h1>Piano roll</h1><span className="context-separator">/</span>
@@ -802,7 +867,7 @@ export default function App() {
       </div>
       <footer className="app-status"><span className="save-status">{saveState === "saved" ? <Check size={12} /> : <HardDrive size={12} />}
         {saveState === "saved" ? "Saved in this browser" : saveState === "unavailable" ? "Autosave unavailable — export to keep your work" : saveState === "cleared" ? "Browser autosave cleared" : "Saving…"}</span>
-        <span className="status-hints"><kbd>Space</kbd> Play / stop <i>·</i><kbd>B</kbd> Draw <i>·</i><kbd>V</kbd> Select <i>·</i><kbd>H</kbd> Hand</span>
+        <span className="status-hints"><kbd>Space</kbd> Play / pause <i>·</i><kbd>B</kbd> Draw <i>·</i><kbd>V</kbd> Select <i>·</i><kbd>H</kbd> Hand</span>
         <button onClick={() => setShortcutsOpen(true)} aria-label="Open keyboard shortcuts"><kbd>?</kbd><span>Shortcuts</span></button>
       </footer>
       <ShortcutHelp open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
