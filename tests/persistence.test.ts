@@ -137,6 +137,37 @@ describe("saveSession / loadSession", () => {
     expect(loadSession()).toBeNull();
   });
 
+  it("round-trips layered generation preferences and monotonic track identities", () => {
+    const layered: SavedSession = {
+      ...sampleSession,
+      generationMode: "layers",
+      progression: {
+        ...sampleProgression,
+        tracks: [
+          { index: 0, name: "Bass", program: 33, channel: 0 },
+          { index: 1, name: "Harmony", program: 0, channel: 1 },
+        ],
+        nextTrackIndex: 5,
+      },
+    };
+    saveSession(layered);
+    expect(loadSession()).toEqual(layered);
+    // Older v1 sessions without either field remain loadable.
+    saveSession(sampleSession);
+    expect(loadSession()).toEqual(sampleSession);
+  });
+
+  it("rejects malformed generation preferences and invalid track allocator state", () => {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+      ...sampleSession, generationMode: "unknown",
+    }));
+    expect(loadSession()).toBeNull();
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+      ...sampleSession, progression: { ...sampleProgression, nextTrackIndex: -2 },
+    }));
+    expect(loadSession()).toBeNull();
+  });
+
   it("round-trips a null progression (no sequence generated yet)", () => {
     const session: SavedSession = { ...sampleSession, progression: null };
     saveSession(session);
