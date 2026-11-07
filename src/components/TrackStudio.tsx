@@ -25,7 +25,8 @@ export function TrackStudio(p: TrackStudioProps) {
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
 
   const finishRename = () => {
-    if (renaming !== null && draftName.trim()) p.onRenameTrack(renaming, draftName);
+    if (renaming === null || !draftName.trim()) return;
+    p.onRenameTrack(renaming, draftName);
     setRenaming(null);
   };
 
