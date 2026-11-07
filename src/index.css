@@ -355,3 +355,25 @@ kbd { font-family: var(--font-mono); font-size: .9em; font-weight: 450; }
 .loop-handle.loop-out span { right: 0; }
 .loop-handle:hover span, .loop-handle:focus-visible span { background: #e3f9c7; box-shadow: 0 0 0 2px #c6e8a8; }
 .loop-handle:focus-visible { outline: 2px solid #e0f6c7; outline-offset: -2px; }
+
+/* Layered composition: compact controls stay usable inside the narrow inspector. */
+.generation-mode { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #43524a; border-radius: 7px; overflow: hidden; }
+.generation-mode button { min-height: 37px; padding: 6px 7px; border: 0; border-right: 1px solid #43524a; color: #c5d0ca; background: #252d2d; font-size: 11px; font-weight: 550; }
+.generation-mode button:last-child { border-right: 0; }
+.generation-mode button[aria-pressed="true"] { color: #e5f3d9; background: #3d5035; }
+.generation-mode button:focus-visible { outline: 2px solid #badba7; outline-offset: -2px; }
+.generation-hint { margin: 8px 0 0; font-size: 10px; line-height: 1.5; color: #a3afa8; }
+.track-add { margin: 0 0 9px; border-color: #718768; color: #d7e9ca; }
+.track-management { display: flex; gap: 5px; margin: -4px 0 14px; }
+.track-management button { min-width: 0; display: inline-flex; flex: 1; align-items: center; justify-content: center; gap: 4px; min-height: 32px; padding: 5px 3px; background: #293231; border: 1px solid #49594e; border-radius: 5px; color: #cedbd1; font-size: 10px; }
+.track-management button:hover { background: #3b4b42; }
+.track-management button:focus-visible, .track-delete-confirm button:focus-visible, .track-rename button:focus-visible { outline: 2px solid #c0d8a4; outline-offset: 2px; }
+.track-rename { display: flex; min-width: 0; flex: 1; gap: 4px; }
+.track-rename input { width: 100%; min-width: 0; height: 30px; padding: 0 7px; border: 1px solid #9fb994; border-radius: 5px; background: #17201c; color: #f0f6ee; font-size: 12px; }
+.track-rename button { flex: 0 0 27px; display: grid; place-items: center; border-radius: 5px; border: 1px solid #607760; color: #e5f1dc; background: #344336; }
+.track-rename button:disabled { opacity: .4; }
+.track-delete-confirm { margin: -4px 0 13px; padding: 12px; background: #332826; border: 1px solid #82605b; border-radius: 6px; }
+.track-delete-confirm p { margin: 0 0 10px; color: #f3d7d1; font-size: 11px; line-height: 1.45; }
+.track-delete-confirm > div { display: flex; gap: 7px; justify-content: flex-end; }
+.track-delete-confirm button { padding: 7px 9px; border: 1px solid #6d6862; color: #e1e7df; border-radius: 5px; background: #333b3b; font-size: 11px; }
+.track-delete-confirm button.danger-action { background: #77413e; border-color: #a1665f; color: #fff5f1; }
