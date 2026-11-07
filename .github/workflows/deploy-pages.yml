@@ -63,7 +63,7 @@ jobs:
           site="https://dovvnloading.github.io/midi-spark/"
           for attempt in 1 2 3; do
             html="$(curl --silent --show-error --fail --location --max-time 15 "$site" || true)"
-            bundle="$(printf '%s' "$html" | grep -oE 'src="/midi-spark/assets/index-[^"]+\\.js"' | head -n1 | cut -d '"' -f2 || true)"
+            bundle="$(printf '%s' "$html" | grep -oE 'src="/midi-spark/assets/index-[^"]+[.]js"' | head -n1 | cut -d '"' -f2 || true)"
             if [[ -n "$bundle" ]] && curl --silent --fail --location --head --max-time 15 "https://dovvnloading.github.io$bundle" >/dev/null; then
               echo "Public Pages URL serves the compiled Vite app."
               exit 0
