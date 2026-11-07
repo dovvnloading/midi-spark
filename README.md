@@ -180,7 +180,7 @@ browser autosave; clearing autosave does not erase the working pattern.
 
 | Shortcut | Action |
 | --- | --- |
-| `Space` | Play / stop |
+| `Space` | Play / pause (use Stop to return to bar 1) |
 | `Ctrl+Z` / `Ctrl+Shift+Z` | Undo / redo |
 | `Ctrl+Y` | Redo |
 | `Ctrl+A` | Select all notes |
