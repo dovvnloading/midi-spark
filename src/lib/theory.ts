@@ -7,12 +7,10 @@ export interface NoteEvent {
   timeStart: number;
   duration: number;
   velocity: number;
-  /** 0-based index of the source MIDI track this note came from, counting
-   *  only non-percussion tracks in file order — a single-track import always
-   *  tags its notes 0, and multi-track imports get contiguous 0,1,2,...
-   *  regardless of any skipped percussion tracks in between. Undefined for
-   *  notes from generateSequence/applyVariationToProgression or notes drawn
-   *  directly in the piano roll — only MIDI import ever sets this. */
+  /** Stable melodic-track identity (zero-based). Imported tracks are indexed
+   *  contiguously after percussion is skipped; generated Bass/Harmony and
+   *  drawn or duplicated notes can also carry an index. Legacy single-track
+   *  generated notes without a tag belong to track 0. */
   trackIndex?: number;
 }
 
