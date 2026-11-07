@@ -217,7 +217,7 @@ describe("multitrack audio routing", () => {
     expect(mockState.transport?.bpm.value).toBe(90);
     expect((part.notes as Array<{ time: string }>).map(note => note.time)).toEqual(["0i", "192i"]);
     part.callback(0.5, notes[0]);
-    expect(firstVoice.triggers.at(-1)?.[1]).toBe("173i");
+    expect(firstVoice?.triggers.at(-1)?.[1]).toBe("173i");
     stopAudio();
   });
 
