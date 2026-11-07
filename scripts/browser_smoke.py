@@ -334,6 +334,18 @@ with sync_playwright() as p:
  expect(blocked.get_by_role('button',name='Reload studio')).to_be_visible()
  blocked.close()
  record('Missing entry bundle shows a recovery screen rather than an empty page')
+ # A truly fresh session can create a named first track without Generate or Import.
+ fresh=b.new_page(viewport={'width':1280,'height':800})
+ fresh.on('pageerror',lambda e:errors.append(str(e)))
+ fresh.goto(args.url)
+ fresh.get_by_role('tab',name='Tracks',exact=True).click()
+ fresh.get_by_role('button',name='Add track',exact=True).click()
+ first=snap(fresh)
+ assert first['progression']['tracks'][0]['name']=='Track 1'
+ assert first['progression']['notes']==[]
+ assert fresh.get_by_role('combobox',name='Edit track',exact=True).input_value()=='0'
+ fresh.close()
+ record('Brand-new blank project can add and focus a first empty track')
  assert not errors,errors
  record('No browser page errors during the complete suite')
  (OUTPUT/'geometry.json').write_text(json.dumps(metrics,indent=2))
