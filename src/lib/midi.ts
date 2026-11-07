@@ -8,9 +8,9 @@ export interface ImportedMidi {
   bpm: number | null;
 }
 
-/** Serialize a progression at 480 PPQ, preserving imported track separation.
- *  Untagged/generated notes belong to track 0; percussion was already omitted
- *  by the importer. Instrument/channel metadata is not currently retained. */
+/** Serialize a progression at 480 PPQ with track separation and known General
+ *  MIDI program/channel metadata. Untagged notes belong to track 0. Browser
+ *  synth patches remain independent from General MIDI programs. */
 export function exportToMidiBlob(data: ProgressionData, bpm: number): Blob {
   const midi = new Midi();
   midi.header.setTempo(bpm);
