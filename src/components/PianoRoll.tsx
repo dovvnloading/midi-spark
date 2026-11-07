@@ -12,6 +12,7 @@ import { ensureBarsCoverNotes } from "../lib/transforms";
 import { ProgressionData, NoteEvent, getScaleChromas } from "../lib/theory";
 import { initAudio, playNote } from "../lib/audio";
 import { trackIndexOf } from "../lib/tracks";
+import { normalizeLoopRange, sequenceEndQuarters, type LoopRange } from "../lib/timeline";
 import {
   CHORD_STAMPS,
   FREE_SNAP,
@@ -50,6 +51,9 @@ export interface PianoRollProps {
   isPlaying: boolean;
   currentTick: number;
   followPlayback: boolean;
+  isLooping: boolean;
+  loopRegion: LoopRange | null;
+  onLoopRegionChange: (range: LoopRange | null) => void;
   /** Bumped by the parent whenever a fresh sequence should re-center the view. */
   scrollAnchorKey: number;
   onSelectionChange: (indices: Set<number>) => void;
@@ -58,6 +62,12 @@ export interface PianoRollProps {
   onScrub: (tick: number) => void;
   onScrubStateChange: (isScrubbing: boolean) => void;
   onLivePreview: (preview: ProgressionData | null) => void;
+}
+
+interface LoopDrag {
+  mode: "in" | "out" | "new";
+  origin: number;
+  range: LoopRange;
 }
 
 interface DragState {
@@ -129,6 +139,9 @@ export function PianoRoll({
   isPlaying,
   currentTick,
   followPlayback,
+  isLooping,
+  loopRegion,
+  onLoopRegionChange,
   scrollAnchorKey,
   onSelectionChange,
   commit,
@@ -143,6 +156,7 @@ export function PianoRoll({
   const [dragVelocityState, setDragVelocityState] = useState<DragVelocityState | null>(null);
   const [lassoState, setLassoState] = useState<BoxState | null>(null);
   const [sliceState, setSliceState] = useState<BoxState | null>(null);
+  const [loopPreview, setLoopPreview] = useState<LoopRange | null>(null);
   const [containerWidth, setContainerWidth] = useState(1200);
   const [rowHeight, setRowHeight] = useState(NOTE_HEIGHT);
 
@@ -151,6 +165,7 @@ export function PianoRoll({
   const timelineRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const isScrubbingRef = useRef(false);
+  const loopDragRef = useRef<LoopDrag | null>(null);
   const activePointer = useRef<number | null>(null);
   const panRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   const beginGesture = (event: React.PointerEvent) => {
@@ -162,6 +177,8 @@ export function PianoRoll({
   const zoomAnchorRef = useRef<{ tick: number; offsetPx: number } | null>(null);
 
   const snapTick = snapResolution > 0 ? snapResolution : FREE_SNAP;
+  const sequenceEnd = progression ? sequenceEndQuarters(progression) : 16;
+  const displayedLoop = normalizeLoopRange(loopPreview ?? loopRegion, sequenceEnd);
   const scaleChromas = useMemo(() => getScaleChromas(root, mode), [root, mode]);
   // Every imported note carries a trackIndex (single-track files are tagged
   // 0), so gating on "any note tagged" would recolor ordinary single-track
@@ -249,7 +266,7 @@ export function PianoRoll({
 
   // Follow the playhead.
   useEffect(() => {
-    if (isPlaying && followPlayback && scrollRef.current) {
+    if (isPlaying && followPlayback && !isScrubbingRef.current && scrollRef.current) {
       const targetScroll =
         currentTick * zoomX - scrollRef.current.clientWidth / 2;
       scrollRef.current.scrollLeft = Math.max(0, targetScroll);
@@ -382,9 +399,49 @@ export function PianoRoll({
     [progression, zoomX, totalDisplayBars, onScrub],
   );
 
-  const handleTimelinePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0 || !progression) return;
+  // Loop range edits are separate from seeking and never write MIDI history.
+  // Quarter-note minimum preserves a valid region even at very small zoom.
+  const snappedLoopTick = (clientX: number): number => {
+    if (!timelineRef.current) return 0;
+    const rect = timelineRef.current.getBoundingClientRect();
+    const step = snapResolution > 0 ? snapResolution : 0.25;
+    return clamp(Math.round(((clientX - rect.left) / zoomX) / step) * step, 0, sequenceEnd);
+  };
+
+  const handleLoopHandleDown = (e: React.PointerEvent<HTMLButtonElement>, mode: "in" | "out") => {
+    if (e.button !== 0 || !e.isPrimary || !progression) return;
+    e.stopPropagation();
     beginGesture(e);
+    loopDragRef.current = { mode, origin: mode === "in" ? displayedLoop.start : displayedLoop.end, range: displayedLoop };
+  };
+
+  const handleLoopKey = (e: React.KeyboardEvent<HTMLButtonElement>, mode: "in" | "out") => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const step = snapResolution > 0 ? snapResolution : 0.25;
+    const old = displayedLoop;
+    const value = mode === "in" ? old.start : old.end;
+    const target = e.key === "Home" ? 0
+      : e.key === "End" ? sequenceEnd
+      : value + (e.key === "ArrowRight" ? step : -step);
+    const changed = mode === "in"
+      ? { start: clamp(target, 0, old.end - 1), end: old.end }
+      : { start: old.start, end: clamp(target, old.start + 1, sequenceEnd) };
+    onLoopRegionChange(normalizeLoopRange(changed, sequenceEnd));
+  };
+
+  const handleTimelinePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || !e.isPrimary || !progression) return;
+    beginGesture(e);
+    if (e.shiftKey) {
+      const tick = snappedLoopTick(e.clientX);
+      const start = Math.min(tick, sequenceEnd - 1);
+      const range = { start, end: Math.min(sequenceEnd, start + 1) };
+      loopDragRef.current = { mode: "new", origin: start, range };
+      setLoopPreview(range);
+      return;
+    }
     isScrubbingRef.current = true;
     onScrubStateChange(true);
     updateScrubPosition(e.clientX);
@@ -571,6 +628,23 @@ export function PianoRoll({
 
   const onDragMove = (e: PointerEvent) => {
     if (e.pointerId !== activePointer.current) return;
+    if (loopDragRef.current) {
+      const drag = loopDragRef.current;
+      const tick = snappedLoopTick(e.clientX);
+      let next: LoopRange;
+      if (drag.mode === "in") {
+        next = { start: Math.min(tick, drag.range.end - 1), end: drag.range.end };
+      } else if (drag.mode === "out") {
+        next = { start: drag.range.start, end: Math.max(tick, drag.range.start + 1) };
+      } else if (tick >= drag.origin) {
+        next = { start: drag.origin, end: Math.max(drag.origin + 1, tick) };
+      } else {
+        next = { start: Math.min(tick, drag.origin - 1), end: drag.origin };
+      }
+      drag.range = normalizeLoopRange(next, sequenceEnd);
+      setLoopPreview(drag.range);
+      return;
+    }
     if (panRef.current && scrollRef.current) {
       scrollRef.current.scrollLeft = panRef.current.left - (e.clientX - panRef.current.x);
       scrollRef.current.scrollTop = panRef.current.top - (e.clientY - panRef.current.y);
@@ -613,6 +687,12 @@ export function PianoRoll({
     if (e.pointerId !== activePointer.current) return;
     activePointer.current = null;
     panRef.current = null;
+    if (loopDragRef.current) {
+      onLoopRegionChange(loopDragRef.current.range);
+      loopDragRef.current = null;
+      setLoopPreview(null);
+      return;
+    }
     if (isScrubbingRef.current) {
       isScrubbingRef.current = false;
       onScrubStateChange(false);
@@ -738,6 +818,7 @@ export function PianoRoll({
     const onUp = (e: PointerEvent) => dragHandlersRef.current.onUp(e);
     const cancel = () => {
       activePointer.current = null; panRef.current = null; isScrubbingRef.current = false;
+      loopDragRef.current = null; setLoopPreview(null);
       setDragState(null); setDragDrawState(null); setDragResizeState(null); setDragVelocityState(null); setLassoState(null); setSliceState(null);
       onScrubStateChange(false);
       onLivePreview(null);
@@ -785,9 +866,10 @@ export function PianoRoll({
                 <div
                   ref={timelineRef}
                   onPointerDown={handleTimelinePointerDown}
+                  onDoubleClick={() => onLoopRegionChange(null)}
                   className="piano-timeline relative cursor-pointer group flex-1"
                   style={{ minWidth: `${contentWidth}px`, touchAction: "none" }}
-                  title="Click or drag to scrub playback"
+                  title="Drag to seek · Shift+drag to select a loop · double-click to reset loop"
                 >
                   <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-colors pointer-events-none" />
                   {Array.from({ length: totalDisplayBars }).map((_, i) => (
@@ -799,6 +881,25 @@ export function PianoRoll({
                       {i + 1}
                     </div>
                   ))}
+                  <div className={"loop-range-band" + (!isLooping ? " inactive" : "")}
+                    aria-hidden="true" style={{ left: displayedLoop.start * zoomX, width: (displayedLoop.end - displayedLoop.start) * zoomX }} />
+                  {(["in", "out"] as const).map(edge => {
+                    const value = edge === "in" ? displayedLoop.start : displayedLoop.end;
+                    return <button key={edge} type="button" role="slider"
+                      className={"loop-handle " + (edge === "in" ? "loop-in" : "loop-out")}
+                      data-testid={"loop-" + edge}
+                      aria-label={edge === "in" ? "Loop in" : "Loop out"}
+                      aria-valuemin={edge === "in" ? 0 : displayedLoop.start + 1}
+                      aria-valuemax={edge === "in" ? displayedLoop.end - 1 : sequenceEnd}
+                      aria-valuenow={value}
+                      aria-valuetext={"Bar " + (Math.floor(value / 4) + 1) + ", beat " + (Math.floor(value % 4) + 1)}
+                      style={{ left: value * zoomX }}
+                      title={"Loop " + edge + ": drag or use arrow keys"}
+                      onPointerDown={event => handleLoopHandleDown(event, edge)}
+                      onKeyDown={event => handleLoopKey(event, edge)}
+                      onDoubleClick={event => event.stopPropagation()}
+                    ><span aria-hidden="true" /></button>;
+                  })}
                   <div className="chord-strip" aria-label="Chord progression">
                     {progression.chords.map((chord, i) => <div key={i} className="chord-chip" style={{ left: chord.timeStart * zoomX, width: chord.duration * zoomX }}><span className="chord-dot" />{chord.name}</div>)}
                     {progression.chords.length === 0 && <span className="chord-chip" style={{ left: 0 }}>MIDI pattern</span>}
