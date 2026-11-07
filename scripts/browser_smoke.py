@@ -204,6 +204,66 @@ with sync_playwright() as p:
  page.locator('.piano-timeline').last.dblclick(position={'x':80,'y':12})
  assert snap(page)['loopRegion'] is None
  record('Ruler double click restores the automatically sized full-pattern loop')
+ # Native layered composition: no imported MIDI required.
+ page.get_by_role('tab',name='Compose',exact=True).click()
+ expect(page.get_by_role('button',name='Single track',exact=True)).to_have_attribute('aria-pressed','true')
+ page.get_by_role('button',name='Bass + Harmony',exact=True).click()
+ page.get_by_role('button',name='Generate pattern',exact=False).click()
+ generated=snap(page)
+ assert generated['generationMode']=='layers'
+ assert [t['name'] for t in generated['progression']['tracks']]==['Bass','Harmony']
+ assert {n['trackIndex'] for n in generated['progression']['notes']}=={0,1}
+ assert generated['trackMix']['0']['synthType']=='sub'
+ assert generated['trackMix']['1']['synthType']==generated['synthType']
+ expect(page.get_by_role('tab',name='Tracks',exact=True)).to_have_attribute('aria-selected','true')
+ record('Optional layered generation creates separately routed Bass and Harmony tracks')
+ page.get_by_role('button',name='Add track',exact=True).click()
+ added=snap(page)['progression']
+ assert added['tracks'][-1]['index']==2 and added['tracks'][-1]['name']=='Track 3'
+ assert len(added['notes'])==len(generated['progression']['notes'])
+ assert page.get_by_role('combobox',name='Edit track',exact=True).input_value()=='2'
+ page.get_by_role('button',name='Draw tool',exact=True).click()
+ page.get_by_role('button',name='Fit pattern',exact=True).click()
+ x,y=grid_point(page,64,1)
+ page.mouse.click(x,y)
+ drawn=snap(page)['progression']
+ assert len([n for n in drawn['notes'] if n['trackIndex']==2])==1
+ record('Adding an empty track focuses a new lane and drawing writes to it')
+ page.get_by_role('button',name='Rename Track 3',exact=True).click()
+ page.get_by_role('textbox',name='New track name').fill('Melody')
+ page.get_by_role('textbox',name='New track name').press('Enter')
+ assert snap(page)['progression']['tracks'][-1]['name']=='Melody'
+ page.get_by_role('button',name='Duplicate Melody',exact=True).click()
+ duplicated=snap(page)['progression']
+ assert duplicated['tracks'][-1]['name']=='Melody copy'
+ assert len([n for n in duplicated['notes'] if n['trackIndex']==3])==1
+ page.get_by_role('button',name='Delete Melody copy',exact=True).click()
+ expect(page.get_by_role('alertdialog',name='Delete Melody copy confirmation')).to_be_visible()
+ page.get_by_role('button',name='Delete track',exact=True).click()
+ assert not any(t['index']==3 for t in snap(page)['progression']['tracks'])
+ page.get_by_role('button',name='Undo',exact=True).click()
+ restored_track=snap(page)['progression']
+ assert restored_track['tracks'][-1]['name']=='Melody copy'
+ assert len([n for n in restored_track['notes'] if n['trackIndex']==3])==1
+ record('Rename, duplicate, confirm-delete and undo preserve tracks and note identities')
+ page.get_by_role('button',name='Mute Melody',exact=True).click()
+ assert snap(page)['trackMix']['2']['muted']
+ page.reload();page.wait_for_timeout(650)
+ persisted=snap(page)
+ assert persisted['generationMode']=='layers'
+ assert persisted['progression']['tracks'][-1]['name']=='Melody copy'
+ assert persisted['trackMix']['2']['muted']
+ record('Layered composition, track headers and mixer preferences survive reload')
+ with page.expect_download() as layers_download:
+  page.get_by_role('button',name='Export MIDI',exact=True).click()
+ layered_file=OUTPUT/'layered.mid'
+ layers_download.value.save_as(str(layered_file))
+ page.locator('input[type=file]').first.set_input_files(str(layered_file));page.wait_for_timeout(650)
+ imported_layers=snap(page)['progression']
+ assert [t['name'] for t in imported_layers['tracks']]==['Bass','Harmony','Melody','Melody copy']
+ assert len(imported_layers['notes'])==len(persisted['progression']['notes'])
+ record('Native four-track composition round-trips through MIDI export and re-import')
+ page.get_by_role('tab',name='Compose',exact=True).click()
  metrics=[]
  for width,height in [(1440,900),(1280,720),(1024,768),(768,1024),(390,844),(375,667)]:
   page.set_viewport_size({'width':width,'height':height});page.wait_for_timeout(100)
