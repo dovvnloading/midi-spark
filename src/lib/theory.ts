@@ -37,6 +37,8 @@ export interface ProgressionData {
   totalBars: number;
   /** Original melodic-track headers; generated sessions may omit these. */
   tracks?: TrackMetadata[];
+  /** Monotonic per-project allocator; optional for legacy sessions. */
+  nextTrackIndex?: number;
 }
 
 export const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
@@ -198,6 +200,7 @@ export function generateSequence(
   bars: number,
   dissonance: number, // 0-100
   complexity: number, // 0-100
+  splitTracks = false,
 ): ProgressionData {
   const notesOut: NoteEvent[] = [];
   const chordsOut: ChordEvent[] = [];
@@ -288,6 +291,7 @@ export function generateSequence(
         const isTop = i === chordPitches.length - 1;
         const strumOffset = i * 0.015;
         notesOut.push({
+          ...(splitTracks ? { trackIndex: i === 0 ? 0 : 1 } : {}),
           name: n,
           midi: Note.midi(n) || 60,
           timeStart: humanizeTime(currentTime + strumOffset),
@@ -331,6 +335,7 @@ export function generateSequence(
           if (isBass && hitIdx > 0 && Math.random() > 0.5) return;
 
           notesOut.push({
+            ...(splitTracks ? { trackIndex: isBass ? 0 : 1 } : {}),
             name: n,
             midi: Note.midi(n) || 60,
             timeStart: humanizeTime(t + strumOffset),
@@ -358,6 +363,7 @@ export function generateSequence(
         if (isDownbeat) {
           const bassStr = chordPitches[0];
           notesOut.push({
+            ...(splitTracks ? { trackIndex: 0 } : {}),
             name: bassStr,
             midi: Note.midi(bassStr) || 48,
             timeStart: humanizeTime(t),
@@ -395,6 +401,7 @@ export function generateSequence(
         }
 
         notesOut.push({
+          ...(splitTracks ? { trackIndex: 1 } : {}),
           name: pitchStr,
           midi: Note.midi(pitchStr) || 60,
           timeStart: humanizeTime(t),
@@ -409,7 +416,16 @@ export function generateSequence(
     currentTime += patternDuration;
   }
 
-  return { notes: notesOut, chords: chordsOut, totalBars: bars };
+  return {
+    notes: notesOut, chords: chordsOut, totalBars: bars,
+    ...(splitTracks ? {
+      tracks: [
+        { index: 0, name: "Bass", program: 33, channel: 0 },
+        { index: 1, name: "Harmony", program: 0, channel: 1 },
+      ],
+      nextTrackIndex: 2,
+    } : {}),
+  };
 }
 
 export function applyVariationToProgression(
