@@ -7,6 +7,8 @@ import type { SynthType } from "../lib/audio";
 export interface SidebarProps {
   root: string; mode: "major" | "minor"; dissonance: number; complexity: number; bars: number; canVary: boolean;
   synthType: SynthType; multiTrack: boolean;
+  generationMode: "single" | "layers";
+  onGenerationModeChange: (mode: "single" | "layers") => void;
   onRootChange: (value: string) => void; onModeChange: (value: "major" | "minor") => void;
   onDissonanceChange: (value: number) => void; onComplexityChange: (value: number) => void; onBarsChange: (value: number) => void;
   onSynthChange: (value: SynthType) => void; onOpenTracks: () => void;
@@ -40,6 +42,16 @@ export function Sidebar(p: SidebarProps) {
         <div className="segmented" role="group" aria-label="Pattern length">
           {[4, 8, 12, 16].map(bars => <button key={bars} aria-pressed={p.bars === bars} onClick={() => p.onBarsChange(bars)}>{bars}</button>)}
         </div>
+      </section>
+      <section className="field-section">
+        <div className="field-heading"><h3>Generation layers</h3><span className="field-hint">instruments</span></div>
+        <div className="generation-mode" role="group" aria-label="Generation layers">
+          <button type="button" aria-pressed={p.generationMode === "single"}
+            onClick={() => p.onGenerationModeChange("single")}>Single track</button>
+          <button type="button" aria-pressed={p.generationMode === "layers"}
+            onClick={() => p.onGenerationModeChange("layers")}>Bass + Harmony</button>
+        </div>
+        <p className="generation-hint">Separate Bass + Harmony to mix and edit two instrument parts independently.</p>
       </section>
       <p className="inspector-note">Generation replaces the pattern. Your previous idea is always one undo away.</p>
     </div>
