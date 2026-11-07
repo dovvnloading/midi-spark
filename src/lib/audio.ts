@@ -317,7 +317,12 @@ function syncTransportBounds(data: ProgressionData, looping: boolean, loopRange:
  * Tone converts a tick-based duration to seconds at each scheduled attack,
  * so BPM changes preserve the musical length of subsequent notes. */
 function noteDurationTime(note: ProgressionData["notes"][number], ppq: number): string {
-  return Math.max(1, quartersToTicks(note.duration * 0.9, ppq)) + "i";
+  // A note that crosses a custom loop-out must release before the next pass.
+  // For full-pattern playback, the default range already contains each note.
+  const quarters = playbackLooping
+    ? Math.min(note.duration, Math.max(0, playbackLoopRange.end - note.timeStart))
+    : note.duration;
+  return Math.max(1, quartersToTicks(quarters * 0.9, ppq)) + "i";
 }
 
 /** Re-synchronize notes, tempo, and loop/end markers without restarting. */
@@ -365,6 +370,7 @@ export function playProgression(
   currentPart = new Tone.Part(
     (time, note) => {
       if (epoch !== playbackEpoch || playbackState !== "playing") return;
+      if (playbackLooping && (note.timeStart < playbackLoopRange.start || note.timeStart >= playbackLoopRange.end)) return;
       const track = trackIndexOf(note);
       const voice = trackVoices.get(track);
       if (voice && trackEffectiveLevel(track, trackMixer) === 0) return;
