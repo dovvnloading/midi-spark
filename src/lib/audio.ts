@@ -2,6 +2,14 @@ import * as Tone from "tone";
 import { ProgressionData } from "./theory";
 import { PRESET_BY_ID, type EffectFamily, type PresetPatch, type SynthType } from "./presets";
 import type { TrackMix } from "./tracks";
+import {
+  normalizeLoopRange,
+  quarterTime,
+  quartersToTicks,
+  sequenceEndQuarters,
+  ticksToQuarters,
+  type LoopRange,
+} from "./timeline";
 import { trackEffectiveLevel, trackIndexOf } from "./tracks";
 
 export type { SynthType } from "./presets";
@@ -232,129 +240,219 @@ export async function auditionPreset(type: SynthType): Promise<void> {
   auditionVoice.synth.triggerAttackRelease(notes, 0.42, "+0.02", 0.45);
 }
 
-function sequenceEndQuarters(data: ProgressionData): number {
-  const maxNoteEnd = data.notes.reduce(
-    (max, n) => Math.max(max, n.timeStart + n.duration),
-    0,
-  );
-  return Math.max(data.totalBars * 4, maxNoteEnd);
+let endingEventId: number | null = null;
+let tickEventId: number | null = null;
+let playbackEpoch = 0;
+let playbackState: "stopped" | "playing" | "paused" = "stopped";
+let playbackCallbacks: PlaybackCallbacks | null = null;
+let playbackEndQuarters = 0;
+let playbackLooping = false;
+let playbackLoopRange: LoopRange = { start: 0, end: 1 };
+
+function releasePlaybackVoices(): void {
+  activeSynth?.releaseAll();
+  trackVoices.forEach(({ synth }) => synth.releaseAll());
 }
 
-/**
- * Re-sync the scheduled part with the current progression while the transport
- * is running (live edits, BPM changes, loop toggles).
- */
+function clearEndingEvent(transport: ReturnType<typeof Tone.getTransport>): void {
+  if (endingEventId !== null) {
+    transport.clear(endingEventId);
+    endingEventId = null;
+  }
+}
+
+/** The old end callback must never affect a newer playback session. */
+function finishPlayback(epoch: number): void {
+  if (epoch !== playbackEpoch || playbackState === "stopped") return;
+  const ended = playbackCallbacks?.onEnded;
+  stopAudio();
+  const completedEpoch = playbackEpoch;
+  // Do not invoke React callbacks from Tone's ahead-of-time audio scheduler.
+  // Draw callbacks can be dropped when a browser tab is hidden.
+  setTimeout(() => {
+    if (completedEpoch === playbackEpoch) ended?.();
+  }, 0);
+}
+
+/** Re-arm a single end marker whenever loop mode or sequence length changes. */
+function syncTransportBounds(data: ProgressionData, looping: boolean, loopRange: LoopRange | null): void {
+  const transport = Tone.getTransport();
+  const end = sequenceEndQuarters(data);
+  const range = normalizeLoopRange(loopRange, end);
+  playbackEndQuarters = end;
+  playbackLooping = looping;
+  playbackLoopRange = range;
+  clearEndingEvent(transport);
+
+  if (looping) {
+    transport.setLoopPoints(
+      quarterTime(range.start, transport.PPQ),
+      quarterTime(range.end, transport.PPQ),
+    );
+    transport.loop = true;
+    const current = ticksToQuarters(transport.ticks, transport.PPQ);
+    if (current < range.start || current >= range.end) {
+      releasePlaybackVoices();
+      transport.ticks = quartersToTicks(range.start, transport.PPQ);
+    }
+    return;
+  }
+
+  transport.loop = false;
+  if (ticksToQuarters(transport.ticks, transport.PPQ) >= end) {
+    finishPlayback(playbackEpoch);
+    return;
+  }
+  const epoch = playbackEpoch;
+  endingEventId = transport.schedule(
+    () => finishPlayback(epoch),
+    quarterTime(end, transport.PPQ),
+  );
+}
+
+/** Keep note starts and durations in transport ticks rather than fixed seconds.
+ * Tone converts a tick-based duration to seconds at each scheduled attack,
+ * so BPM changes preserve the musical length of subsequent notes. */
+function noteDurationTime(note: ProgressionData["notes"][number], ppq: number): string {
+  return Math.max(1, quartersToTicks(note.duration * 0.9, ppq)) + "i";
+}
+
+/** Re-synchronize notes, tempo, and loop/end markers without restarting. */
 export function updateProgressionLive(
   data: ProgressionData,
   bpm: number,
   isLooping: boolean,
-) {
-  if (!activeSynth || !currentPart) return;
+  loopRange: LoopRange | null = null,
+): void {
+  if (!activeSynth || !currentPart || playbackState === "stopped") return;
   const transport = Tone.getTransport();
   transport.bpm.value = bpm;
-  const quarterSec = 60 / bpm;
-
   currentPart.clear();
   data.notes.forEach((note) => {
-    currentPart?.add(note.timeStart * quarterSec, note);
+    currentPart?.add(quarterTime(note.timeStart, transport.PPQ), note);
   });
-
-  const totalDurationSec = sequenceEndQuarters(data) * quarterSec;
-  transport.loop = isLooping;
-  if (isLooping) {
-    transport.setLoopPoints(0, totalDurationSec);
-  }
+  syncTransportBounds(data, isLooping, loopRange);
 }
 
 export function playProgression(
   data: ProgressionData,
   bpm: number,
   callbacks: PlaybackCallbacks,
-  startTickQuarters: number = 0,
-  isLooping: boolean = false,
-) {
+  startTickQuarters = 0,
+  isLooping = false,
+  loopRange: LoopRange | null = null,
+): void {
   if (!activeSynth) return;
-
   const transport = Tone.getTransport();
+
+  // Cancel both old parts and their UI/end callbacks before making a session.
+  ++playbackEpoch;
+  playbackCallbacks = callbacks;
   transport.stop();
   transport.cancel();
+  endingEventId = null;
+  tickEventId = null;
+  currentPart?.dispose();
+  releasePlaybackVoices();
+  transport.ticks = 0;
+  transport.loop = false;
   transport.bpm.value = bpm;
 
-  const quarterSec = 60 / bpm;
-
-  if (currentPart) {
-    currentPart.dispose();
-  }
-
+  const epoch = playbackEpoch;
   currentPart = new Tone.Part(
     (time, note) => {
-      const durationSec = note.duration * quarterSec * 0.9;
+      if (epoch !== playbackEpoch || playbackState !== "playing") return;
       const track = trackIndexOf(note);
       const voice = trackVoices.get(track);
       if (voice && trackEffectiveLevel(track, trackMixer) === 0) return;
       (voice?.synth ?? activeSynth)?.triggerAttackRelease(
         note.name,
-        durationSec,
+        noteDurationTime(note, transport.PPQ),
         time,
         note.velocity,
       );
     },
-    data.notes.map((n) => ({ ...n, time: n.timeStart * quarterSec })),
+    data.notes.map((note) => ({
+      ...note,
+      time: quarterTime(note.timeStart, transport.PPQ),
+    })),
   );
-
   currentPart.start(0);
 
-  // Repeating schedule to update the UI playhead.
-  transport.scheduleRepeat((time) => {
+  // Capture the position while Tone calls us, rather than after a Draw delay.
+  tickEventId = transport.scheduleRepeat((time) => {
+    const quarter = ticksToQuarters(transport.ticks, transport.PPQ);
     Tone.getDraw().schedule(() => {
-      callbacks.onTick(transport.ticks / transport.PPQ);
+      if (epoch === playbackEpoch && playbackState === "playing") callbacks.onTick(quarter);
     }, time);
-  }, "16n");
+  }, "16n", "0i");
 
-  const totalDurationSec = sequenceEndQuarters(data) * quarterSec;
-
-  if (isLooping) {
-    transport.setLoopPoints(0, totalDurationSec);
-    transport.loop = true;
-  } else {
-    transport.loop = false;
-    if (totalDurationSec > 0) {
-      transport.schedule(() => {
-        transport.stop();
-        // Deliberately NOT delivered via Draw: Draw events expire (and rAF is
-        // paused) while the tab is hidden, which would leave the UI stuck in
-        // the playing state when a sequence ends in a background tab.
-        setTimeout(() => callbacks.onEnded(), 0);
-      }, totalDurationSec);
-    }
-  }
-
-  if (startTickQuarters > 0) {
-    transport.seconds = startTickQuarters * quarterSec;
-  }
+  playbackState = "playing";
+  const end = sequenceEndQuarters(data);
+  const range = normalizeLoopRange(loopRange, end);
+  const start = isLooping
+    ? (startTickQuarters >= range.start && startTickQuarters < range.end
+      ? startTickQuarters : range.start)
+    : (startTickQuarters >= end ? 0 : Math.max(0, startTickQuarters));
+  transport.ticks = quartersToTicks(start, transport.PPQ);
+  syncTransportBounds(data, isLooping, loopRange);
   transport.start();
 }
 
-export function seekAudio(tickQuarters: number, bpm: number) {
-  Tone.getTransport().seconds = tickQuarters * (60 / bpm);
+/** Pause retains the transport's musical cursor and the scheduled Part. */
+export function pauseAudio(): void {
+  if (playbackState !== "playing") return;
+  Tone.getTransport().pause();
+  playbackState = "paused";
+  releasePlaybackVoices();
+}
+
+export function resumeAudio(): void {
+  if (playbackState !== "paused") return;
+  if (!playbackLooping && ticksToQuarters(Tone.getTransport().ticks, Tone.getTransport().PPQ) >= playbackEndQuarters) {
+    finishPlayback(playbackEpoch);
+    return;
+  }
+  playbackState = "playing";
+  Tone.getTransport().start();
+}
+
+/** Seeking never converts via BPM; that would shift musical positions after a tempo change. */
+export function seekAudio(quarter: number): void {
+  const transport = Tone.getTransport();
+  let position = Math.max(0, Math.min(playbackEndQuarters || quarter, quarter));
+  if (playbackLooping && (position < playbackLoopRange.start || position >= playbackLoopRange.end)) {
+    position = playbackLoopRange.start;
+  }
+  releasePlaybackVoices();
+  transport.ticks = quartersToTicks(position, transport.PPQ);
+  if (!playbackLooping && playbackState === "playing" && position >= playbackEndQuarters) {
+    finishPlayback(playbackEpoch);
+  }
 }
 
 export function playNote(
   name: string,
-  durationInSeconds: number = 0.5,
+  durationInSeconds = 0.5,
   velocity?: number,
   trackIndex?: number,
-) {
+): void {
   const synth = trackIndex === undefined
     ? activeSynth
     : trackVoices.get(trackIndex)?.synth ?? activeSynth;
   synth?.triggerAttackRelease(name, durationInSeconds, "+0.01", velocity);
 }
 
-export function stopAudio() {
+export function stopAudio(): void {
+  ++playbackEpoch;
+  playbackState = "stopped";
+  playbackCallbacks = null;
   const transport = Tone.getTransport();
   transport.stop();
   transport.cancel();
-  if (activeSynth) activeSynth.releaseAll();
-  trackVoices.forEach(({ synth }) => synth.releaseAll());
+  endingEventId = null;
+  tickEventId = null;
+  currentPart?.dispose();
+  currentPart = null;
+  releasePlaybackVoices();
 }
