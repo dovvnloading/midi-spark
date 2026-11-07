@@ -97,15 +97,30 @@ export function Inspector({ tab, onTabChange, mobileOpen, onClose, onToggle, wid
         }}
         onPointerMove={event => {
           if (!resizeStart.current) return;
+          // Resize the CSS grid directly during drag: don't re-render the piano roll at pointer frequency.
           const maxForViewport = Math.max(MIN_WIDTH, window.innerWidth - 360);
-          onResize(clamp(Math.min(maxForViewport, resizeStart.current.width + event.clientX - resizeStart.current.x)));
+          const next = clamp(Math.min(maxForViewport, resizeStart.current.width + event.clientX - resizeStart.current.x));
+          ref.current?.closest<HTMLElement>(".workbench")?.style.setProperty("--inspector-width", next + "px");
         }}
         onPointerUp={event => {
+          const start = resizeStart.current;
+          if (start) {
+            const maxForViewport = Math.max(MIN_WIDTH, window.innerWidth - 360);
+            onResize(clamp(Math.min(maxForViewport, start.width + event.clientX - start.x)));
+          }
           resizeStart.current = null;
           if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
         }}
-        onPointerCancel={() => { resizeStart.current = null; }}
-        onLostPointerCapture={() => { resizeStart.current = null; }}
+        onPointerCancel={() => {
+          resizeStart.current = null;
+          ref.current?.closest<HTMLElement>(".workbench")?.style.setProperty("--inspector-width", width + "px");
+        }}
+        onLostPointerCapture={() => {
+          if (resizeStart.current) {
+            resizeStart.current = null;
+            ref.current?.closest<HTMLElement>(".workbench")?.style.setProperty("--inspector-width", width + "px");
+          }
+        }}
         onDoubleClick={() => onResize(DEFAULT_WIDTH)}
         onKeyDown={event => {
           const step = event.shiftKey ? 24 : 12;
