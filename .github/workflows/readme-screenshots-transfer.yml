@@ -1,0 +1,48 @@
+name: Capture README UI screenshots
+
+on:
+  push:
+    branches: [docs/readme-ui-gallery]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  capture:
+    if: github.event.head_commit.message != 'docs: add verified UI screenshots'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: browser-review
+          run-id: 42316844153
+          github-token: ${{ github.token }}
+          path: .screenshots
+      - name: Copy and verify exact QA screenshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docs/screenshots
+          cp .screenshots/workbench-1440.png docs/screenshots/desktop-editor.png
+          cp .screenshots/transform-desktop.png docs/screenshots/note-lab.png
+          cp .screenshots/mobile-inspector.png docs/screenshots/mobile-compose.png
+          cp .screenshots/workbench-390.png docs/screenshots/mobile-piano-roll.png
+          cp .screenshots/empty-desktop.png docs/screenshots/empty-state.png
+          cat <<'SUMS' | sha256sum --check
+          8b9551979d0c9527955bc99b8c04d7435fd115958404cfe710616e43b169d96c  docs/screenshots/desktop-editor.png
+          dd545cccc5eb55d47c5f4e6e76cbfb84fc49ed9dd9816cca089a4879e6830e23  docs/screenshots/note-lab.png
+          cc1f230c5001cf5031abe873564dbfaea44c719f7ff2a2a3992fe235b8870fc9  docs/screenshots/mobile-compose.png
+          f79f276fdbdcba69ce1ae63d39afe9098c979b92a487133ae5421e757e37034d  docs/screenshots/mobile-piano-roll.png
+          22a679b4cca34c0d5bc39bcea54fa437c6276df2b4bbf75944b9781f3c58e122  docs/screenshots/empty-state.png
+          SUMS
+      - name: Commit screenshot assets
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots/
+          git diff --cached --check
+          git commit -m "docs: add verified UI screenshots"
+          git push origin HEAD:docs/readme-ui-gallery
