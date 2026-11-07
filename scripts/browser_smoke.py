@@ -168,6 +168,42 @@ with sync_playwright() as p:
  page.get_by_role('button',name='Generate pattern',exact=False).click()
  page.wait_for_timeout(600)
  if page.get_by_role('button',name='Dismiss notification').count(): page.get_by_role('button',name='Dismiss notification').click()
+ # Select bars 2–3 by Shift-dragging the ruler. The loop range is session-local.
+ timeline=page.locator('.piano-timeline').last
+ ruler=timeline.bounding_box();zoom=snap(page)['zoomX']
+ assert ruler and zoom>0
+ y=ruler['y']+13
+ page.keyboard.down('Shift')
+ page.mouse.move(ruler['x']+4*zoom,y);page.mouse.down()
+ page.mouse.move(ruler['x']+8*zoom,y,steps=8);page.mouse.up()
+ page.keyboard.up('Shift')
+ region=snap(page)['loopRegion']
+ assert region and abs(region['start']-4)<.01 and abs(region['end']-8)<.01,region
+ record('Shift+drag selects a real quarter-note loop region without editing notes')
+ page.get_by_role('slider',name='Loop out',exact=True).press('ArrowLeft')
+ updated=snap(page)['loopRegion']
+ assert abs(updated['end']-(region['end']-.25))<.01,updated
+ record('Loop marker adjusts with accessible keyboard arrow controls')
+ # Cancelling a touch drag must not commit an invisible loop change.
+ handle=page.get_by_test_id('loop-out').bounding_box()
+ assert handle
+ px=handle['x']+handle['width']-5;py=handle['y']+15
+ cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':px,'y':py}]})
+ page.wait_for_timeout(40)
+ cdp.send('Input.dispatchTouchEvent',{'type':'touchMove','touchPoints':[{'x':px-30,'y':py}]})
+ cdp.send('Input.dispatchTouchEvent',{'type':'touchCancel','touchPoints':[]})
+ assert snap(page)['loopRegion']==updated
+ record('Cancelled touch resize leaves loop region unchanged')
+ page.get_by_role('button',name='Loop playback').click()
+ assert snap(page)['isLooping'] is False
+ page.get_by_role('button',name='Loop playback').click()
+ assert snap(page)['isLooping'] is True
+ page.reload();page.wait_for_timeout(650)
+ assert snap(page)['loopRegion']==updated and snap(page)['isLooping'] is True
+ record('Custom loop markers and looping state persist across browser reload')
+ page.locator('.piano-timeline').last.dblclick(position={'x':80,'y':12})
+ assert snap(page)['loopRegion'] is None
+ record('Ruler double click restores the automatically sized full-pattern loop')
  metrics=[]
  for width,height in [(1440,900),(1280,720),(1024,768),(768,1024),(390,844),(375,667)]:
   page.set_viewport_size({'width':width,'height':height});page.wait_for_timeout(100)
