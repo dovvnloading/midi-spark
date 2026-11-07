@@ -11,9 +11,43 @@
     <meta name="theme-color" content="#181b1e" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <title>Midi Spark</title>
+    <style>
+      html,body{margin:0;min-height:100%;background:#181b1e;color:#e8efe9}
+      #root{min-height:100vh}
+      .boot-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;font:14px/1.6 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+      .boot-card{width:min(380px,100%);text-align:center}
+      .boot-mark{display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:13px;background:#2f4430;color:#d0eca7;font-weight:800;font-size:22px}
+      .boot-heading{margin:19px 0 5px;font-size:18px;font-weight:700;letter-spacing:-.02em}
+      .boot-copy{margin:0;color:#a5b5ad;font-size:13px}
+      .boot-retry{display:none;margin:22px auto 0;padding:11px 20px;border:1px solid #93ae7a;border-radius:8px;background:#d3eaaa;color:#18241e;font-weight:700;cursor:pointer}
+      .boot-screen[data-stalled="true"] .boot-retry{display:inline-flex}
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot-screen" id="boot-screen" role="status" aria-live="polite">
+        <div class="boot-card">
+          <span class="boot-mark" aria-hidden="true">♫</span>
+          <h1 class="boot-heading">Starting MIDI Spark</h1>
+          <p class="boot-copy" id="boot-copy">Preparing your studio workspace…</p>
+          <button class="boot-retry" id="boot-retry" type="button">Reload studio</button>
+        </div>
+      </div>
+    </div>
+    <noscript><p style="padding:20px;text-align:center">MIDI Spark needs JavaScript enabled to run.</p></noscript>
+    <script>
+      (function () {
+        var retry = document.getElementById("boot-retry");
+        retry.addEventListener("click", function () { window.location.reload(); });
+        window.setTimeout(function () {
+          var screen = document.getElementById("boot-screen");
+          if (!screen || !screen.isConnected) return;
+          screen.setAttribute("data-stalled", "true");
+          document.getElementById("boot-copy").textContent =
+            "The editor did not finish loading. Check your connection, then reload.";
+        }, 6000);
+      }());
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

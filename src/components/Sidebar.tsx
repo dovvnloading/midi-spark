@@ -22,6 +22,11 @@ export function Sidebar(p: SidebarProps) {
         <div className="field-pair"><CustomDropdown ariaLabel="Root key" value={p.root} onChange={v => p.onRootChange(String(v))} options={[...ROOT_NOTES]} />
           <CustomDropdown ariaLabel="Scale mode" value={p.mode} onChange={v => p.onModeChange(v as "major" | "minor")} options={[{ label: "Major", value: "major" }, { label: "Minor", value: "minor" }]} /></div>
       </section>
+      <section className="field-section sound-section">
+        <div className="field-heading"><h3>{p.multiTrack ? "Track instruments" : "Preview sound"}</h3><span className="field-hint">Audio only</span></div>
+        {p.multiTrack ? <button className="secondary-button wide" onClick={p.onOpenTracks}>Open track mixer <ArrowUpRight size={14} /></button> :
+          <SoundPicker label="Preview sound" value={p.synthType} onChange={p.onSynthChange} onPreviewError={p.onPreviewError} />}
+      </section>
       <section className="field-section">
         <div className="field-heading"><h3>Chord tension</h3><output>{p.dissonance}<span>%</span></output></div>
         <CustomSlider value={p.dissonance} min={0} max={100} onChange={p.onDissonanceChange} label="Chord tension" />
@@ -35,11 +40,6 @@ export function Sidebar(p: SidebarProps) {
         <div className="segmented" role="group" aria-label="Pattern length">
           {[4, 8, 12, 16].map(bars => <button key={bars} aria-pressed={p.bars === bars} onClick={() => p.onBarsChange(bars)}>{bars}</button>)}
         </div>
-      </section>
-      <section className="field-section sound-section">
-        <div className="field-heading"><h3>{p.multiTrack ? "Track instruments" : "Preview sound"}</h3><span className="field-hint">Audio only</span></div>
-        {p.multiTrack ? <button className="secondary-button wide" onClick={p.onOpenTracks}>Open track mixer <ArrowUpRight size={14} /></button> :
-          <SoundPicker label="Preview sound" value={p.synthType} onChange={p.onSynthChange} onPreviewError={p.onPreviewError} />}
       </section>
       <p className="inspector-note">Generation replaces the pattern. Your previous idea is always one undo away.</p>
     </div>
