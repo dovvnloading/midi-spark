@@ -74,6 +74,8 @@ const trackVoices = new Map<number, TrackVoice>();
 let trackMixer: TrackMix = {};
 let selectedPreview: { type: SynthType; synth: Tone.PolySynth } | null = null;
 let auditionVoice: { type: SynthType; synth: Tone.PolySynth } | null = null;
+let audioInitialization: Promise<void> | null = null;
+let auditionRequestId = 0;
 
 function connectPreset(synth: Tone.PolySynth, type: SynthType): void {
   const rack = effectInputs[PRESET_BY_ID[type].fx];
@@ -123,7 +125,18 @@ export interface PlaybackCallbacks {
   onEnded: () => void;
 }
 
-export async function initAudio(): Promise<void> {
+export function initAudio(): Promise<void> {
+  if (classicSynth) return Promise.resolve();
+  if (!audioInitialization) {
+    audioInitialization = initializeAudioGraph().catch((error: unknown) => {
+      audioInitialization = null;
+      throw error;
+    });
+  }
+  return audioInitialization;
+}
+
+async function initializeAudioGraph(): Promise<void> {
   await Tone.start();
   if (classicSynth) return;
 
@@ -201,7 +214,9 @@ export function setSynthType(type: SynthType): void {
  * sounds. Auditions do not change MIDI data, the requested instrument, or
  * per-track mute/solo; the listener can hear a new patch before selecting it. */
 export async function auditionPreset(type: SynthType): Promise<void> {
+  const requestId = ++auditionRequestId;
   await initAudio();
+  if (requestId !== auditionRequestId) return;
   if (auditionVoice?.type !== type) {
     if (auditionVoice) releaseVoice(auditionVoice.synth);
     const synth = createTrackSynth(type);

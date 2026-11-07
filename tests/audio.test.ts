@@ -12,6 +12,7 @@ const mockState = vi.hoisted(() => ({
   voices: [] as Array<{ id: number; triggers: unknown[][]; disposed: boolean }>,
   parts: [] as Array<{ callback: (time: number, note: unknown) => void; notes: unknown[] }>,
   levels: [] as number[],
+  starts: 0,
 }));
 
 // Tiny deterministic Tone surface: exercises the real MIDI-to-synth dispatch
@@ -75,7 +76,7 @@ vi.mock("tone", () => {
     getTransport: () => transport,
     getDestination: () => new MockNode(),
     getDraw: () => ({ schedule() {} }),
-    start: async () => {},
+    start: async () => { mockState.starts++; },
     Part: MockPart,
   };
 });
@@ -157,5 +158,22 @@ describe("multitrack audio routing", () => {
     freshAudio.playNote("G4");
     expect(mockState.voices[beforeVoices + 4].triggers.map((t) => t[0])).toEqual(["G4"]);
     freshAudio.stopAudio();
+  });
+
+  it("deduplicates startup and auditions only the last rapid sound request", async () => {
+    vi.resetModules();
+    const audio = await import("../src/lib/audio");
+    const starts = mockState.starts;
+    const voices = mockState.voices.length;
+    await Promise.all([
+      audio.auditionPreset("organ"),
+      audio.auditionPreset("glass"),
+      audio.auditionPreset("fmBass"),
+    ]);
+    expect(mockState.starts - starts).toBe(1);
+    const sounding = mockState.voices.slice(voices).filter(voice => voice.triggers.length > 0);
+    expect(sounding).toHaveLength(1);
+    expect(sounding[0].triggers[0][0]).toEqual(["C3", "G3"]);
+    audio.stopAudio();
   });
 });
