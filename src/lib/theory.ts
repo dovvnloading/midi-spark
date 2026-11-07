@@ -1,6 +1,7 @@
 import { Chord, Progression, Note } from "@tonaljs/tonal";
 import { clamp } from "./constants";
 import type { RandomSource } from "./random";
+import { chooseUpperVoicing } from "./voicing";
 
 export interface NoteEvent {
   midi: number;
@@ -136,7 +137,8 @@ export function detectKeyFromProgression(progression: ProgressionData): {
   return { root: bestRoot, mode: bestMode };
 }
 
-// Simple templates of roman numeral progressions
+// Major-key templates; mode-specific functions are deliberate, not mapped
+// mechanically from relative major chord spellings.
 const PROGRESSIONS = [
   ["I", "V", "vi", "IV"],
   ["ii", "V", "I", "vi"],
@@ -148,6 +150,19 @@ const PROGRESSIONS = [
   ["IV", "V", "iii", "vi"], // Modern pop / R&B
   ["I", "I7", "IV", "iv"], // Classic pop turnaround
   ["vi", "V", "IV", "III"], // Andalusian cadence
+];
+
+// Natural, harmonic and borrowed minor degrees are explicit. The major V
+// deliberately supplies a leading tone; iiø is a minor-key predominant.
+const MINOR_PROGRESSIONS = [
+  ["i", "bVI", "bIII", "bVII"],
+  ["i", "iv", "V", "i"],
+  ["i", "bVII", "bVI", "V"],
+  ["i", "iim7b5", "V", "i"],
+  ["bVI", "bVII", "i", "i"],
+  ["i", "bIII", "iv", "V"],
+  ["iv", "i", "bVI", "V"],
+  ["i", "bVI", "iv", "V"],
 ];
 
 function applyDissonance(roman: string, level: number, random: RandomSource): string {
@@ -206,39 +221,18 @@ export function generateSequence(
   const chordsOut: ChordEvent[] = [];
   let currentTime = 0; // in quarters
 
-  const template =
-    PROGRESSIONS[Math.floor(random() * PROGRESSIONS.length)];
+  const templates = mode === "minor" ? MINOR_PROGRESSIONS : PROGRESSIONS;
+  const template = templates[Math.floor(random() * templates.length)];
 
   const humanizeTime = (t: number) =>
     Math.max(0, t + (random() * 0.04 - 0.02));
   const humanizeVelocity = (v: number) =>
     Math.max(0.1, Math.min(1.0, v + (random() * 0.15 - 0.075)));
 
-  let prevUpperMidiCenter = 64; // roughly E4 for voice leading
+  let previousUpperVoicing: number[] = [];
 
   for (let bar = 0; bar < bars; bar++) {
-    const baseRoman = template[bar % template.length];
-
-    let roman = baseRoman;
-    if (mode === "minor") {
-      // Natural-minor degrees. Flat prefixes matter: tonal resolves plain
-      // uppercase romans against the MAJOR scale of the tonic, so "III" in
-      // C minor would come out E major instead of Eb. "iim7b5" is spelled out
-      // because the parser rejects "iidim" entirely.
-      const minorMap: Record<string, string> = {
-        I: "i",
-        I7: "im7",
-        ii: "iim7b5",
-        iii: "bIII",
-        III: "bIII",
-        IV: "iv",
-        V: "V",
-        vi: "bVI",
-        vii: "bVII",
-      };
-      roman = minorMap[baseRoman] || baseRoman;
-    }
-
+    const roman = template[bar % template.length];
     const modifiedRoman = applyDissonance(roman, dissonance, random);
 
     const chordNames = Progression.fromRomanNumerals(root, [modifiedRoman]);
@@ -252,28 +246,22 @@ export function generateSequence(
 
     const chordObj = Chord.get(chordName);
 
-    // Voicing strategy: root in bass, others voiced near previous chord (voice leading)
+    // The root stays in the bass. Search upper-voice inversions/octaves with
+    // motion, spacing and crossing costs instead of one shared pitch center.
     let chordPitches: string[] = [];
     if (chordObj.notes.length > 0) {
-      chordPitches.push(chordObj.notes[0] + "2"); // Low bass note
-
+      chordPitches.push(chordObj.notes[0] + "2");
       const upperNotes = chordObj.notes.slice(1);
       if (upperNotes.length === 0) upperNotes.push(chordObj.notes[0]);
-
-      upperNotes.forEach((n) => {
-        let midi = Note.midi(n + "4") || 60;
-        // Shift octave to minimize distance to previous center
-        if (midi > prevUpperMidiCenter + 6) midi -= 12;
-        if (midi < prevUpperMidiCenter - 6) midi += 12;
-        chordPitches.push(Note.fromMidi(midi) || n + "4");
-      });
-
-      // Update center of mass for next bar
-      const upperMidis = chordPitches.slice(1).map((n) => Note.midi(n) || 60);
-      prevUpperMidiCenter =
-        upperMidis.reduce((a, b) => a + b, 0) / upperMidis.length;
+      const upperMidi = chooseUpperVoicing(
+        upperNotes.map(note => Note.chroma(note) ?? 0),
+        previousUpperVoicing,
+      );
+      previousUpperVoicing = upperMidi;
+      chordPitches.push(...upperMidi.map(midi => Note.fromMidi(midi) || root + "4"));
     } else {
       chordPitches = [root + "2", root + "4"];
+      previousUpperVoicing = [Note.midi(root + "4") ?? 60];
     }
 
     const patternDuration = 4; // 4 quarters per bar
@@ -376,7 +364,10 @@ export function generateSequence(
         const pLen = upperPitches.length;
 
         // Use musical melodic shapes
-        if (arpPattern < 0.3) {
+        if (pLen < 2) {
+          // A unison/one-tone chord cannot form an up/down index cycle.
+          noteIndex = 0;
+        } else if (arpPattern < 0.3) {
           // Up and down
           noteIndex = s % (pLen * 2 - 2);
           if (noteIndex >= pLen) noteIndex = 2 * pLen - 2 - noteIndex;
@@ -408,6 +399,20 @@ export function generateSequence(
           duration: stepSize * 0.9,
           velocity: humanizeVelocity(0.55 + (isDownbeat ? 0.1 : 0)),
         });
+
+        // Intermediate complexity should not become *less* active than the
+        // syncopated chord tier: add a contrasting harmony tone on offbeats.
+        if (complexity <= 80 && s % 2 === 1 && pLen > 1) {
+          const response = upperPitches[(noteIndex + 1) % pLen];
+          notesOut.push({
+            ...(splitTracks ? { trackIndex: 1 } : {}),
+            name: response,
+            midi: Note.midi(response) || 60,
+            timeStart: humanizeTime(t),
+            duration: stepSize * 0.7,
+            velocity: humanizeVelocity(0.43),
+          });
+        }
 
         t += stepSize;
       }
