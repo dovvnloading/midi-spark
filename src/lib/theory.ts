@@ -469,7 +469,7 @@ export function applyVariationToProgression(
 
   // Use explicit Bass track metadata when available; otherwise the lowest
   // note is the most plausible bass, not the earliest random-strum onset.
-  const bassTrack = prog.tracks?.find(track => /\\bbass\\b/i.test(track.name))?.index;
+  const bassTrack = prog.tracks?.find(track => /\bbass\b/i.test(track.name))?.index;
   const bassFor = (notes: NoteEvent[]): NoteEvent => {
     const inBassTrack = bassTrack === undefined ? [] :
       notes.filter(note => note.trackIndex === bassTrack);
