@@ -74,6 +74,17 @@ describe("Music Engine v3: key analysis and uncertainty", () => {
     expect(a.best.score).toBeGreaterThan(a.alternatives[0].score);
   });
 
+  it("does not confuse a non-tonic pickup bass with the piece's actual key", () => {
+    const data = tonalFixture(0, "major");
+    // A short opening A-bass pickup shouldn't force relative A minor over
+    // a much stronger C-major cadence across the rest of the pattern.
+    data.notes.unshift({
+      midi: 45, name: "A2", timeStart: 0, duration: 0.2, velocity: 0.8,
+    });
+    const analysis = analyzeKeyFromProgression(data);
+    expect(analysis.best).toMatchObject({ root: "C", mode: "major" });
+  });
+
   it("keeps a short chromatic fragment explicitly ambiguous", () => {
     const notes = [60, 61, 62, 65].map((midi, index) => ({
       midi, name: "unknown", timeStart: index * 0.5,
