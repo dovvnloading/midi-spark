@@ -263,6 +263,15 @@ with sync_playwright() as p:
  assert [t['name'] for t in imported_layers['tracks']]==['Bass','Harmony','Melody','Melody copy']
  assert len(imported_layers['notes'])==len(persisted['progression']['notes'])
  record('Native four-track composition round-trips through MIDI export and re-import')
+ page.set_viewport_size({'width':390,'height':844})
+ page.get_by_role('button',name='Toggle inspector',exact=True).click()
+ page.get_by_role('tab',name='Tracks',exact=True).click()
+ expect(page.get_by_role('button',name='Add track',exact=True)).to_be_visible()
+ page.get_by_role('button',name='Add track',exact=True).click()
+ assert len(snap(page)['progression']['tracks'])==5
+ page.keyboard.press('Escape')
+ page.set_viewport_size({'width':1440,'height':900})
+ record('Mobile Tracks inspector can add a new track without obscured controls')
  # Verify the backward-compatible single-track workflow independently and
  # restore its preview sound picker before the legacy responsive assertions.
  page.get_by_role('tab',name='Compose',exact=True).click()
