@@ -116,6 +116,27 @@ describe("saveSession / loadSession", () => {
     expect(loadSession()).toBeNull();
   });
 
+  it("round-trips optional loop preferences while retaining older saved sessions", () => {
+    const customized: SavedSession = {
+      ...sampleSession,
+      isLooping: false,
+      loopRegion: { start: 4, end: 12 },
+    };
+    saveSession(customized);
+    expect(loadSession()).toEqual(customized);
+    saveSession(sampleSession);
+    expect(loadSession()).toEqual(sampleSession);
+  });
+
+  it("rejects invalid loop bounds rather than restoring a broken transport", () => {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+      ...sampleSession,
+      isLooping: true,
+      loopRegion: { start: 8, end: 7 },
+    }));
+    expect(loadSession()).toBeNull();
+  });
+
   it("round-trips a null progression (no sequence generated yet)", () => {
     const session: SavedSession = { ...sampleSession, progression: null };
     saveSession(session);

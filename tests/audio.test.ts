@@ -259,6 +259,31 @@ describe("multitrack audio routing", () => {
     stopAudio();
   });
 
+  it("releases long notes before a custom loop-out and ignores off-range events", async () => {
+    await initAudio();
+    setTrackMixer(mix);
+    const loopSequence: ProgressionData = {
+      notes: [
+        { name: "C4", midi: 60, timeStart: 2.75, duration: 2, velocity: 0.8, trackIndex: 0 },
+        { name: "E4", midi: 64, timeStart: 4, duration: 1, velocity: 0.6, trackIndex: 1 },
+      ],
+      chords: [],
+      totalBars: 2,
+    };
+    playProgression(loopSequence, 120, { onTick() {}, onEnded() {} }, 1, true, { start: 1, end: 3 });
+    const part = mockState.parts.at(-1)!;
+    const inside = part.notes[0] as ProgressionData["notes"][number];
+    const outside = part.notes[1] as ProgressionData["notes"][number];
+    const before = mockState.voices.map(voice => voice.triggers.length);
+    part.callback(0, inside);
+    const sounding = mockState.voices.find((voice, index) => voice.triggers.length > before[index]);
+    expect(sounding?.triggers.at(-1)?.[1]).toBe("43i"); // 0.25 beats × 90% × 192 PPQ
+    const triggered = mockState.voices.reduce((sum, voice) => sum + voice.triggers.length, 0);
+    part.callback(0, outside);
+    expect(mockState.voices.reduce((sum, voice) => sum + voice.triggers.length, 0)).toBe(triggered);
+    stopAudio();
+  });
+
   it("pauses and resumes at the same cursor; ignores stale end callbacks", async () => {
     await initAudio();
     setTrackMixer(mix);

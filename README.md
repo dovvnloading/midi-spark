@@ -164,6 +164,14 @@ frames the pattern horizontally and vertically. Use Ctrl/⌘+wheel for horizonta
 zoom, or Shift+wheel to move through the timeline. The visible keyboard keeps the
 full MIDI range available even when the pattern is framed.
 
+**Timeline & playback:** Space toggles Play/Pause, and the separate Stop button
+returns to bar 1. Click or drag the timeline ruler to seek. A shaded loop range
+shows which beats repeat while Loop is enabled. **Shift+drag** the ruler to
+select a new range, or drag the loop-in/out handles; keyboard users can focus
+the handles and use the arrow keys for snapped adjustments. **Double-click**
+the ruler to return to a full-pattern loop. Loop selection and on/off state
+autosave locally; no loop metadata is added to exported MIDI.
+
 **Transform:** selected notes take priority. Without a selection, transformations
 affect the focused track, or the whole pattern in All tracks view. An empty track
 never falls back to editing hidden tracks. The scope and note count are displayed

@@ -343,3 +343,15 @@ kbd { font-family: var(--font-mono); font-size: .9em; font-weight: 450; }
 @media (prefers-reduced-motion: reduce) {
   .sound-library .animate-spin, .sound-picker .animate-spin { animation: none !important; }
 }
+
+/* Timeline loop selection sits above the chord lane. The band is inert, so
+   ordinary ruler pointer gestures continue to scrub; only handles capture. */
+.loop-range-band { position: absolute; top: 27px; height: 7px; z-index: 4; pointer-events: none; background: #b5d89a6b; border-top: 1px solid #bedda4; border-bottom: 1px solid #a9cd8c; }
+.loop-range-band.inactive { background: #748c7661; border-color: #7f9a85; }
+.loop-handle { position: absolute; top: 0; z-index: 6; width: 32px; height: 34px; border: 0; padding: 0; background: transparent; cursor: ew-resize; touch-action: none; color: #d5f0b9; }
+.loop-handle.loop-out { transform: translateX(-100%); }
+.loop-handle span { position: absolute; top: 11px; width: 8px; height: 20px; background: #a9d38c; border: 1px solid #27382a; box-shadow: 0 0 0 1px #799768; border-radius: 2px; }
+.loop-handle.loop-in span { left: 0; }
+.loop-handle.loop-out span { right: 0; }
+.loop-handle:hover span, .loop-handle:focus-visible span { background: #e3f9c7; box-shadow: 0 0 0 2px #c6e8a8; }
+.loop-handle:focus-visible { outline: 2px solid #e0f6c7; outline-offset: -2px; }

@@ -1,5 +1,6 @@
 import { ProgressionData, NoteEvent, ChordEvent, TrackMetadata } from "./theory";
 import type { TrackMix } from "./tracks";
+import type { LoopRange } from "./timeline";
 import type { SynthType } from "./audio";
 import { PRESET_IDS } from "./presets";
 
@@ -22,6 +23,9 @@ export interface SavedSession {
   zoomX: number;
   /** Optional to keep backwards compatibility with older v1 local saves. */
   trackMix?: TrackMix;
+  /** Optional transport preferences; older v1 saves remain valid. */
+  isLooping?: boolean;
+  loopRegion?: LoopRange | null;
 }
 
 const SYNTH_TYPES: ReadonlySet<string> = PRESET_IDS;
@@ -81,6 +85,13 @@ function isTrackMix(v: unknown): v is TrackMix {
   });
 }
 
+function isLoopRange(v: unknown): v is LoopRange {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return false;
+  const range = v as Record<string, unknown>;
+  return isFiniteNumber(range.start) && isFiniteNumber(range.end) &&
+    range.start >= 0 && range.end >= range.start + 1;
+}
+
 function isProgressionData(v: unknown): v is ProgressionData {
   if (typeof v !== "object" || v === null) return false;
   const p = v as Record<string, unknown>;
@@ -110,7 +121,9 @@ function isValidSession(v: unknown): v is SavedSession {
     isFiniteNumber(s.snapResolution) &&
     isFiniteNumber(s.noteLength) &&
     isFiniteNumber(s.zoomX) &&
-    (s.trackMix === undefined || isTrackMix(s.trackMix))
+    (s.trackMix === undefined || isTrackMix(s.trackMix)) &&
+    (s.isLooping === undefined || typeof s.isLooping === "boolean") &&
+    (s.loopRegion === undefined || s.loopRegion === null || isLoopRange(s.loopRegion))
   );
 }
 

@@ -22,7 +22,7 @@ import {
 } from "./lib/audio";
 import { exportToMidiBlob, parseMidiFile } from "./lib/midi";
 import { MAX_BPM, MIN_BPM, clamp } from "./lib/constants";
-import { sequenceEndQuarters } from "./lib/timeline";
+import { normalizeLoopRange, sequenceEndQuarters, type LoopRange } from "./lib/timeline";
 import {
   ensureBarsCoverNotes,
   humanizeNotes,
@@ -80,7 +80,8 @@ export default function App() {
   const [playbackState, setPlaybackState] = useState<"stopped" | "playing" | "paused">("stopped");
   const isPlaying = playbackState === "playing";
   const [currentTick, setCurrentTick] = useState(0);
-  const [isLooping, setIsLooping] = useState(true);
+  const [isLooping, setIsLooping] = useState(savedSession?.isLooping ?? true);
+  const [loopRegion, setLoopRegion] = useState<LoopRange | null>(savedSession?.loopRegion ?? null);
   const [followPlayback, setFollowPlayback] = useState(true);
 
   // Sequence + undo/redo
@@ -158,7 +159,14 @@ export default function App() {
   const startingAudio = useRef(false);
   const sequenceEndRef = useRef(0);
   useEffect(() => { sequenceEndRef.current = progression ? sequenceEndQuarters(progression) : 0; }, [progression]);
-  const isLoopingRef = useRef(true);
+  // Shrinking the musical pattern cannot leave a saved custom loop out of bounds.
+  useEffect(() => {
+    if (!progression || !loopRegion) return;
+    const clamped = normalizeLoopRange(loopRegion, sequenceEndQuarters(progression));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reconcile a now-shorter sequence exactly once
+    if (clamped.start !== loopRegion.start || clamped.end !== loopRegion.end) setLoopRegion(clamped);
+  }, [progression, loopRegion]);
+  const isLoopingRef = useRef(savedSession?.isLooping ?? true);
   const isScrubbingRef = useRef(false);
   // Copied notes, normalized so the earliest timeStart among them is 0. A ref
   // is fine: it doesn't need to trigger re-renders and isn't itself undoable.
@@ -208,6 +216,8 @@ export default function App() {
         noteLength,
         zoomX,
         trackMix,
+        isLooping,
+        loopRegion,
       });
       setSaveState(saved ? "saved" : "unavailable");
     }, 400);
@@ -225,15 +235,17 @@ export default function App() {
     noteLength,
     zoomX,
     trackMix,
+    isLooping,
+    loopRegion,
   ]);
 
   // Keep the audio engine in sync with edits (including live drag previews),
   // BPM changes, and loop toggles while the transport is running.
   useEffect(() => {
     if (playbackState !== "stopped" && progression) {
-      updateProgressionLive(livePreview ?? progression, bpm, isLooping);
+      updateProgressionLive(livePreview ?? progression, bpm, isLooping, loopRegion);
     }
-  }, [progression, livePreview, bpm, playbackState, isLooping]);
+  }, [progression, livePreview, bpm, playbackState, isLooping, loopRegion]);
 
   // ----- Transport -----
 
@@ -260,7 +272,11 @@ export default function App() {
     if (request !== playRequest.current) return;
     const endTick = sequenceEndQuarters(progression);
     let startTick = currentTick;
-    if (startTick >= endTick) {
+    const range = normalizeLoopRange(loopRegion, endTick);
+    if (isLoopingRef.current && (startTick < range.start || startTick >= range.end)) {
+      startTick = range.start;
+      setCurrentTick(startTick);
+    } else if (startTick >= endTick) {
       startTick = 0;
       setCurrentTick(0);
     }
@@ -285,8 +301,9 @@ export default function App() {
       },
       startTick,
       isLoopingRef.current,
+      loopRegion,
     );
-  }, [progression, bpm, currentTick, notify]);
+  }, [progression, bpm, currentTick, loopRegion, notify]);
 
   const handlePause = useCallback(() => {
     if (playbackStateRef.current !== "playing") return;
@@ -314,9 +331,10 @@ export default function App() {
 
   const handleScrub = useCallback(
     (tick: number) => {
-      setCurrentTick(tick);
       if (playbackStateRef.current !== "stopped") {
-        seekAudio(tick);
+        setCurrentTick(seekAudio(tick));
+      } else {
+        setCurrentTick(tick);
       }
     },
     [],
@@ -324,6 +342,10 @@ export default function App() {
 
   const handleScrubStateChange = useCallback((scrubbing: boolean) => {
     isScrubbingRef.current = scrubbing;
+  }, []);
+
+  const handleLoopRegionChange = useCallback((next: LoopRange | null) => {
+    setLoopRegion(next);
   }, []);
 
   const handleSynthChange = useCallback((type: SynthType) => {
@@ -382,6 +404,7 @@ export default function App() {
     setSelectedNoteIndices(new Set());
     setTrackOverrides({});
     setFocusedTrack(null);
+    setLoopRegion(null);
     setCurrentTick(0);
     setScrollAnchorKey((k) => k + 1);
     setFitRequest(k => k + 1);
@@ -437,6 +460,7 @@ export default function App() {
         setSelectedNoteIndices(new Set());
         setTrackOverrides({});
         setFocusedTrack(null);
+        setLoopRegion(null);
         setCurrentTick(0);
         setScrollAnchorKey((k) => k + 1);
         setFitRequest(k => k + 1);
@@ -730,7 +754,7 @@ export default function App() {
   const startBlank = () => {
     handleStop();
     commit({ notes: [], chords: [], totalBars: bars });
-    setSelectedNoteIndices(new Set()); setTrackOverrides({}); setFocusedTrack(null);
+    setSelectedNoteIndices(new Set()); setTrackOverrides({}); setFocusedTrack(null); setLoopRegion(null);
     setToolMode("draw"); setScrollAnchorKey(k => k + 1); setFitRequest(k => k + 1); setMobileInspectorOpen(false);
   };
   const hasNotes = !!progression?.notes.length;
@@ -771,6 +795,7 @@ export default function App() {
             onGenerate={handleGenerate} onStartBlank={startBlank} onLoadFile={loadMidiFile} selectedIndices={selectedNoteIndices}
             toolMode={toolMode} stampType={stampType} noteLength={noteLength} snapResolution={snapResolution} zoomX={zoomX}
             fitRequest={fitRequest} isPlaying={isPlaying} currentTick={currentTick} followPlayback={followPlayback}
+            isLooping={isLooping} loopRegion={loopRegion} onLoopRegionChange={handleLoopRegionChange}
             scrollAnchorKey={scrollAnchorKey} onSelectionChange={setSelectedNoteIndices} commit={commit} onZoomChange={setZoomX}
             onScrub={handleScrub} onScrubStateChange={handleScrubStateChange} onLivePreview={setLivePreview} />
         </main>
