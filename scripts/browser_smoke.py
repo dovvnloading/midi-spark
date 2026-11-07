@@ -30,6 +30,11 @@ with sync_playwright() as p:
  page=b.new_page(viewport={'width':1440,'height':900},device_scale_factor=1,has_touch=True)
  errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  page.goto(args.url);page.evaluate('document.fonts.ready')
+ # Primary sound choice must be visible without scrolling the desktop inspector.
+ panel=page.locator('.inspector-panel:not([hidden])').bounding_box()
+ trigger=page.locator('.sound-picker-trigger').first.bounding_box()
+ assert trigger and panel and trigger['y']+trigger['height']<=panel['y']+panel['height']-16
+ record('Sound selection is discoverable without inspector scrolling')
  # Curated preset library: search, category filtering, independent preview,
  # selection, and saved instrument state, all in the real browser.
  page.get_by_role('button',name='Preview sound: Classic Analog. Open sound library').click()
@@ -177,6 +182,15 @@ with sync_playwright() as p:
  page.get_by_role('button',name='Toggle inspector',exact=True).click()
  page.get_by_role('tab',name='Compose',exact=True).click()
  page.screenshot(path=str(OUTPUT/'mobile-inspector.png'))
+ page.get_by_role('tab',name='Compose',exact=True).click()
+ page.locator('.sound-picker-trigger').first.click()
+ modal=page.get_by_role('dialog',name='Sound library')
+ expect(modal).to_have_attribute('aria-modal','true')
+ bounds=modal.bounding_box()
+ assert bounds and bounds['x']>=0 and bounds['y']>=0 and bounds['x']+bounds['width']<=375.5 and bounds['y']+bounds['height']<=667.5
+ page.keyboard.press('Escape')
+ expect(modal).not_to_be_visible()
+ record('Mobile sound browser fits the viewport and closes via Escape')
  page.keyboard.press('Escape')
  page.set_viewport_size({'width':1440,'height':900})
  page.get_by_role('tab',name='Transform',exact=True).click()
