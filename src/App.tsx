@@ -10,6 +10,8 @@ import {
 } from "./lib/theory";
 import {
   initAudio,
+  pauseAudio,
+  resumeAudio,
   playProgression,
   updateProgressionLive,
   stopAudio,
@@ -20,6 +22,7 @@ import {
 } from "./lib/audio";
 import { exportToMidiBlob, parseMidiFile } from "./lib/midi";
 import { MAX_BPM, MIN_BPM, clamp } from "./lib/constants";
+import { sequenceEndQuarters } from "./lib/timeline";
 import {
   ensureBarsCoverNotes,
   humanizeNotes,
@@ -53,14 +56,6 @@ import { PianoRoll } from "./components/PianoRoll";
 import { ShortcutHelp } from "./components/ShortcutHelp";
 import { StatusToast, type Notice, type NoticeKind } from "./components/StatusToast";
 
-function sequenceEnd(progression: ProgressionData): number {
-  const maxNoteEnd = progression.notes.reduce(
-    (max, n) => Math.max(max, n.timeStart + n.duration),
-    0,
-  );
-  return Math.max(progression.totalBars * 4, maxNoteEnd);
-}
-
 export default function App() {
   // Attempted once on mount; a missing/corrupt/schema-mismatched save comes
   // back as null and every field below falls back to its hard-coded default.
@@ -82,7 +77,8 @@ export default function App() {
   const [synthType, setSynthTypeState] = useState<SynthType>(
     savedSession?.synthType ?? "classic",
   );
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackState, setPlaybackState] = useState<"stopped" | "playing" | "paused">("stopped");
+  const isPlaying = playbackState === "playing";
   const [currentTick, setCurrentTick] = useState(0);
   const [isLooping, setIsLooping] = useState(true);
   const [followPlayback, setFollowPlayback] = useState(true);
@@ -157,10 +153,11 @@ export default function App() {
   }, [notice]);
 
   const isPlayingRef = useRef(false);
+  const playbackStateRef = useRef<"stopped" | "playing" | "paused">("stopped");
   const playRequest = useRef(0);
   const startingAudio = useRef(false);
   const sequenceEndRef = useRef(0);
-  useEffect(() => { sequenceEndRef.current = progression ? sequenceEnd(progression) : 0; }, [progression]);
+  useEffect(() => { sequenceEndRef.current = progression ? sequenceEndQuarters(progression) : 0; }, [progression]);
   const isLoopingRef = useRef(true);
   const isScrubbingRef = useRef(false);
   // Copied notes, normalized so the earliest timeStart among them is 0. A ref
@@ -233,15 +230,22 @@ export default function App() {
   // Keep the audio engine in sync with edits (including live drag previews),
   // BPM changes, and loop toggles while the transport is running.
   useEffect(() => {
-    if (isPlaying && progression) {
+    if (playbackState !== "stopped" && progression) {
       updateProgressionLive(livePreview ?? progression, bpm, isLooping);
     }
-  }, [progression, livePreview, bpm, isPlaying, isLooping]);
+  }, [progression, livePreview, bpm, playbackState, isLooping]);
 
   // ----- Transport -----
 
   const handlePlay = useCallback(async () => {
-    if (!progression?.notes.length || startingAudio.current) return;
+    if (playbackStateRef.current === "paused") {
+      resumeAudio();
+      playbackStateRef.current = "playing";
+      isPlayingRef.current = true;
+      setPlaybackState("playing");
+      return;
+    }
+    if (playbackStateRef.current === "playing" || !progression?.notes.length || startingAudio.current) return;
     const request = ++playRequest.current;
     startingAudio.current = true;
     try {
@@ -254,13 +258,14 @@ export default function App() {
       startingAudio.current = false;
     }
     if (request !== playRequest.current) return;
-    const endTick = sequenceEnd(progression);
+    const endTick = sequenceEndQuarters(progression);
     let startTick = currentTick;
     if (startTick >= endTick) {
       startTick = 0;
       setCurrentTick(0);
     }
-    setIsPlaying(true);
+    setPlaybackState("playing");
+    playbackStateRef.current = "playing";
     isPlayingRef.current = true;
     playProgression(
       progression,
@@ -272,7 +277,8 @@ export default function App() {
           }
         },
         onEnded: () => {
-          setIsPlaying(false);
+          setPlaybackState("stopped");
+          playbackStateRef.current = "stopped";
           isPlayingRef.current = false;
           setCurrentTick(0);
         },
@@ -282,9 +288,18 @@ export default function App() {
     );
   }, [progression, bpm, currentTick, notify]);
 
+  const handlePause = useCallback(() => {
+    if (playbackStateRef.current !== "playing") return;
+    pauseAudio();
+    playbackStateRef.current = "paused";
+    isPlayingRef.current = false;
+    setPlaybackState("paused");
+  }, []);
+
   const handleStop = useCallback(() => {
     playRequest.current++;
-    setIsPlaying(false);
+    setPlaybackState("stopped");
+    playbackStateRef.current = "stopped";
     isPlayingRef.current = false;
     setCurrentTick(0);
     stopAudio();
@@ -300,11 +315,11 @@ export default function App() {
   const handleScrub = useCallback(
     (tick: number) => {
       setCurrentTick(tick);
-      if (isPlayingRef.current) {
-        seekAudio(tick, bpm);
+      if (playbackStateRef.current !== "stopped") {
+        seekAudio(tick);
       }
     },
-    [bpm],
+    [],
   );
 
   const handleScrubStateChange = useCallback((scrubbing: boolean) => {
@@ -655,7 +670,7 @@ export default function App() {
     if (e.code === "Space") {
       if (e.repeat || target?.closest('button, summary, [role="tab"]')) return;
       e.preventDefault();
-      if (isPlayingRef.current) handleStop();
+      if (isPlayingRef.current) handlePause();
       else handlePlay();
       return;
     }
@@ -723,8 +738,8 @@ export default function App() {
   return (
     <div className={"workbench" + (!desktopInspectorOpen ? " inspector-collapsed" : "")} onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
       {isDraggingMidi && <div className="file-drop-overlay"><Upload size={36} /><h2>Drop your MIDI here</h2><p>Your current pattern is recoverable with Undo.</p></div>}
-      <TransportBar isPlaying={isPlaying} canPlay={hasNotes} canUndo={canUndo} canRedo={canRedo} isLooping={isLooping} bpm={bpm} currentTick={currentTick}
-        onPlay={handlePlay} onStop={handleStop} onUndo={undo} onRedo={redo} onToggleLoop={toggleLooping} onBpmChange={setBpm}
+      <TransportBar isPlaying={isPlaying} isPaused={playbackState === "paused"} canPlay={hasNotes} canUndo={canUndo} canRedo={canRedo} isLooping={isLooping} bpm={bpm} currentTick={currentTick}
+        onPlay={handlePlay} onPause={handlePause} onStop={handleStop} onUndo={undo} onRedo={redo} onToggleLoop={toggleLooping} onBpmChange={setBpm}
         onLoadFile={loadMidiFile} onExport={handleExport} onClearSavedSession={handleClearSavedSession} onOpenShortcuts={() => setShortcutsOpen(true)} onToggleInspector={toggleInspector} />
       <div className="workspace">
         <Inspector tab={inspectorTab} onTabChange={setInspectorTab} mobileOpen={mobileInspectorOpen} onClose={() => setMobileInspectorOpen(false)}

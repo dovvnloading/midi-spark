@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { X, Keyboard } from "lucide-react";
 const GROUPS = [
-  { title: "Playback & ideas", items: [["Space", "Play / stop"], ["Ctrl / ⌘ G", "Generate a pattern"], ["Ctrl / ⌘ Z", "Undo"], ["Ctrl / ⌘ Shift Z", "Redo"]] },
+  { title: "Playback & ideas", items: [["Space", "Play / pause"], ["Ctrl / ⌘ G", "Generate a pattern"], ["Ctrl / ⌘ Z", "Undo"], ["Ctrl / ⌘ Shift Z", "Redo"]] },
   { title: "Tools & view", items: [["B / V / S / C / H", "Draw / Select / Stamp / Slice / Hand"], ["F", "Fit pattern to view"], ["Ctrl / ⌘ + wheel", "Zoom at cursor"], ["Shift + wheel", "Scroll timeline"]] },
   { title: "Selection", items: [["Ctrl / ⌘ A", "Select visible notes"], ["Ctrl / ⌘ C / V", "Copy / paste notes"], ["Delete", "Remove selection"], ["Escape", "Clear selection / close panel"]] },
 ];

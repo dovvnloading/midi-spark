@@ -3,8 +3,12 @@ import type { ProgressionData } from "../src/lib/theory";
 import {
   initAudio,
   playProgression,
+  pauseAudio,
+  resumeAudio,
+  seekAudio,
   setTrackMixer,
   stopAudio,
+  updateProgressionLive,
 } from "../src/lib/audio";
 import type { TrackMix } from "../src/lib/tracks";
 
@@ -13,6 +17,14 @@ const mockState = vi.hoisted(() => ({
   parts: [] as Array<{ callback: (time: number, note: unknown) => void; notes: unknown[] }>,
   levels: [] as number[],
   starts: 0,
+  startedTransport: 0,
+  pausedTransport: 0,
+  stopTransport: 0,
+  nextId: 0,
+  schedules: [] as Array<{ id: number; time: string; callback: () => void }>,
+  cleared: [] as number[],
+  loopPoints: [] as string[],
+  transport: null as null | { ticks: number; loop: boolean; bpm: { value: number }; state: string },
 }));
 
 // Tiny deterministic Tone surface: exercises the real MIDI-to-synth dispatch
@@ -55,17 +67,28 @@ vi.mock("tone", () => {
   }
   const transport = {
     bpm: { value: 120 },
-    stop() {},
-    cancel() {},
-    setLoopPoints() {},
-    scheduleRepeat() {},
-    schedule() {},
-    start() {},
+    state: "stopped",
+    stop() { mockState.stopTransport++; this.state = "stopped"; this.ticks = 0; },
+    pause() { mockState.pausedTransport++; this.state = "paused"; },
+    cancel() { mockState.schedules = []; },
+    clear(id: number) {
+      mockState.cleared.push(id);
+      mockState.schedules = mockState.schedules.filter(item => item.id !== id);
+    },
+    setLoopPoints(start: string, end: string) { mockState.loopPoints = [start, end]; },
+    scheduleRepeat() { return ++mockState.nextId; },
+    schedule(callback: () => void, time: string) {
+      const id = ++mockState.nextId;
+      mockState.schedules.push({ id, time, callback });
+      return id;
+    },
+    start() { mockState.startedTransport++; this.state = "started"; },
     loop: false,
     ticks: 0,
     PPQ: 192,
     seconds: 0,
   };
+  mockState.transport = transport;
   return {
     PolySynth: MockSynth,
     MonoSynth: class {}, FMSynth: class {}, AMSynth: class {}, Synth: class {},
@@ -176,4 +199,107 @@ describe("multitrack audio routing", () => {
     expect(sounding[0].triggers[0][0]).toEqual(["C3", "G3"]);
     audio.stopAudio();
   });
+
+  it("schedules note starts and lengths in tempo-relative ticks", async () => {
+    await initAudio();
+    setTrackMixer(mix);
+    playProgression(sequence, 120, { onTick() {}, onEnded() {} }, 0, false);
+
+    const part = mockState.parts.at(-1)!;
+    const notes = part.notes as Array<ProgressionData["notes"][number] & { time: string }>;
+    expect(notes.map(note => note.time)).toEqual(["0i", "192i"]);
+    const before = mockState.voices.map(voice => voice.triggers.length);
+    part.callback(0, notes[0]);
+    const firstVoice = mockState.voices.find((voice, index) => voice.triggers.length > before[index]);
+    expect(firstVoice?.triggers.at(-1)?.[1]).toBe("173i");
+
+    updateProgressionLive(sequence, 90, false);
+    expect(mockState.transport?.bpm.value).toBe(90);
+    expect((part.notes as Array<{ time: string }>).map(note => note.time)).toEqual(["0i", "192i"]);
+    part.callback(0.5, notes[0]);
+    expect(firstVoice?.triggers.at(-1)?.[1]).toBe("173i");
+    stopAudio();
+  });
+
+  it("replaces the ending event when live edits or loop mode changes", async () => {
+    await initAudio();
+    setTrackMixer(mix);
+    playProgression(sequence, 120, { onTick() {}, onEnded() {} }, 0, false);
+    expect(mockState.schedules.map(event => event.time)).toEqual(["768i"]);
+    const initialEvent = mockState.schedules[0].id;
+
+    updateProgressionLive({ ...sequence, totalBars: 2 }, 90, false);
+    expect(mockState.cleared).toContain(initialEvent);
+    expect(mockState.schedules.map(event => event.time)).toEqual(["1536i"]);
+
+    updateProgressionLive({ ...sequence, totalBars: 2 }, 90, true);
+    expect(mockState.schedules).toHaveLength(0);
+    expect(mockState.transport?.loop).toBe(true);
+    expect(mockState.loopPoints).toEqual(["0i", "1536i"]);
+
+    updateProgressionLive(sequence, 90, false);
+    expect(mockState.schedules.map(event => event.time)).toEqual(["768i"]);
+    stopAudio();
+    expect(mockState.schedules).toHaveLength(0);
+  });
+
+  it("supports a custom musical loop and seeks without BPM-based time conversion", async () => {
+    await initAudio();
+    setTrackMixer(mix);
+    playProgression(sequence, 120, { onTick() {}, onEnded() {} }, 0, true, { start: 1, end: 3 });
+    expect(mockState.loopPoints).toEqual(["192i", "576i"]);
+    expect(mockState.transport?.ticks).toBe(192); // start outside loop clamps to in
+
+    seekAudio(2.5);
+    expect(mockState.transport?.ticks).toBe(480);
+    updateProgressionLive(sequence, 80, true, { start: 1, end: 3 });
+    expect(mockState.transport?.ticks).toBe(480);
+    seekAudio(3.5);
+    expect(mockState.transport?.ticks).toBe(192);
+    stopAudio();
+  });
+
+  it("pauses and resumes at the same cursor; ignores stale end callbacks", async () => {
+    await initAudio();
+    setTrackMixer(mix);
+    let ended = 0;
+    playProgression(sequence, 120, { onTick() {}, onEnded() { ended++; } }, 0, false);
+    const stale = mockState.schedules[0].callback;
+
+    seekAudio(2.25);
+    pauseAudio();
+    expect(mockState.transport?.state).toBe("paused");
+    expect(mockState.transport?.ticks).toBe(432);
+    resumeAudio();
+    expect(mockState.transport?.state).toBe("started");
+    expect(mockState.transport?.ticks).toBe(432);
+
+    updateProgressionLive(sequence, 100, false);
+    stale();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(ended).toBe(0);
+    expect(mockState.transport?.state).toBe("started");
+
+    const current = mockState.schedules[0].callback;
+    current();
+    current(); // the stale second invocation must not deliver a second ending
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(ended).toBe(1);
+    expect(mockState.transport?.state).toBe("stopped");
+  });
+
+  it("ends cleanly if a live edit shortens a nonlooping pattern behind the cursor", async () => {
+    await initAudio();
+    setTrackMixer(mix);
+    let ended = 0;
+    playProgression({ ...sequence, totalBars: 8 }, 120, {
+      onTick() {}, onEnded() { ended++; },
+    }, 7, false);
+    expect(mockState.transport?.ticks).toBe(1344);
+    updateProgressionLive(sequence, 120, false);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(ended).toBe(1);
+    expect(mockState.schedules).toHaveLength(0);
+  });
+
 });
