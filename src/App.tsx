@@ -459,9 +459,10 @@ export default function App() {
     const seq = generateSequence(root, mode, bars, dissonance, complexity, layered);
     commit(seq);
     setSelectedNoteIndices(new Set());
+    const harmonySynth = synthType === "sub" ? "epiano" : synthType;
     setTrackOverrides(layered ? {
       0: defaultTrackSettings(0, "sub"),
-      1: { ...defaultTrackSettings(1, synthType), synthType },
+      1: { ...defaultTrackSettings(1, harmonySynth), synthType: harmonySynth },
     } : {});
     if (layered) setInspectorTab("tracks");
     setFocusedTrack(null);
