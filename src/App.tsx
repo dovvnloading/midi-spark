@@ -596,11 +596,13 @@ export default function App() {
     if (e.defaultPrevented || shortcutsOpen) return;
     const target = e.target instanceof HTMLElement ? e.target : null;
     if (target?.closest('input, textarea, select, [role="dialog"], dialog, [contenteditable="true"]')) return;
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "g") {
-      e.preventDefault(); if (!e.repeat) handleGenerate(); return;
-    }
     if (e.key === "?" && !e.ctrlKey && !e.metaKey && !e.altKey) {
       e.preventDefault(); setShortcutsOpen(true); return;
+    }
+    // Keyboard navigation in menus and buttons takes priority over editor hotkeys.
+    if (target?.closest('button, summary, a[href], [role="tab"], [role="button"], [role="listbox"], [role="slider"], [role="spinbutton"], [role="menuitem"]')) return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "g") {
+      e.preventDefault(); if (!e.repeat) handleGenerate(); return;
     }
     if (e.key === "Escape") {
       if (mobileInspectorOpen) setMobileInspectorOpen(false);

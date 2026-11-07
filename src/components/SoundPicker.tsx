@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, Play, Search, SlidersHorizontal, X } from "lucide-react";
+import { Check, ChevronDown, LoaderCircle, Play, Search, SlidersHorizontal, X } from "lucide-react";
 import { auditionPreset } from "../lib/audio";
 import {
   PRESET_BY_ID,
@@ -26,10 +26,12 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryFilter>("All");
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  const [auditioning, setAuditioning] = useState<SynthType | null>(null);
+  const previewSequence = useRef(0);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const selected = PRESET_BY_ID[value];
+  const selected = PRESET_BY_ID[value] ?? PRESET_BY_ID.classic;
 
   const close = () => {
     setOpen(false);
@@ -44,11 +46,13 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
       if (triggerRef.current?.parentElement?.contains(event.target as Node)) return;
       setOpen(false);
     };
-    const scroll = (event: Event) => {
-      if (dialogRef.current?.contains(event.target as Node)) return;
-      setOpen(false);
+    const updatePosition = (event?: Event) => {
+      // Scrolling the inspector must not dismiss a sound-selection task.
+      if (event && dialogRef.current?.contains(event.target as Node)) return;
+      setAnchor(triggerRef.current?.getBoundingClientRect() ?? null);
     };
-    const resize = () => setOpen(false);
+    const scroll = (event: Event) => updatePosition(event);
+    const resize = () => updatePosition();
     document.addEventListener("pointerdown", outside);
     window.addEventListener("scroll", scroll, true);
     window.addEventListener("resize", resize);
@@ -60,9 +64,13 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
   }, [open]);
 
   const preview = (type: SynthType) => {
-    void auditionPreset(type).catch(() => {
-      onPreviewError?.("Audio preview could not start. Check your browser audio settings.");
-    });
+    const request = ++previewSequence.current;
+    setAuditioning(type);
+    void auditionPreset(type)
+      .catch(() => onPreviewError?.("Audio preview could not start. Check your browser audio settings."))
+      .finally(() => {
+        if (previewSequence.current === request) setAuditioning(null);
+      });
   };
 
   const toggle = () => {
@@ -79,16 +87,22 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
       .toLowerCase().includes(query.trim().toLowerCase()),
   );
 
-  const width = Math.min(390, typeof window === "undefined" ? 390 : window.innerWidth - 24);
-  const height = Math.min(500, typeof window === "undefined" ? 500 : window.innerHeight - 24);
-  const above = !!anchor && window.innerHeight - anchor.bottom < 270 && anchor.top > 270;
+  const mobile = window.innerWidth <= 760;
+  const width = Math.min(390, window.innerWidth - 24);
+  const maxHeight = Math.min(500, window.innerHeight - 24);
+  const roomBelow = anchor ? window.innerHeight - anchor.bottom - 12 : 0;
+  const roomAbove = anchor ? anchor.top - 12 : 0;
+  const above = !mobile && roomBelow < 280 && roomAbove > roomBelow;
+  const available = above ? roomAbove - 6 : roomBelow - 6;
+  const centered = mobile || available < 180;
+  const height = centered ? maxHeight : Math.min(maxHeight, available);
   const position = anchor ? {
     width,
     maxHeight: height,
-    left: Math.max(12, Math.min(anchor.left, window.innerWidth - width - 12)),
-    ...(above
-      ? { bottom: window.innerHeight - anchor.top + 6 }
-      : { top: Math.min(anchor.bottom + 6, window.innerHeight - height - 12) }),
+    left: centered ? (window.innerWidth - width) / 2 : Math.max(12, Math.min(anchor.left, window.innerWidth - width - 12)),
+    ...(centered
+      ? { top: Math.max(12, (window.innerHeight - height) / 2) }
+      : above ? { bottom: window.innerHeight - anchor.top + 6 } : { top: anchor.bottom + 6 }),
   } : {};
 
   return (
@@ -112,20 +126,28 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
         <button
           type="button"
           className="sound-picker-listen"
+          aria-busy={auditioning === value}
           aria-label={"Audition " + selected.label}
           title={"Hear " + selected.label + " without changing the MIDI"}
           onClick={() => preview(value)}
         >
-          <Play size={15} fill="currentColor" aria-hidden="true" />
+          {auditioning === value
+            ? <LoaderCircle className="animate-spin" size={15} aria-hidden="true" />
+            : <Play size={15} fill="currentColor" aria-hidden="true" />}
         </button>
       </div>
       <p className="sound-picker-helper">{selected.description}</p>
+      <span className="sr-only" role="status" aria-live="polite">
+        {auditioning ? "Preparing " + PRESET_BY_ID[auditioning].label : ""}
+      </span>
 
       {open && anchor && createPortal(
+        <>
+        {mobile && <div className="sound-library-backdrop" aria-hidden="true" onPointerDown={close} />}
         <div
           ref={dialogRef}
           role="dialog"
-          aria-modal="false"
+          aria-modal={mobile}
           aria-label="Sound library"
           className="sound-library"
           style={position}
@@ -134,6 +156,19 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
               event.stopPropagation();
               event.preventDefault();
               close();
+            }
+            if (mobile && event.key === "Tab") {
+              const items = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
+                'button:not([disabled]), input:not([disabled])',
+              ));
+              const first = items[0], last = items.at(-1);
+              if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last?.focus();
+              } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first?.focus();
+              }
             }
           }}
         >
@@ -191,15 +226,19 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
                 <button
                   type="button"
                   className="sound-library-row-play"
+                  aria-busy={auditioning === preset.id}
                   aria-label={"Preview " + preset.label}
                   title={"Hear " + preset.label + " without selecting"}
                   onClick={() => preview(preset.id)}
-                ><Play size={14} fill="currentColor" aria-hidden="true" /></button>
+                >{auditioning === preset.id
+                  ? <LoaderCircle className="animate-spin" size={14} aria-hidden="true" />
+                  : <Play size={14} fill="currentColor" aria-hidden="true" />}</button>
               </div>
             ))}
           </div>
           <p className="sound-library-footer">Synthesized in your browser · No downloads · Preview only</p>
-        </div>,
+        </div>
+        </>,
         document.body,
       )}
     </div>
