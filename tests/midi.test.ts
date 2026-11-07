@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { Midi } from "@tonejs/midi";
 import { exportToMidiBlob, parseMidiBuffer } from "../src/lib/midi";
 import { ProgressionData } from "../src/lib/theory";
+import { generateSequence } from "../src/lib/theory";
+import { addTrack, duplicateTrack, renameTrack } from "../src/lib/trackOperations";
 
 const testProgression: ProgressionData = {
   notes: [
@@ -58,6 +60,37 @@ describe("MIDI export/import round-trip", () => {
 
     const imported = parseMidiBuffer(buffer);
     expect(imported.progression.notes.map((n) => n.trackIndex)).toEqual([0, 1, 1]);
+  });
+
+  it("round-trips native generated Bass + Harmony with instrument and channel metadata", async () => {
+    const layered = generateSequence("C", "major", 4, 35, 72, true);
+    const roundtripped = await roundTrip(layered, 110);
+    const output = roundtripped.progression;
+    expect(output.tracks?.map(track => [track.name, track.program, track.channel])).toEqual([
+      ["Bass", 33, 0], ["Harmony", 0, 1],
+    ]);
+    expect(output.notes).toHaveLength(layered.notes.length);
+    expect(new Set(output.notes.map(note => note.trackIndex))).toEqual(new Set([0, 1]));
+    expect(output.notes.map(note => [note.midi, note.timeStart, note.duration].map(value => Math.round(value * 480) / 480)))
+      .toEqual([...layered.notes]
+        .sort((a, b) => a.timeStart - b.timeStart || a.midi - b.midi)
+        .map(note => [note.midi, note.timeStart, note.duration].map(value => Math.round(value * 480) / 480)));
+  });
+
+  it("exports manually created, renamed and duplicated tracks, including empty ones", async () => {
+    const original: ProgressionData = {
+      notes: [{ name: "C4", midi: 60, timeStart: 0, duration: 1, velocity: 0.8 }],
+      chords: [],
+      totalBars: 4,
+    };
+    const bass = renameTrack(original, 0, "Bass");
+    const duplicated = duplicateTrack(bass, 0)!;
+    const empty = addTrack(duplicated.progression, "Melody")!;
+    const imported = (await roundTrip(empty.progression, 105)).progression;
+    expect(imported.tracks?.map(track => track.name)).toEqual(["Bass", "Bass copy", "Melody"]);
+    expect(imported.tracks?.map(track => track.channel)).toEqual([0, 1, 2]);
+    expect(imported.notes.map(note => note.trackIndex)).toEqual([0, 1]);
+    expect(imported.tracks?.[2].program).toBe(0);
   });
 
   it("keeps generated and untagged notes on a single track", async () => {
