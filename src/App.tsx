@@ -6,7 +6,7 @@ import {
   NoteEvent,
   applyVariationToProgression,
   applySwing,
-  detectKeyFromProgression,
+  analyzeKeyFromProgression,
 } from "./lib/theory";
 import {
   initAudio,
@@ -514,9 +514,9 @@ export default function App() {
           notify("This MIDI file contains no melodic notes to import.", "error");
           return;
         }
-        const detected = detectKeyFromProgression(parsed);
-        setRoot(detected.root);
-        setMode(detected.mode);
+        const key = analyzeKeyFromProgression(parsed);
+        setRoot(key.best.root);
+        setMode(key.best.mode);
         if (fileBpm) {
           setBpm(clamp(Math.round(fileBpm), MIN_BPM, MAX_BPM));
         }
@@ -531,7 +531,14 @@ export default function App() {
         setFitRequest(k => k + 1);
         setMobileInspectorOpen(false);
         if (listTracks(parsed).length > 1) setInspectorTab("tracks");
-        notify("Imported " + file.name + " · " + parsed.notes.length + " notes.", "success");
+        const alternative = key.alternatives[0];
+        const keyLabel = key.best.root + " " + key.best.mode;
+        const keyDetail = key.ambiguous
+          ? " · Key uncertain: " + keyLabel +
+            (alternative ? " (also " + alternative.root + " " + alternative.mode + ")" : "") +
+            ". Adjust in Compose."
+          : " · Estimated key: " + keyLabel + ".";
+        notify("Imported " + file.name + " · " + parsed.notes.length + " notes" + keyDetail, "success");
       } catch (err) {
         console.error(err);
         notify("Couldn't read this MIDI file. Try another .mid or .midi file.", "error");

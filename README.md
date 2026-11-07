@@ -47,8 +47,14 @@ Generate chord progressions from musical parameters:
   qualities (minor degrees stay minor, flat degrees stay flat)
 * **Chord tension** — from plain triads through 7ths/9ths up to altered dominants,
   tritone substitutions, and `maj13#11` voicings
+* **Harmonic voice-leading** — upper chord tones are arranged using a bounded
+  search that prefers smaller voice movements and avoids crossing; minor mode
+  uses explicit minor-key progressions instead of major-key remapping
 * **Groove complexity** — sustained pads, syncopated stabs (tresillo, offbeat
-  anticipation), or 8th/16th-note arpeggio engines with voice-leading between bars
+  anticipation), and 8th/16th-note arpeggios with measured onset density
+* **Reproducible musical tests** — the generator and variation functions accept
+  optional seeded random streams for testing and repeatable output; the
+  ordinary Generate button remains spontaneous
 * **Loop length** — 4 to 16 bars
 * **Generation layers** — keep the original single-track output or optionally
   split each generated pattern into independent **Bass** and **Harmony** tracks.
@@ -68,8 +74,9 @@ Generate chord progressions from musical parameters:
   repetition
 * **Scale highlighting**: piano-roll rows tint live to show which pitches are
   diatonic to the current root/mode
-* **Swing**: a slider + "Apply Swing" delays off-beat 8th/16th notes by a
-  proportional amount for a looser, more human groove
+* **Swing**: a slider + "Apply Swing" applies a continuous, order-preserving
+  timing warp. Even at 100%, neighboring 8th/16th notes remain distinct;
+  exact beat anchors stay fixed
 * Right-click (or right-click-drag) to delete
 * Snap grid from 1/4 down to 1/32 or free placement, `Ctrl+wheel` zoom to cursor
 * Full undo/redo history (50 steps)
@@ -143,8 +150,10 @@ instrument programs preserved from imported files on export.
 ### MIDI Import & Export
 
 * Drag & drop `.mid`/`.midi` files onto the app (or use **Load MIDI**)
-* Import honors the file's own PPQ and tempo, merges melodic tracks, skips
-  percussion, and auto-detects the key
+* Import honors the file's own PPQ and first tempo, merges melodic tracks and
+  skips percussion. The estimated key is ranked from pitch-class profiles,
+  duration and tonic evidence; ambiguous passages are labeled uncertain and
+  a second possible key is shown (adjust root/mode in Compose).
 * Multi-track files are tagged per source track and colored distinctly in the
   piano roll (single-track imports render identically to a generated sequence)
 * Export produces a standard 480-PPQ MIDI file with tempo, ready for any DAW;

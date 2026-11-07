@@ -2,6 +2,8 @@ import { Chord, Progression, Note } from "@tonaljs/tonal";
 import { clamp } from "./constants";
 import type { RandomSource } from "./random";
 import { chooseUpperVoicing } from "./voicing";
+import { analyzeKeyFromProgression } from "./keyAnalysis";
+export { analyzeKeyFromProgression } from "./keyAnalysis";
 
 export interface NoteEvent {
   midi: number;
@@ -55,86 +57,14 @@ export function getScaleChromas(
   return new Set(intervals.map((i) => (rootChroma + i) % 12));
 }
 
+/** Compatibility API used by existing callers. Use analyzeKeyFromProgression()
+ * when the ambiguity score or alternate keys should be displayed. */
 export function detectKeyFromProgression(progression: ProgressionData): {
   root: string;
   mode: "major" | "minor";
 } {
-  const pcDurations: Record<number, number> = {};
-  let firstBassPc = "";
-  let firstBassTime = Infinity;
-
-  progression.notes.forEach((n) => {
-    const chroma = Note.chroma(n.name);
-    if (chroma === undefined) return;
-
-    if (!pcDurations[chroma]) pcDurations[chroma] = 0;
-    pcDurations[chroma] += n.duration;
-
-    const oct = Note.octave(n.name) || 4;
-    if (oct < 4 && n.timeStart < firstBassTime) {
-      firstBassTime = n.timeStart;
-      firstBassPc = n.name;
-    }
-  });
-
-  const ROOT_NAMES = [
-    "C",
-    "C#",
-    "D",
-    "Eb",
-    "E",
-    "F",
-    "F#",
-    "G",
-    "Ab",
-    "A",
-    "Bb",
-    "B",
-  ];
-
-  let bestScore = -1;
-  let bestRoot = "C";
-  let bestMode: "major" | "minor" = "major";
-
-  const firstBassChroma = Note.chroma(firstBassPc);
-
-  for (let rootIdx = 0; rootIdx < 12; rootIdx++) {
-    const rootName = ROOT_NAMES[rootIdx];
-
-    // Score Major
-    let scoreMaj = 0;
-    for (const interval of MAJOR_INTERVALS) {
-      const c = (rootIdx + interval) % 12;
-      scoreMaj += pcDurations[c] || 0;
-    }
-    if (firstBassChroma === rootIdx) {
-      scoreMaj *= 1.2;
-    }
-
-    if (scoreMaj > bestScore) {
-      bestScore = scoreMaj;
-      bestRoot = rootName;
-      bestMode = "major";
-    }
-
-    // Score Minor
-    let scoreMin = 0;
-    for (const interval of MINOR_INTERVALS) {
-      const c = (rootIdx + interval) % 12;
-      scoreMin += pcDurations[c] || 0;
-    }
-    if (firstBassChroma === rootIdx) {
-      scoreMin *= 1.2;
-    }
-
-    if (scoreMin > bestScore) {
-      bestScore = scoreMin;
-      bestRoot = rootName;
-      bestMode = "minor";
-    }
-  }
-
-  return { root: bestRoot, mode: bestMode };
+  const { best } = analyzeKeyFromProgression(progression);
+  return { root: best.root, mode: best.mode };
 }
 
 // Major-key templates; mode-specific functions are deliberate, not mapped
