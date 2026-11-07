@@ -433,12 +433,15 @@ export default function App() {
     if (!progression) return;
     const updated = deleteTrack(progression, index);
     if (updated === progression) return;
+    if (updated.notes.length === 0 && playbackStateRef.current !== "stopped") {
+      handleStop();
+    }
     commit(updated);
     setSelectedNoteIndices(new Set());
     setFocusedTrack(previous => previous === index ? null : previous);
     // Retain session-local overrides for Undo; nextTrackIndex prevents accidental reuse.
     notify("Track removed. Undo restores its notes and metadata.", "info");
-  }, [progression, commit, notify]);
+  }, [progression, commit, notify, handleStop]);
 
   // Only affects what happens on a future reload — does not touch the
   // current in-memory working state. Cancels any in-flight debounced
