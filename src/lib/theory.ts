@@ -1,5 +1,6 @@
 import { Chord, Progression, Note } from "@tonaljs/tonal";
 import { clamp } from "./constants";
+import type { RandomSource } from "./random";
 
 export interface NoteEvent {
   midi: number;
@@ -149,7 +150,7 @@ const PROGRESSIONS = [
   ["vi", "V", "IV", "III"], // Andalusian cadence
 ];
 
-function applyDissonance(roman: string, level: number): string {
+function applyDissonance(roman: string, level: number, random: RandomSource): string {
   // Tonal's roman-numeral parser derives quality ONLY from an explicit chord
   // suffix, never from case — bare "vi" resolves to A MAJOR in C. So minor
   // degrees must always carry a quality marker.
@@ -174,12 +175,12 @@ function applyDissonance(roman: string, level: number): string {
   }
   if (level < 85) {
     if (roman.toUpperCase() === "V")
-      return Math.random() > 0.5 ? "subV7" : roman + "13";
+      return random() > 0.5 ? "subV7" : roman + "13";
     if (roman === roman.toLowerCase()) return roman + "m11";
     return roman + "maj13";
   }
   if (roman.toUpperCase() === "V")
-    return Math.random() > 0.5 ? "subV7" : roman + "7alt";
+    return random() > 0.5 ? "subV7" : roman + "7alt";
   if (roman === roman.toLowerCase()) return roman + "m11";
   return roman + "maj13#11";
 }
@@ -199,18 +200,19 @@ export function generateSequence(
   dissonance: number, // 0-100
   complexity: number, // 0-100
   splitTracks = false,
+  random: RandomSource = Math.random,
 ): ProgressionData {
   const notesOut: NoteEvent[] = [];
   const chordsOut: ChordEvent[] = [];
   let currentTime = 0; // in quarters
 
   const template =
-    PROGRESSIONS[Math.floor(Math.random() * PROGRESSIONS.length)];
+    PROGRESSIONS[Math.floor(random() * PROGRESSIONS.length)];
 
   const humanizeTime = (t: number) =>
-    Math.max(0, t + (Math.random() * 0.04 - 0.02));
+    Math.max(0, t + (random() * 0.04 - 0.02));
   const humanizeVelocity = (v: number) =>
-    Math.max(0.1, Math.min(1.0, v + (Math.random() * 0.15 - 0.075)));
+    Math.max(0.1, Math.min(1.0, v + (random() * 0.15 - 0.075)));
 
   let prevUpperMidiCenter = 64; // roughly E4 for voice leading
 
@@ -237,7 +239,7 @@ export function generateSequence(
       roman = minorMap[baseRoman] || baseRoman;
     }
 
-    const modifiedRoman = applyDissonance(roman, dissonance);
+    const modifiedRoman = applyDissonance(roman, dissonance, random);
 
     const chordNames = Progression.fromRomanNumerals(root, [modifiedRoman]);
     let chordName = chordNames[0] || root + (mode === "major" ? "M" : "m");
@@ -305,7 +307,7 @@ export function generateSequence(
       let hits = [4];
 
       if (complexity > 20) {
-        const rand = Math.random();
+        const rand = random();
         if (rand > 0.8)
           hits = [1.5, 1.5, 1]; // Tresillo
         else if (rand > 0.6)
@@ -315,7 +317,7 @@ export function generateSequence(
         else hits = [2, 2]; // Half notes
       }
       if (complexity > 45) {
-        const rand = Math.random();
+        const rand = random();
         if (rand > 0.8)
           hits = [0.75, 0.75, 1.5, 1]; // Bouncy
         else if (rand > 0.6) hits = [1.5, 0.75, 0.75, 1];
@@ -325,12 +327,12 @@ export function generateSequence(
 
       hits.forEach((duration, hitIdx) => {
         chordPitches.forEach((n, idx) => {
-          const strumOffset = Math.random() * 0.02;
+          const strumOffset = random() * 0.02;
           const isTop = idx === chordPitches.length - 1;
           const isBass = idx === 0;
 
           // Drop bass on offbeats occasionally for lighter, modern feel
-          if (isBass && hitIdx > 0 && Math.random() > 0.5) return;
+          if (isBass && hitIdx > 0 && random() > 0.5) return;
 
           notesOut.push({
             ...(splitTracks ? { trackIndex: isBass ? 0 : 1 } : {}),
@@ -351,7 +353,7 @@ export function generateSequence(
       const stepSize = complexity > 80 ? 0.25 : 0.5; // 16th notes vs 8th notes
       const numSteps = patternDuration / stepSize;
 
-      const arpPattern = Math.random();
+      const arpPattern = random();
       const upperPitches = chordPitches.slice(1);
 
       for (let s = 0; s < numSteps; s++) {
@@ -390,8 +392,8 @@ export function generateSequence(
         let pitchStr = upperPitches[noteIndex] || upperPitches[0];
 
         // Random octave displacement if high dissonance
-        if (dissonance > 60 && Math.random() > 0.85) {
-          const octaveShift = Math.random() > 0.5 ? 12 : -12;
+        if (dissonance > 60 && random() > 0.85) {
+          const octaveShift = random() > 0.5 ? 12 : -12;
           pitchStr =
             Note.fromMidi(
               shiftOctaveClamped(Note.midi(pitchStr) || 60, octaveShift),
@@ -432,49 +434,53 @@ export function applyVariationToProgression(
   complexity: number,
   root: string = "C",
   mode: "major" | "minor" = "major",
+  random: RandomSource = Math.random,
 ): ProgressionData {
   const newNotes: NoteEvent[] = [];
 
   const humanizeTime = (t: number) =>
-    Math.max(0, t + (Math.random() * 0.02 - 0.01));
+    Math.max(0, t + (random() * 0.02 - 0.01));
   const humanizeVel = (v: number) =>
-    Math.max(0.1, Math.min(1.0, v + (Math.random() * 0.1 - 0.05)));
+    Math.max(0.1, Math.min(1.0, v + (random() * 0.1 - 0.05)));
 
   const scaleChromas = getScaleChromas(root, mode);
 
-  const snapToScale = (midi: number) => {
-    if (dissonance > 85) return midi; // let high dissonance notes remain out of scale
-    const chroma = midi % 12;
-    if (scaleChromas.has(chroma)) return midi;
-    if (scaleChromas.has((chroma + 1) % 12)) return midi + 1;
-    if (scaleChromas.has((chroma + 11) % 12)) return midi - 1;
-    return midi + 1;
+  const snapToScale = (midi: number): number => {
+    const bounded = clamp(Math.round(midi), 0, 127);
+    if (dissonance > 85) return bounded; // extreme tension may be chromatic
+    const options = [bounded, bounded + 1, bounded - 1, bounded + 2, bounded - 2];
+    return options.find(pitch => pitch >= 0 && pitch <= 127 &&
+      scaleChromas.has(((pitch % 12) + 12) % 12)) ?? bounded;
   };
 
-  // 1. Group notes by timeStart
-  const eps = 0.05;
-  const groups: NoteEvent[][] = [];
-  const sortedNotes = [...prog.notes].sort((a, b) => a.timeStart - b.timeStart || a.midi - b.midi);
-
-  let currentGroup: NoteEvent[] = [];
-  for (const n of sortedNotes) {
-    if (currentGroup.length === 0) {
-      currentGroup.push(n);
-    } else {
-      if (Math.abs(n.timeStart - currentGroup[0].timeStart) < eps) {
-        currentGroup.push(n);
-      } else {
-        groups.push(currentGroup);
-        currentGroup = [n];
-      }
-    }
+  // Humanized chords may strum by 0.1 quarters. Bucket notes by musical
+  // sixteenth-note anchors so one chord does not fragment into several voices.
+  // Deliberately off-grid onsets retain their own rounded-time buckets.
+  const grouped = new Map<number, NoteEvent[]>();
+  for (const note of [...prog.notes].sort((a, b) => a.timeStart - b.timeStart || a.midi - b.midi)) {
+    const anchor = Math.round(note.timeStart * 4) / 4;
+    const key = Math.abs(note.timeStart - anchor) <= 0.115
+      ? anchor : Math.round(note.timeStart * 1000) / 1000;
+    const group = grouped.get(key) ?? [];
+    group.push(note);
+    grouped.set(key, group);
   }
-  if (currentGroup.length > 0) groups.push(currentGroup);
+  const groups = [...grouped.entries()].sort(([a], [b]) => a - b).map(([, notes]) => notes);
+
+  // Use explicit Bass track metadata when available; otherwise the lowest
+  // note is the most plausible bass, not the earliest random-strum onset.
+  const bassTrack = prog.tracks?.find(track => /\\bbass\\b/i.test(track.name))?.index;
+  const bassFor = (notes: NoteEvent[]): NoteEvent => {
+    const inBassTrack = bassTrack === undefined ? [] :
+      notes.filter(note => note.trackIndex === bassTrack);
+    const candidates = inBassTrack.length ? inBassTrack : notes;
+    return candidates.reduce((lowest, note) => note.midi < lowest.midi ? note : lowest);
+  };
 
   // Pick a global rhythmic motif based on random so the whole progression has a cohesive feel
   // 0: Pulse/Repeats, 1: Arpeggio, 2: Syncopated Stabs, 3: Alternating (Oom-pah)
   const motifTypes = complexity > 70 ? [1, 2, 3] : complexity > 30 ? [0, 2, 3] : [-1];
-  const globalMotif = motifTypes[Math.floor(Math.random() * motifTypes.length)];
+  const globalMotif = motifTypes[Math.floor(random() * motifTypes.length)];
 
   groups.forEach((group, groupIdx) => {
     // Determine chord duration (distance to next group, or max duration in group)
@@ -489,18 +495,22 @@ export function applyVariationToProgression(
       group.forEach(n => {
          let newMidi = n.midi;
          // random octave jump
-         if (dissonance > 80 && Math.random() > 0.9) {
-           newMidi = shiftOctaveClamped(newMidi, Math.random() > 0.5 ? 12 : -12);
+         if (dissonance > 80 && random() > 0.9) {
+           newMidi = shiftOctaveClamped(newMidi, random() > 0.5 ? 12 : -12);
          }
          
          // grace note
-         if (complexity > 70 && dissonance > 50 && Math.random() > 0.8) {
-            const graceMidi = snapToScale(newMidi - Math.floor(Math.random() * 2 + 1));
-            newNotes.push({
-              ...n, midi: graceMidi, name: Note.fromMidi(graceMidi) || n.name,
-              timeStart: humanizeTime(Math.max(0, n.timeStart - 0.125)),
-              duration: 0.125, velocity: humanizeVel(n.velocity * 0.6)
-            });
+         if (complexity > 70 && dissonance > 50 && random() > 0.8) {
+            const step = Math.floor(random() * 2 + 1);
+            const target = newMidi - step >= 0 ? newMidi - step : newMidi + step;
+            const graceMidi = snapToScale(target);
+            if (graceMidi !== newMidi) {
+              newNotes.push({
+                ...n, midi: graceMidi, name: Note.fromMidi(graceMidi) || n.name,
+                timeStart: humanizeTime(Math.max(0, n.timeStart - 0.125)),
+                duration: 0.125, velocity: humanizeVel(n.velocity * 0.6)
+              });
+            }
          }
 
          newNotes.push({
@@ -530,10 +540,10 @@ export function applyVariationToProgression(
     } else if (globalMotif === 1) {
       // Arpeggio
       const step = chordDur / group.length;
-      const dir = Math.random();
+      const dir = random();
       const sortedGroup = [...group];
       if (dir < 0.3) sortedGroup.reverse();
-      else if (dir < 0.6) sortedGroup.sort(() => Math.random() - 0.5);
+      else if (dir < 0.6) sortedGroup.sort(() => random() - 0.5);
 
       sortedGroup.forEach((n, i) => {
          newNotes.push({
@@ -546,8 +556,8 @@ export function applyVariationToProgression(
     } else if (globalMotif === 2) {
       // Syncopated
       // Bass on 1, chord stabs on offbeats
-      const bass = group[0];
-      const rest = group.slice(1);
+      const bass = bassFor(group);
+      const rest = group.filter(note => note !== bass);
       
       newNotes.push({
          ...bass, timeStart: humanizeTime(tStart), duration: chordDur, velocity: humanizeVel(bass.velocity)
@@ -569,8 +579,8 @@ export function applyVariationToProgression(
       });
     } else if (globalMotif === 3) {
       // Alternating / Oom-pah
-      const bass = group[0];
-      const rest = group.slice(1);
+      const bass = bassFor(group);
+      const rest = group.filter(note => note !== bass);
       
       const step = 0.5;
       const repeats = Math.floor(chordDur / step);
@@ -596,38 +606,27 @@ export function applyVariationToProgression(
   };
 }
 
-/** Grid spacing (in quarters) of an 8th note and a 16th note — the two
- *  subdivisions swing can be applied to. */
-const EIGHTH = 0.5;
-const SIXTEENTH = 0.25;
-/** Tolerance (in quarters) for treating a note as aligned to a grid line
- *  despite generation/humanize jitter (up to +/-0.02 quarters). */
-const SWING_GRID_EPS = 0.08;
-/** Max delay (in quarters) applied at 100% swing to an off-beat 8th note
- *  (the "and" of the beat). Kept under `EIGHTH` so it can never reach — let
- *  alone cross — the following beat. */
-const MAX_SWING_DELAY_EIGHTH = 0.45;
-/** Max delay for an off-beat 16th note (the "e"/"a" of the beat). Kept under
- *  `SIXTEENTH` so it can never reach the following 8th-note position. */
-const MAX_SWING_DELAY_SIXTEENTH = 0.2;
-
-/** True if `timeStart` sits on an odd multiple of `grid` (i.e. an off-beat
- *  position at that subdivision), within humanize-jitter tolerance. */
-function isOffBeatOnGrid(timeStart: number, grid: number): boolean {
-  const gridPos = timeStart / grid;
-  const nearest = Math.round(gridPos);
-  const onGrid = Math.abs(gridPos - nearest) < SWING_GRID_EPS / grid;
-  return onGrid && nearest % 2 !== 0;
+/** Continuous, strictly increasing shuffle map over every quarter-note beat.
+ * At full swing, the offbeat 8th lands on the third triplet, and the adjacent
+ * 16ths stay distinct at 1/3 and 5/6. Interpolation preserves note ordering
+ * and humanized microtiming, unlike moving each grid subdivision separately. */
+export function swingQuarterPosition(position: number, strength: number): number {
+  if (!Number.isFinite(position) || position < 0) return position;
+  const amount = clamp(strength, 0, 100) / 100;
+  if (amount === 0) return position;
+  const beat = Math.floor(position);
+  const fraction = position - beat;
+  const piece = Math.min(3, Math.floor(fraction * 4));
+  const straightA = piece / 4;
+  const straightB = (piece + 1) / 4;
+  const swung = [0, 1 / 3, 2 / 3, 5 / 6, 1];
+  const alpha = (fraction - straightA) / (straightB - straightA);
+  const shuffled = swung[piece] + (swung[piece + 1] - swung[piece]) * alpha;
+  return beat + fraction + (shuffled - fraction) * amount;
 }
 
-/**
- * Destructive swing/humanize post-processor (applied explicitly, like CHOP,
- * rather than as a live playback transform — see OVERHAUL_PLAN.md 7.4).
- * Delays every off-beat 8th note (the "and") and every off-beat 16th note
- * (the "e"/"a") by an amount proportional to `swingAmount`; downbeats, and
- * any note not aligned to either grid, are left completely unchanged.
- * `swingAmount` 0 is a guaranteed no-op (same object returned).
- */
+/** Apply a monotonic time warp across each beat; downbeats remain fixed,
+ * even for humanized/off-grid notes. No pair of distinct starts can cross. */
 export function applySwing(
   progression: ProgressionData,
   swingAmount: number, // 0-100
@@ -635,18 +634,11 @@ export function applySwing(
   const amount = clamp(swingAmount, 0, 100) / 100;
   if (amount === 0) return progression;
 
-  const eighthDelay = amount * MAX_SWING_DELAY_EIGHTH;
-  const sixteenthDelay = amount * MAX_SWING_DELAY_SIXTEENTH;
-
-  const notes = progression.notes.map((n) => {
-    if (isOffBeatOnGrid(n.timeStart, EIGHTH)) {
-      return { ...n, timeStart: n.timeStart + eighthDelay };
-    }
-    if (isOffBeatOnGrid(n.timeStart, SIXTEENTH)) {
-      return { ...n, timeStart: n.timeStart + sixteenthDelay };
-    }
-    return n;
+  const notes = progression.notes.map((note) => {
+    const start = swingQuarterPosition(note.timeStart, swingAmount);
+    return start === note.timeStart ? note : { ...note, timeStart: start };
   });
-
-  return { ...progression, notes };
+  return notes.every((note, index) => note === progression.notes[index])
+    ? progression
+    : { ...progression, notes };
 }
