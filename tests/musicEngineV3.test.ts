@@ -85,7 +85,7 @@ describe("Music Engine v3: deterministic correctness", () => {
 
   it("keeps a late-strummed Bass voice distinct from the earlier upper voices", () => {
     const data: ProgressionData = {
-      notes: [note(72, 0.0, 1), note(64, 0.045, 1), note(48, 0.09, 0)],
+      notes: [note(72, 0.0, 1), note(64, 0.045, 1), note(48, 0.09, 0)].map(n => ({ ...n, duration: 4 })),
       tracks: [{ index: 0, name: "Bass" }, { index: 1, name: "Harmony" }],
       chords: [], totalBars: 1,
     };
@@ -99,7 +99,7 @@ describe("Music Engine v3: deterministic correctness", () => {
 
   it("uses the lowest note as bass when role metadata is absent", () => {
     const data: ProgressionData = {
-      notes: [note(76, 0), note(48, 0.04), note(67, 0.07)],
+      notes: [note(76, 0), note(48, 0.04), note(67, 0.07)].map(n => ({ ...n, duration: 4 })),
       chords: [], totalBars: 1,
     };
     const result = applyVariationToProgression(data, 50, 60, "C", "major", () => 0.5);
