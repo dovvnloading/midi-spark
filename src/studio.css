@@ -549,3 +549,32 @@ button:disabled { opacity: .42; }
   .replace-project-comparison strong { font-size: 11px; }
   .replace-project-actions button { flex: 1 1 100%; }
 }
+
+/* Compact editor: keep the chosen mode visible without hover and give touch
+   controls target sizes independent of the precision-sensitive note grid. */
+.active-tool-readout { display: none; }
+@container (max-width: 940px) {
+  .tool-segment button { width: 40px; height: 40px; min-width: 40px; padding: 0; }
+  .tool-cluster .inspector-toggle { min-width: 40px; height: 40px; }
+  .view-controls .icon-button { min-width: 40px; height: 40px; }
+  .precision-controls .select-field select { min-height: 40px; }
+  .active-tool-readout {
+    display: flex; order: 4; flex: 1 1 100%; min-width: 0;
+    gap: 8px; align-items: baseline; padding: 5px 8px;
+    border-radius: 7px; border: 1px solid #516c55;
+    background: #283e32; color: #d6e9d7;
+    font-size: 11px; line-height: 1.35;
+  }
+  .active-tool-readout strong { flex: 0 0 auto; color: #ebf7dd; font-size: 12px; }
+  .active-tool-readout span { min-width: 0; }
+}
+@media (max-width: 760px) {
+  .track-toggles button { min-width: 44px; height: 44px; }
+  .inspector-close { min-width: 40px; height: 40px; }
+  .editor-toolbar { gap: 7px; padding: 6px 8px; }
+  .tool-cluster .control-divider { margin-inline: 3px; }
+  .tool-segment { gap: 2px; }
+  .tool-segment button { width: 40px; height: 40px; }
+  .view-controls .icon-button { min-width: 40px; height: 40px; }
+  .active-tool-readout { padding-block: 6px; }
+}
