@@ -95,6 +95,27 @@ describe("quality-bounded diverse global chord search", () => {
     expect(updated.generatedTrackIndices).toEqual(previous.generatedTrackIndices);
   });
 
+  it("regeneration prefers a meaningfully different chord path whenever safe options exist", () => {
+    let eligible = 0, changed = 0;
+    for (const fixture of EVALUATION_FIXTURES) {
+      const data = makeFixtureProgression(fixture);
+      const options = {...basic, root: fixture.root, mode: fixture.mode, harmonyExploration: 75};
+      for (let seed = 0; seed < 4; seed++) {
+        const first = succeed(data, options, 300 + seed);
+        const alt = succeed(first.progression, options, 400 + seed);
+        expect(alt.progression.tracks).toEqual(first.progression.tracks);
+        expect(alt.progression.notes.filter(n => trackIndexOf(n) === 0)).toEqual(data.notes);
+        expect(alt.changedChordRegions).toBeGreaterThanOrEqual(0);
+        if ((alt.alternativesConsidered ?? 0) > 1) {
+          eligible++;
+          if ((alt.changedChordRegions ?? 0) > 0) changed++;
+        }
+      }
+    }
+    expect(eligible).toBeGreaterThan(10);
+    expect(changed).toBe(eligible);
+  });
+
   it("produces reproducible choices and meaningful structural backing variety", () => {
     const f = EVALUATION_FIXTURES.find(f => f.id === "pop-arch")!;
     const data = makeFixtureProgression(f);
