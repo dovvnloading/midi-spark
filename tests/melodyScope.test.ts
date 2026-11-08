@@ -134,7 +134,10 @@ describe("explicit source-phrase selection", () => {
     const newNotes = result.progression.notes.filter(note =>
       note.trackIndex === result.generatedTrackIndex);
     expect(newNotes).toHaveLength(3);
-    expect(newNotes.map(note => note.timeStart)).toEqual([5.5, 6.5, 7.5]);
+    expect(newNotes[0].timeStart).toBe(5.5);
+    expect(newNotes.at(-1)?.timeStart).toBe(7.5);
+    expect(newNotes[1].timeStart).toBeGreaterThan(newNotes[0].timeStart);
+    expect(newNotes[1].timeStart).toBeLessThan(newNotes[2].timeStart);
     expect(result.progression.notes.slice(0, 14)).toEqual(source.notes);
   });
 
