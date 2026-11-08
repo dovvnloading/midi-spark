@@ -85,6 +85,8 @@ export function duplicateTrack(data: ProgressionData, index: number): TrackCreat
       ],
       tracks: [...headers, {
         ...source, index: newIndex, name: (source.name + " copy").slice(0, 48), channel,
+        // A duplicate becomes user-owned: regeneration must never overwrite it.
+        generatedRole: undefined, sourceTrackIndex: undefined,
       }],
       nextTrackIndex: newIndex + 1,
     },
