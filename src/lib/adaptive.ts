@@ -385,9 +385,17 @@ function makeAccompaniment(
     const { timeStart: start, duration } = regions[i];
     const notes = notesAtRegion(source, start, duration);
     const center = notes.length ? median(notes.map(note => note.midi)) : globalCenter;
-    const activeOnsets = notes.filter(note =>
-      note.timeStart >= start && note.timeStart < start + duration).length;
+    const attacks = notes.filter(note =>
+      note.timeStart >= start && note.timeStart < start + duration);
+    const activeOnsets = attacks.length;
     const busyMelody = activeOnsets >= duration * 1.5;
+    const meanVelocity = attacks.length > 0
+      ? attacks.reduce((sum, note) => sum + note.velocity, 0) / attacks.length
+      : notes.length > 0
+        ? notes.reduce((sum, note) => sum + note.velocity, 0) / notes.length : 0.5;
+    // Quiet, carefully drawn phrases should not be masked by fixed loud bass
+    // and chord velocities. Preserve the musical dynamic arc per region.
+    const expressiveGain = clamp(0.60 + 0.48 * meanVelocity, 0.6, 1.08);
     const chord = chords[i];
     const voicing = voiceChord(chord, center, previousVoicing);
     previousVoicing = voicing;
@@ -419,25 +427,25 @@ function makeAccompaniment(
       const onset = bassHits[hit];
       const next = bassHits[hit + 1] ?? duration;
       out.push(makeNote(bass, start + onset, Math.max(0.125, (next - onset) * 0.88),
-        hit === 0 ? 0.77 : 0.64, bassIndex));
+        (hit === 0 ? 0.77 : 0.64) * expressiveGain, bassIndex));
     }
 
     if (effectiveDensity === "sparse") {
       for (const pitch of voicing) out.push(makeNote(pitch, start,
-        Math.max(0.125, duration - 0.2), 0.48, harmonyIndex));
+        Math.max(0.125, duration - 0.2), 0.48 * expressiveGain, harmonyIndex));
     } else if (effectiveDensity === "balanced") {
       const hits = duration === 2 ? [0] : [0, pushedGroove ? 2.5 : 2];
       for (const onset of hits) {
         for (const pitch of voicing) out.push(makeNote(pitch, start + onset,
           Math.max(0.125, Math.min(1.7, duration - onset - 0.1)),
-          onset === 0 ? 0.54 : 0.43, harmonyIndex));
+          (onset === 0 ? 0.54 : 0.43) * expressiveGain, harmonyIndex));
       }
     } else {
       for (let step = 0; step < duration / 0.5; step++) {
         const index = descendingArp ? voicing.length - 1 - ((step + arpOffset) % voicing.length) :
           (step + arpOffset) % voicing.length;
         out.push(makeNote(voicing[index], start + step * 0.5, 0.43,
-          step % 4 === 0 ? 0.55 : 0.40, harmonyIndex));
+          (step % 4 === 0 ? 0.55 : 0.40) * expressiveGain, harmonyIndex));
       }
     }
   }
