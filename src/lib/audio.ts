@@ -261,42 +261,56 @@ async function initializeAudioGraph(): Promise<void> {
   await Tone.start();
   if (classicSynth) return;
 
-  const destination = Tone.getDestination();
+  // Prevent a dozen layered/detuned voices from turning the master mix
+  // into clipping when users stack tracks. The shared limiter is created once.
+  masterOutput = new Tone.Limiter(-1.5).toDestination();
 
-  // Shared effect racks keep even the expanded bank lightweight. Each track
-  // has an independent synth/gain and routes into the selected preset family.
-  const classicChorus = new Tone.Chorus(2, 3.5, 0.7).start();
-  const classicReverb = new Tone.Reverb({ decay: 2.5, preDelay: .1, wet: .2 });
-  const epTremolo = new Tone.Tremolo(4, .4).start();
-  const epChorus = new Tone.Chorus(1.5, 2, .3).start();
-  const epReverb = new Tone.Reverb({ decay: 1.5, preDelay: .05, wet: .15 });
-  const padPhaser = new Tone.Phaser({ frequency: .2, octaves: 4, baseFrequency: 300, wet: .4 });
-  const padReverb = new Tone.Reverb({ decay: 6, preDelay: .2, wet: .6 });
-  const padWidener = new Tone.StereoWidener(.8);
-  const pluckDelay = new Tone.PingPongDelay("8n", .4);
-  pluckDelay.wet.value = .3;
-  const pluckReverb = new Tone.Reverb({ decay: 1.2, wet: .1 });
-  const dreamChorus = new Tone.Chorus(.5, 4, 1).start();
-  const dreamDelay = new Tone.FeedbackDelay("4n.", .5);
-  dreamDelay.wet.value = .4;
-  const dreamReverb = new Tone.Reverb({ decay: 8, wet: .5 });
+  // The common buses supply space and delay, not the principal timbre.
+  // Each preset contributes its own voice architecture, spectral color and LFO.
+  const classicChorus = new Tone.Chorus(1.6, 2.5, .35).start();
+  const classicReverb = new Tone.Reverb({ decay: 1.9, preDelay: .08, wet: .15 });
+  const epTremolo = new Tone.Tremolo(4.1, .22).start();
+  const epChorus = new Tone.Chorus(.6, 2.1, .22).start();
+  const epReverb = new Tone.Reverb({ decay: 1.4, preDelay: .03, wet: .12 });
+  const padPhaser = new Tone.Phaser({frequency: .15, octaves: 3, baseFrequency: 280, wet: .24});
+  const padReverb = new Tone.Reverb({ decay: 5.3, preDelay: .13, wet: .42 });
+  const padWidener = new Tone.StereoWidener(.63);
+  const pluckDelay = new Tone.PingPongDelay("8n", .24);
+  pluckDelay.wet.value = .17;
+  const pluckReverb = new Tone.Reverb({ decay: 1.3, wet: .1 });
+  const dreamChorus = new Tone.Chorus(.42, 3.3, .44).start();
+  const dreamDelay = new Tone.FeedbackDelay("4n.", .34);
+  dreamDelay.wet.value = .26;
+  const dreamReverb = new Tone.Reverb({ decay: 6.4, wet: .4 });
+  const tapeChorus = new Tone.Chorus(.38, 3, .23).start();
+  const tapeDelay = new Tone.FeedbackDelay("8n.", .19);
+  tapeDelay.wet.value = .17;
 
-  classicSynth = createTrackSynth("classic");
-  classicSynth.chain(classicChorus, classicReverb, destination);
-  epianoSynth = createTrackSynth("epiano");
-  epianoSynth.chain(epTremolo, epChorus, epReverb, destination);
-  padSynth = createTrackSynth("pad");
-  padSynth.chain(padPhaser, padWidener, padReverb, destination);
-  pluckSynth = createTrackSynth("pluck");
-  pluckSynth.chain(pluckDelay, pluckReverb, destination);
-  dreamSynth = createTrackSynth("dream");
-  dreamSynth.chain(dreamChorus, dreamDelay, dreamReverb, destination);
-
+  classicChorus.chain(classicReverb, masterOutput);
+  epTremolo.chain(epChorus, epReverb, masterOutput);
+  padPhaser.chain(padWidener, padReverb, masterOutput);
+  pluckDelay.chain(pluckReverb, masterOutput);
+  dreamChorus.chain(dreamDelay, dreamReverb, masterOutput);
+  tapeChorus.chain(tapeDelay, masterOutput);
   effectInputs.classic = classicChorus;
   effectInputs.epiano = epTremolo;
   effectInputs.pad = padPhaser;
   effectInputs.pluck = pluckDelay;
   effectInputs.dream = dreamChorus;
+  effectInputs.tape = tapeChorus;
+  // "dry" intentionally routes directly into the master limiter.
+
+  classicSynth = createTrackSynth("classic");
+  connectPreset(classicSynth, "classic");
+  epianoSynth = createTrackSynth("epiano");
+  connectPreset(epianoSynth, "epiano");
+  padSynth = createTrackSynth("pad");
+  connectPreset(padSynth, "pad");
+  pluckSynth = createTrackSynth("pluck");
+  connectPreset(pluckSynth, "pluck");
+  dreamSynth = createTrackSynth("dream");
+  connectPreset(dreamSynth, "dream");
+
   activeSynth = classicSynth;
   setSynthType(requestedSynthType);
   setTrackMixer(trackMixer);
