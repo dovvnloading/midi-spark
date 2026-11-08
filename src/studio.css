@@ -578,3 +578,25 @@ button:disabled { opacity: .42; }
   .view-controls .icon-button { min-width: 40px; height: 40px; }
   .active-tool-readout { padding-block: 6px; }
 }
+
+/* Two-row mobile toolbar: fit precision settings and tool explanation together,
+   preserving a >=300px canvas even at 375×667. */
+@container (max-width: 650px) {
+  .tool-cluster { gap: 3px; }
+  .tool-cluster .control-divider { display: none; }
+  .precision-controls {
+    order: 3; flex: 0 0 auto; width: auto; gap: 8px;
+    border-top: 0; padding-top: 0;
+  }
+  .precision-controls > label { flex-direction: column; align-items: stretch; gap: 2px; }
+  .precision-controls .select-field { width: 72px; }
+  .active-tool-readout {
+    order: 3; flex: 1 1 115px; width: auto;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+    padding: 4px 7px; min-height: 46px;
+  }
+  .active-tool-readout span { font-size: 10px; line-height: 1.3; }
+}
+@media (max-width: 760px) {
+  .editor-toolbar { gap: 6px; padding-inline: 6px; }
+}
