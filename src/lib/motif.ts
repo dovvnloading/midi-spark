@@ -142,7 +142,8 @@ function varyExisting(
 /** Repeat/transform a recent rhythmic-interval motif as a call-and-response. */
 function extendPhrase(
   lead: readonly NoteEvent[], sourceEndBar: number, continuationBars: number,
-  trackIndex: number, scale: ReadonlySet<number>, creativity: number, random: RandomSource,
+  trackIndex: number, scale: ReadonlySet<number>, tonicPc: number,
+  creativity: number, random: RandomSource,
 ): NoteEvent[] {
   const amount = clamp(creativity, 0, 100) / 100;
   const motif = phraseFromTail(lead, sourceEndBar, continuationBars);
@@ -191,7 +192,7 @@ function extendPhrase(
     const last = result[result.length - 1];
     const candidates = Array.from({length: 17}, (_, i) => last.midi + i - 8)
       .filter(n => n >= low && n <= high && scale.has(mod(n, 12)));
-    const tonicClass = mod(Note.chroma([...scale].map(n => Note.fromMidi(60+n) ?? "C4")[0] ?? "C") ?? last.midi, 12);
+    const tonicClass = mod(tonicPc, 12);
     const tonicCandidates = candidates.filter(n => mod(n, 12) === tonicClass);
     const closest = tonicCandidates.sort((a, b) => Math.abs(a - last.midi) - Math.abs(b - last.midi))[0];
     if (closest !== undefined && Math.abs(closest - last.midi) <= 4) {
@@ -253,7 +254,7 @@ export function generateMotif(
       } : t)};
   }
   const generated = options.operation === "continue"
-    ? extendPhrase(lead, sourceEnd, options.continuationBars, outputTrack, chromas, options.creativity, random)
+    ? extendPhrase(lead, sourceEnd, options.continuationBars, outputTrack, chromas, Note.chroma(root) ?? 0, options.creativity, random)
     : varyExisting(lead, outputTrack, chromas, options.creativity, random);
   if (generated.length === 0) return {ok: false, reason: "Not enough notes to generate a melodic phrase."};
   return {
