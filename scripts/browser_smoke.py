@@ -789,7 +789,7 @@ with sync_playwright() as p:
  record('Typography screenshots at 320, 390, 768 and 1440 pixels without horizontal overflow')
  reading.set_viewport_size({'width':1440,'height':900})
  reading.evaluate("document.body.style.zoom='2'")
- expect(reading.get_by_role('button',name='Generate pattern',exact=False)).to_be_visible()
+ expect(reading.get_by_role('button',name='Generate pattern',exact=False).first).to_be_visible()
  expect(reading.get_by_role('button',name='Fit pattern',exact=True)).to_be_visible()
  reading.screenshot(path=str(OUTPUT/'typography-200-percent.png'))
  record('200% zoom keeps primary Generate and Fit controls visible')
