@@ -432,7 +432,7 @@ with sync_playwright() as p:
  adaptive.wait_for_timeout(650)
  diverse_harmony=snap(adaptive)
  assert diverse_harmony['harmonyExploration']==85
- assert diverse_harmony['progression']['notes'][:len(original['notes'])']==original['notes']
+ assert diverse_harmony["progression"]["notes"][:len(original["notes"])] == original["notes"]
  assert diverse_harmony['progression']['tracks']==source_tracks
  record('Diverse chord search reuses generated tracks and protects source notes')
  # A user can choose explicitly fast harmonic rhythm and then return to
