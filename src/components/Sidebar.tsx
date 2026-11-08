@@ -269,6 +269,8 @@ export function Sidebar(p: SidebarProps) {
           {p.multiTrack
             ? <button className="secondary-button wide track-studio-link" onClick={p.onOpenTracks}>Open track mixer <ArrowUpRight size={15} /></button>
             : <SoundPicker label="Preview sound" value={p.synthType} onChange={p.onSynthChange} onPreviewError={p.onPreviewError} />}
+          <p className="browser-sound-export-hint">Browser playback sound only.
+            MIDI export contains notes and General MIDI programs, not this synth patch.</p>
         </section>
 
         {(p.melodySourceMode === "scratch" || p.melodyTask === "harmonize") && <section className="field-section compose-section expression-section">

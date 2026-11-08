@@ -60,6 +60,11 @@ import { TrackStudio } from "./components/TrackStudio";
 import { PianoRoll } from "./components/PianoRoll";
 import { ShortcutHelp } from "./components/ShortcutHelp";
 import { StatusToast, type Notice, type NoticeKind } from "./components/StatusToast";
+import { ReplaceProjectDialog } from "./components/ReplaceProjectDialog";
+
+type PendingReplacement =
+  | {kind: "import"; filename: string; parsed: ProgressionData; fileBpm: number | null}
+  | {kind: "generate"};
 
 export default function App() {
   // Attempted once on mount; a missing/corrupt/schema-mismatched save comes
@@ -118,6 +123,10 @@ export default function App() {
     savedSession?.trackMix ?? {},
   );
   const tracks = useMemo(() => listTracks(progression), [progression]);
+  // Named empty tracks and saved chord labels are authored work, even when
+  // a composition currently contains no pitched notes.
+  const hasExistingContent = !!(progression &&
+    (progression.notes.length || progression.chords.length || progression.tracks?.length));
   const visibleFocusedTrack =
     focusedTrack !== null && tracks.some((track) => track.index === focusedTrack)
       ? focusedTrack
@@ -180,6 +189,8 @@ export default function App() {
   const [isDraggingMidi, setIsDraggingMidi] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [pendingReplacement, setPendingReplacement] = useState<PendingReplacement | null>(null);
+  const importRevision = useRef(0);
   const noticeSequence = useRef(0);
 
   const notify = useCallback((message: string, kind: NoticeKind = "info") => {
@@ -519,6 +530,30 @@ export default function App() {
 
   // ----- Generation -----
 
+  /** New compositions are deliberately separate from melody-conditioned
+   * generation: only this path can replace the entire project. */
+  const generateScratch = useCallback(() => {
+      handleStop();
+      const layered = generationMode === "layers";
+      const seq = generateSequence(root, mode, bars, dissonance, complexity, layered);
+      commit(seq);
+      setSelectedNoteIndices(new Set());
+      const harmonySynth = synthType === "sub" ? "epiano" : synthType;
+      setTrackOverrides(layered ? {
+        0: defaultTrackSettings(0, "sub"),
+        1: { ...defaultTrackSettings(1, harmonySynth), synthType: harmonySynth },
+      } : {});
+      if (layered) setInspectorTab("tracks");
+      setFocusedTrack(null);
+      setLoopRegion(null);
+      setCurrentTick(0);
+      setScrollAnchorKey((k) => k + 1);
+      setFitRequest(k => k + 1);
+      setMobileInspectorOpen(false);
+      notify("Generated a " + seq.totalBars + "-bar pattern in " + root + " " + mode + (layered ? " with separate Bass and Harmony tracks." : "."), "success");
+  }, [root, mode, bars, dissonance, complexity, generationMode,
+    synthType, commit, notify, handleStop]);
+
   const handleGenerate = useCallback(() => {
     if (melodySourceMode === "follow") {
       if (!progression || effectiveMelodySourceTrackIndex === null) {
@@ -621,28 +656,15 @@ export default function App() {
         " Original melody preserved.", "success");
       return;
     }
-    handleStop();
-    const layered = generationMode === "layers";
-    const seq = generateSequence(root, mode, bars, dissonance, complexity, layered);
-    commit(seq);
-    setSelectedNoteIndices(new Set());
-    const harmonySynth = synthType === "sub" ? "epiano" : synthType;
-    setTrackOverrides(layered ? {
-      0: defaultTrackSettings(0, "sub"),
-      1: { ...defaultTrackSettings(1, harmonySynth), synthType: harmonySynth },
-    } : {});
-    if (layered) setInspectorTab("tracks");
-    setFocusedTrack(null);
-    setLoopRegion(null);
-    setCurrentTick(0);
-    setScrollAnchorKey((k) => k + 1);
-    setFitRequest(k => k + 1);
-    setMobileInspectorOpen(false);
-    notify("Generated a " + seq.totalBars + "-bar pattern in " + root + " " + mode + (layered ? " with separate Bass and Harmony tracks." : "."), "success");
-  }, [root, mode, bars, dissonance, complexity, generationMode, synthType, commit, notify, handleStop,
+    if (hasExistingContent) {
+      setPendingReplacement({kind: "generate"});
+      return;
+    }
+    generateScratch();
+  }, [root, mode, dissonance, synthType, commit, notify, handleStop,
     progression, effectiveMelodySourceTrackIndex, melodySourceMode, harmonicFit, accompanimentDensity, melodyKeyStrategy,
     melodyTask, motifCreativity, continuationBars, trackMix, harmonicPacing,
-    harmonyExploration, melodyPhraseScope, selectedNoteIndices, loopRegion]);
+    harmonyExploration, melodyPhraseScope, selectedNoteIndices, loopRegion, generateScratch, hasExistingContent]);
 
   const handleGenerateVariations = useCallback(() => {
     if (melodySourceMode === "follow") {
@@ -674,50 +696,68 @@ export default function App() {
     link.download = `midi-spark_${root}_${mode}.mid`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    notify("MIDI file exported and ready for your DAW.", "success");
+    notify("MIDI exported: notes and GM programs only. Browser synth sounds are not embedded in .mid files.", "success");
   }, [progression, bpm, root, mode, notify]);
 
-  const loadMidiFile = useCallback(
-    async (file: File) => {
-      try {
-        const { progression: parsed, bpm: fileBpm } = await parseMidiFile(file);
-        if (parsed.notes.length === 0) {
-          notify("This MIDI file contains no melodic notes to import.", "error");
-          return;
-        }
-        const key = analyzeKeyFromProgression(parsed);
-        setRoot(key.best.root);
-        setMode(key.best.mode);
-        if (fileBpm) {
-          setBpm(clamp(Math.round(fileBpm), MIN_BPM, MAX_BPM));
-        }
-        handleStop();
-        commit(parsed);
-        setSelectedNoteIndices(new Set());
-        setTrackOverrides({});
-        setFocusedTrack(null);
-        setMelodySourceTrackIndex(null);
-        setLoopRegion(null);
-        setCurrentTick(0);
-        setScrollAnchorKey((k) => k + 1);
-        setFitRequest(k => k + 1);
-        setMobileInspectorOpen(false);
-        if (listTracks(parsed).length > 1) setInspectorTab("tracks");
-        const alternative = key.alternatives[0];
-        const keyLabel = key.best.root + " " + key.best.mode;
-        const keyDetail = key.ambiguous
-          ? " · Key uncertain: " + keyLabel +
-            (alternative ? " (also " + alternative.root + " " + alternative.mode + ")" : "") +
-            ". Adjust in Compose."
-          : " · Estimated key: " + keyLabel + ".";
-        notify("Imported " + file.name + " · " + parsed.notes.length + " notes" + keyDetail, "success");
-      } catch (err) {
-        console.error(err);
-        notify("Couldn't read this MIDI file. Try another .mid or .midi file.", "error");
+  /** Parsing completes before replacing anything. Invalid files and Cancel
+   * leave the entire in-memory score, track mixer and loop untouched. */
+  const applyImportedMidi = useCallback((parsed: ProgressionData, fileBpm: number | null, fileName: string) => {
+    const key = analyzeKeyFromProgression(parsed);
+    setRoot(key.best.root);
+    setMode(key.best.mode);
+    if (fileBpm !== null && Number.isFinite(fileBpm)) {
+      setBpm(clamp(Math.round(fileBpm), MIN_BPM, MAX_BPM));
+    }
+    handleStop();
+    commit(parsed);
+    setSelectedNoteIndices(new Set());
+    setTrackOverrides({});
+    setFocusedTrack(null);
+    setMelodySourceTrackIndex(null);
+    setLoopRegion(null);
+    setCurrentTick(0);
+    setScrollAnchorKey(k => k + 1);
+    setFitRequest(k => k + 1);
+    setMobileInspectorOpen(false);
+    if (listTracks(parsed).length > 1) setInspectorTab("tracks");
+    const alternative = key.alternatives[0];
+    const keyLabel = key.best.root + " " + key.best.mode;
+    const keyDetail = key.ambiguous
+      ? " · Key uncertain: " + keyLabel +
+        (alternative ? " (also " + alternative.root + " " + alternative.mode + ")" : "") +
+        ". Adjust in Compose."
+      : " · Estimated key: " + keyLabel + ".";
+    notify("Imported " + fileName + " · " + parsed.notes.length + " notes" + keyDetail, "success");
+  }, [commit, notify, handleStop]);
+
+  const loadMidiFile = useCallback(async (file: File) => {
+    const revision = ++importRevision.current;
+    try {
+      const {progression: parsed, bpm: fileBpm} = await parseMidiFile(file);
+      if (revision !== importRevision.current) return;
+      if (parsed.notes.length === 0) {
+        notify("This MIDI file contains no melodic notes to import.", "error");
+        return;
       }
-    },
-    [commit, notify, handleStop],
-  );
+      if (hasExistingContent) {
+        setPendingReplacement({kind:"import", filename:file.name, parsed, fileBpm});
+      } else {
+        applyImportedMidi(parsed, fileBpm, file.name);
+      }
+    } catch (err) {
+      if (revision !== importRevision.current) return;
+      console.error(err);
+      notify("Couldn't read this MIDI file. Try another .mid or .midi file.", "error");
+    }
+  }, [applyImportedMidi, notify, hasExistingContent]);
+
+  const confirmReplacement = useCallback(() => {
+    const request = pendingReplacement;
+    setPendingReplacement(null);
+    if (!request) return;
+    if (request.kind === "import") applyImportedMidi(request.parsed, request.fileBpm, request.filename);
+    else generateScratch();
+  }, [pendingReplacement, applyImportedMidi, generateScratch]);
 
   // ----- Editing -----
 
@@ -1036,7 +1076,11 @@ export default function App() {
             onQuantize={handleQuantize} onTranspose={handleTranspose} onHumanize={handleHumanize} swingAmount={swingAmount}
             onSwingAmountChange={setSwingAmount} onApplySwing={handleApplySwing} noteLength={noteLength} onNoteLengthChange={setNoteLength}
             onChop={handleChopSelected} onDuplicateBar={handleDuplicateBar} />}
-          tracks={<TrackStudio tracks={tracks} mixer={trackMix} defaultSynth={synthType} focusedTrack={visibleFocusedTrack}
+          tracks={<TrackStudio tracks={tracks} mixer={trackMix}
+            midiPrograms={Object.fromEntries((progression?.tracks ?? []).map(track => [
+              track.index, track.program ?? null,
+            ]))}
+            defaultSynth={synthType} focusedTrack={visibleFocusedTrack}
             onFocusTrack={handleFocusTrack} onChange={handleTrackChange} onAddTrack={handleAddTrack}
             onRenameTrack={handleRenameTrack} onDuplicateTrack={handleDuplicateTrack} onDeleteTrack={handleDeleteTrack}
             onPreviewError={message => notify(message, "error")} />}
@@ -1078,6 +1122,17 @@ export default function App() {
         <span className="status-hints"><kbd>Space</kbd> Play / pause <i>·</i><kbd>B</kbd> Draw <i>·</i><kbd>V</kbd> Select <i>·</i><kbd>H</kbd> Hand</span>
         <button onClick={() => setShortcutsOpen(true)} aria-label="Open keyboard shortcuts"><kbd>?</kbd><span>Shortcuts</span></button>
       </footer>
+      {pendingReplacement && <ReplaceProjectDialog
+        operation={pendingReplacement.kind}
+        existingNotes={progression?.notes.length ?? 0}
+        existingTracks={tracks.length}
+        incomingSummary={pendingReplacement.kind === "import"
+          ? pendingReplacement.parsed.notes.length + " notes · " +
+            listTracks(pendingReplacement.parsed).length + " tracks (" + pendingReplacement.filename + ")"
+          : bars + " bars · " + (generationMode === "layers" ? "Bass + Harmony" : "single track")}
+        onCancel={() => setPendingReplacement(null)}
+        onConfirm={confirmReplacement}
+      />}
       <ShortcutHelp open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <StatusToast notice={notice} onDismiss={() => setNotice(null)} />
     </div>

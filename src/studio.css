@@ -506,3 +506,46 @@ button:disabled { opacity: .42; }
   .editor-context-right { gap: 5px; }
   .edit-target-indicator { max-width: 66px; }
 }
+
+/* MIDI export truth in the context where users choose browser synth sounds. */
+.browser-sound-export-hint, .track-midi-export-note {
+  margin: 7px 0 0; font-size: 11px; line-height: 1.55;
+  color: #bdd1bf; overflow-wrap: anywhere;
+}
+.track-midi-export-note {
+  padding: 7px 9px; border-left: 2px solid #8eae83;
+  background: #24362d; border-radius: 0 6px 6px 0;
+}
+
+/* Native, accessible decision point before overwriting authored MIDI.
+   Keep actions and consequences readable even on narrow/touch layouts. */
+.replace-project-dialog {
+  width: min(510px, calc(100vw - 28px));
+  max-height: min(640px, 90dvh); overflow-y: auto;
+  margin: auto; padding: 22px; border: 1px solid #738879;
+  border-radius: 14px; background: #202d2b; color: #eef5ed;
+  box-shadow: 0 28px 80px #000b;
+}
+.replace-project-dialog::backdrop { background: #080c0bcb; backdrop-filter: blur(4px); }
+.replace-project-heading { display: flex; align-items: center; gap: 10px; }
+.replace-project-heading h2 { flex: 1; margin: 0; font-size: 19px; line-height: 1.35; font-weight: 680; }
+.replace-project-warning { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 9px; background: #503d2a; color: #ffdba0; }
+.replace-project-dialog > p { margin: 14px 0; line-height: 1.6; font-size: 13px; color: #c5d5c8; }
+.replace-project-comparison { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); gap: 10px; align-items: center; padding: 14px; border: 1px solid #506257; border-radius: 10px; background: #1b2826; }
+.replace-project-comparison > div { min-width: 0; }
+.replace-project-comparison small { display: block; margin-bottom: 5px; font-size: 10px; letter-spacing: .065em; color: #aac0ad; }
+.replace-project-comparison strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
+.replace-project-comparison svg { color: #b3caaa; }
+.replace-project-dialog .replace-project-caution { padding: 11px 12px; border-left: 3px solid #e3bb81; background: #3a342b; color: #f1dfc2; font-size: 12px; }
+.replace-project-actions { display: flex; justify-content: flex-end; gap: 9px; flex-wrap: wrap; margin-top: 22px; }
+.replace-project-actions button { min-height: 42px; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 660; }
+.replace-project-actions .danger-action { color: #251d1a; background: #edbe8c; border: 1px solid #f6d7ad; }
+.replace-project-actions .danger-action:hover { background: #f5cfa4; }
+.replace-project-actions .secondary-button { background: #2b4037; color: #f0f7ef; border: 1px solid #7da281; }
+@media (max-width: 430px) {
+  .replace-project-dialog { padding: 16px; }
+  .replace-project-heading h2 { font-size: 17px; }
+  .replace-project-comparison { gap: 6px; padding: 10px; }
+  .replace-project-comparison strong { font-size: 11px; }
+  .replace-project-actions button { flex: 1 1 100%; }
+}
