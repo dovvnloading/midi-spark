@@ -13,7 +13,7 @@ output = Path(args.output).resolve()
 output.mkdir(parents=True, exist_ok=True)
 fixture = output / "two-tracks.mid"
 assert fixture.is_file(), "Run browser_smoke.py first"
-report = {"contrast": [], "targets": [], "checks": []}
+report = {"contrast": [], "nontext": [], "targets": [], "checks": []}
 
 def record(label):
     report["checks"].append(label)
@@ -61,6 +61,32 @@ def contrast(page, scene, rules):
     report["contrast"].extend(rows)
     record(scene + ": computed text sizes and sample contrast >=4.5:1")
 
+# Critical UI boundaries must remain distinguishable from their surroundings.
+# This is sampled non-text contrast, not a universal WCAG conformance claim.
+BORDER_JS = r"""(rules) => {
+  const color = value => value.match(/[0-9.]+/g).slice(0,3).map(Number);
+  const lin = n => {n/=255; return n<=.04045?n/12.92:((n+.055)/1.055)**2.4};
+  const lum = c => .2126*lin(c[0])+.7152*lin(c[1])+.0722*lin(c[2]);
+  return rules.map(rule => {
+    const el = document.querySelector(rule.selector);
+    const backdrop = document.querySelector(rule.backdrop);
+    if (!el || !backdrop) return {...rule,missing:true};
+    const edge = color(getComputedStyle(el).borderTopColor);
+    const surface = color(getComputedStyle(backdrop).backgroundColor);
+    const a = lum(edge), b = lum(surface);
+    return {...rule,ratio:Math.round(100*(Math.max(a,b)+.05)/(Math.min(a,b)+.05))/100,
+            edge, surface};
+  });
+}"""
+
+def nontext(page, scene, rules):
+    rows = page.evaluate(BORDER_JS, rules)
+    for item in rows:
+        item["scene"] = scene
+        assert not item.get("missing") and item["ratio"] >= 3.0, item
+    report["nontext"].extend(rows)
+    record(scene + ": sampled control borders >=3:1 non-text contrast")
+
 def dimensions(page, locator, name, minimum):
     box = locator.bounding_box()
     assert box and box["width"]>=minimum and box["height"]>=minimum,(name,box)
@@ -97,6 +123,11 @@ with sync_playwright() as playwright:
         {"selector":".editor-context-right .time-signature","minimum":12},
         {"selector":".app-status","minimum":11},
     ])
+    nontext(desktop,"Desktop form boundaries",[
+        {"selector":".tool-segment","backdrop":".editor-toolbar"},
+        {"selector":".precision-controls .select-field select","backdrop":".editor-toolbar"},
+        {"selector":".sound-picker-trigger","backdrop":".inspector"},
+    ])
     desktop.get_by_role("button",name="Preview sound: Classic Analog. Open sound library").click()
     expect(desktop.get_by_role("dialog",name="Sound library")).to_be_visible()
     contrast(desktop,"Sound library",[
@@ -104,6 +135,9 @@ with sync_playwright() as playwright:
         {"selector":".sound-library-row-character","minimum":11},
         {"selector":".sound-library-row-copy small","minimum":12},
         {"selector":".sound-library-footer","minimum":12},
+    ])
+    nontext(desktop,"Sound library search boundary",[
+        {"selector":".sound-library-search","backdrop":".sound-library"},
     ])
     desktop.keyboard.press("Escape")
     desktop.close()
@@ -147,6 +181,9 @@ with sync_playwright() as playwright:
             expect(btn).to_have_attribute("aria-pressed","true")
             expect(phone.locator(".active-tool-readout")).to_contain_text(label+" tool")
         assert phone.evaluate("document.documentElement.scrollWidth<=innerWidth+1")
+        nontext(phone,str(width)+"px active tool readout",[
+            {"selector":".active-tool-readout","backdrop":".editor-toolbar"},
+        ])
         record(str(width)+"px: CDP touch sweep through all 5 tools with 40px targets")
         phone.locator("input[type=file]").first.set_input_files(str(fixture))
         phone.wait_for_timeout(450)
