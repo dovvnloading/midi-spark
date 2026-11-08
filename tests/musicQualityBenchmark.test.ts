@@ -5,9 +5,10 @@ import { seededRandom } from "../src/lib/random";
 import { trackIndexOf } from "../src/lib/tracks";
 import { EVALUATION_FIXTURES, makeFixtureProgression } from "./musicQualityFixtures";
 import {
-  baselineGreedyTriads, baselineTonic, chordChangeRate, chordTailSpill,
+  baselineGreedyTriads, baselineTonic, chordChangeRate, chordTailSpill, chordPathDiversity,
   chordToneCoverage, fullIdentityPreserved, mean, meanIntervalMagnitude,
-  nearLeadCollision, percentile, pitchClassEntropy, scaleToneRate, uniqueRenderRate,
+  nearLeadCollision, percentile, pitchClassEntropy, scaleToneRate, uniqueRenderRate, structuralTakeDiversity,
+  type ChordPath,
 } from "./musicQualityMetrics";
 
 interface CaseResult {
@@ -22,8 +23,12 @@ interface CaseResult {
   backingPitchEntropy: number;
   backingScaleToneRate: number;
   backingUniqueRenderRate: number;
+  backingStructuralDiversity: number;
+  chordPathUniqueRate: number;
   continuationUniqueRenderRate: number;
+  continuationStructuralDiversity: number;
   variationUniqueRenderRate: number;
+  variationStructuralDiversity: number;
   continuationMeanInterval: number;
   seedCount: number;
 }
@@ -69,6 +74,7 @@ function runEvaluation(): QualityReport {
     const entropies: number[] = [];
     const scaleRates: number[] = [];
     const backingTakes: Array<typeof melody> = [];
+    const chordTakes: ChordPath[] = [];
     const continueTakes: Array<typeof melody> = [];
     const reimagineTakes: Array<typeof melody> = [];
     const continuationIntervals: number[] = [];
@@ -114,6 +120,7 @@ function runEvaluation(): QualityReport {
       entropies.push(pitchClassEntropy(generated));
       scaleRates.push(scaleToneRate(generated, fixture.root, fixture.mode));
       backingTakes.push(generated);
+      chordTakes.push(adapted.progression.chords);
 
       for (const [operation, takes] of [
         ["continue", continueTakes],
@@ -162,8 +169,12 @@ function runEvaluation(): QualityReport {
       backingPitchEntropy: mean(entropies),
       backingScaleToneRate: mean(scaleRates),
       backingUniqueRenderRate: uniqueRenderRate(backingTakes),
+      backingStructuralDiversity: structuralTakeDiversity(backingTakes),
+      chordPathUniqueRate: chordPathDiversity(chordTakes),
       continuationUniqueRenderRate: uniqueRenderRate(continueTakes),
+      continuationStructuralDiversity: structuralTakeDiversity(continueTakes),
       variationUniqueRenderRate: uniqueRenderRate(reimagineTakes),
+      variationStructuralDiversity: structuralTakeDiversity(reimagineTakes),
       continuationMeanInterval: mean(continuationIntervals),
       seedCount: SEEDS.length,
     });
@@ -173,15 +184,16 @@ function runEvaluation(): QualityReport {
     "tonicCoverage", "greedyCoverage", "barCoverage",
     "adaptiveCoverage", "adaptiveChangesPerBar", "harmonyCollision",
     "tailSpill", "backingPitchEntropy", "backingScaleToneRate",
-    "backingUniqueRenderRate", "continuationUniqueRenderRate",
-    "variationUniqueRenderRate", "continuationMeanInterval",
+    "backingUniqueRenderRate", "backingStructuralDiversity", "chordPathUniqueRate",
+    "continuationUniqueRenderRate", "continuationStructuralDiversity",
+    "variationUniqueRenderRate", "variationStructuralDiversity", "continuationMeanInterval",
   ];
   const aggregate = Object.fromEntries(
     fields.map(field => [field, mean(results.map(result => result[field]))]),
   ) as QualityReport["aggregate"];
   const sortedTimings = [...timings].sort((a, b) => a - b);
   return {
-    benchmark: "midi-spark-symbolic-quality-v1",
+    benchmark: "midi-spark-symbolic-quality-v2",
     methodology: "10 original synthetic phrases x 12 fixed seeds x 4 actual engine calls; basic tonic/greedy triad diagnostics",
     fixtures: results.length,
     seedsPerFixture: SEEDS.length,
@@ -196,6 +208,8 @@ function runEvaluation(): QualityReport {
       "Tonic and greedy baselines are simplistic 4/4 diatonic triads, not other trained music models.",
       "Chord-tone coverage rewards literal chord membership; legitimate passing notes and extensions can lower it.",
       "Entropy and output diversity are descriptive, not monotonic indicators of musical quality.",
+      "Exact event diversity can be inflated by velocity/timing jitter; structural diversity quantizes to sixteenth-note grids and ignores velocity.",
+      "Chord-path diversity describes harmonic novelty, not correctness or intentional expressive repetition.",
       "Node runtime varies by hardware and CI load; timing is not a browser audio-latency benchmark.",
       "No subjective listener preferences measured. External-model comparisons require identical paired inputs.",
     ],
@@ -227,9 +241,13 @@ function markdownReport(report: QualityReport): string {
     "| Accompaniment crossing chord boundary | " + pcnt(a.tailSpill) + " | Correctness diagnostic: should be 0 |",
     "| Backing scale-tone rate | " + pcnt(a.backingScaleToneRate) + " | Chromatic chords may lower this intentionally |",
     "| Backing pitch-class entropy | " + fixed(a.backingPitchEntropy) + " bits | Diversity of notes, not aesthetic quality |",
-    "| Unique accompaniment takes | " + pcnt(a.backingUniqueRenderRate) + " | 12 seeds/fixture, exact MIDI event signatures |",
-    "| Unique Continue takes | " + pcnt(a.continuationUniqueRenderRate) + " | Reproducible seeded continuations |",
-    "| Unique Reimagine takes | " + pcnt(a.variationUniqueRenderRate) + " | Reproducible seeded variations |",
+    "| Unique accompaniment takes (exact events) | " + pcnt(a.backingUniqueRenderRate) + " | Includes small timing/velocity changes |",
+    "| Unique accompaniment structures | " + pcnt(a.backingStructuralDiversity) + " | Sixteenth-grid notes, no velocity |",
+    "| Unique chord paths | " + pcnt(a.chordPathUniqueRate) + " | Changes in chord identity or chord onset/duration |",
+    "| Unique Continue takes (exact events) | " + pcnt(a.continuationUniqueRenderRate) + " | Reproducible seeded continuations |",
+    "| Unique Continue structures | " + pcnt(a.continuationStructuralDiversity) + " | Velocity-excluded melodic variation |",
+    "| Unique Reimagine takes (exact events) | " + pcnt(a.variationUniqueRenderRate) + " | Reproducible seeded variations |",
+    "| Unique Reimagine structures | " + pcnt(a.variationStructuralDiversity) + " | Velocity-excluded melodic variation |",
     "| Mean generated continuation interval | " + fixed(a.continuationMeanInterval) + " semitones | Describes melodic motion |",
     "",
     "## Fixture-by-fixture chord-tone coverage",
@@ -266,6 +284,8 @@ describe("reproducible symbolic-music diagnostic benchmark", () => {
     expect(report.runs).toBe(report.fixtures * report.seedsPerFixture * 4);
     expect(report.aggregate.tailSpill).toBe(0);
     expect(report.aggregate.adaptiveCoverage).toBeGreaterThan(0);
+    expect(report.aggregate.backingStructuralDiversity).toBeLessThanOrEqual(
+      report.aggregate.backingUniqueRenderRate + 1e-10);
     expect(report.results.every(item => Number.isFinite(item.barCoverage) &&
       Number.isFinite(item.adaptiveCoverage) &&
       Number.isFinite(item.backingPitchEntropy))).toBe(true);
