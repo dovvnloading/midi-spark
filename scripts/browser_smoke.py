@@ -374,6 +374,46 @@ with sync_playwright() as p:
  assert fresh.get_by_role('combobox',name='Edit track',exact=True).input_value()=='0'
  fresh.close()
  record('Brand-new blank project can add and focus a first empty track')
+ # Melody-conditioned end-to-end workflow on imported multi-track MIDI.
+ adaptive=b.new_page(viewport={'width':1280,'height':800})
+ adaptive.on('pageerror',lambda e:errors.append(str(e)))
+ adaptive.goto(args.url)
+ import_fixture(adaptive)
+ original=snap(adaptive)['progression']
+ adaptive.get_by_role('tab',name='Compose',exact=True).click()
+ adaptive.get_by_role('button',name='Follow melody',exact=True).click()
+ adaptive.get_by_role('combobox',name='Source melody track',exact=True).select_option('0')
+ adaptive.get_by_role('slider',name='Harmonic fit to melody',exact=True).fill('90')
+ adaptive.get_by_role('button',name='Balanced',exact=True).click()
+ adaptive.get_by_role('button',name='Harmonize melody',exact=True).click()
+ adaptive.wait_for_timeout(600)
+ first=snap(adaptive)
+ assert first['melodySourceMode']=='follow'
+ assert first['progression']['notes'][:len(original['notes'])]==original['notes']
+ source_tracks=first['progression']['tracks']
+ auto=[t for t in source_tracks if t.get('generatedRole') in ('bass','harmony')]
+ assert len(auto)==2 and {t['generatedRole'] for t in auto}=={'bass','harmony'}
+ assert all(t['sourceTrackIndex']==0 for t in auto)
+ assert len(first['progression']['notes'])>len(original['notes'])
+ record('Melody follow mode generates separate accompaniment without altering imported notes')
+ adaptive.get_by_role('button',name='Try another harmonization',exact=False).click()
+ adaptive.wait_for_timeout(600)
+ alternate=snap(adaptive)
+ assert alternate['progression']['notes'][:len(original['notes'])]==original['notes']
+ assert alternate['progression']['tracks']==source_tracks
+ assert len([t for t in alternate['progression']['tracks'] if t.get('generatedRole')])==2
+ record('Alternative harmonization reuses generated track IDs without duplication')
+ adaptive.get_by_role('button',name='Undo',exact=True).click()
+ assert snap(adaptive)['progression']==first['progression']
+ adaptive.wait_for_timeout(600)
+ adaptive.reload();adaptive.wait_for_timeout(650)
+ restored_adaptive=snap(adaptive)
+ assert restored_adaptive['melodySourceMode']=='follow'
+ assert restored_adaptive['progression']==first['progression']
+ assert restored_adaptive['harmonicFit']==90
+ record('Adaptive harmony is undoable and persistent across browser reload')
+ adaptive.screenshot(path=str(OUTPUT/'melody-follow.png'))
+ adaptive.close()
  assert not errors,errors
  record('No browser page errors during the complete suite')
  (OUTPUT/'geometry.json').write_text(json.dumps(metrics,indent=2))
