@@ -14,6 +14,14 @@ const TOOLS = [
   { mode: "stamp", label: "Stamp", key: "S", Icon: Stamp }, { mode: "cut", label: "Slice", key: "C", Icon: Scissors },
   { mode: "pan", label: "Hand", key: "H", Icon: Hand },
 ] as const;
+const ACTIVE_TOOL_HELP: Record<ToolMode, string> = {
+  draw: "Tap the grid to add a note; drag to set its length.",
+  select: "Tap a note to select, move or resize it; drag empty space to lasso.",
+  stamp: "Tap the grid to place the chosen chord or scale.",
+  cut: "Drag across notes to split them.",
+  pan: "Drag the canvas to navigate without editing notes.",
+};
+
 export function EditToolbar(p: EditToolbarProps) {
   return <div className="editor-toolbar" aria-label="Editing controls">
     <div className="tool-cluster"><button className="icon-button inspector-toggle" aria-label="Toggle inspector" aria-pressed={p.inspectorOpen} onClick={p.onToggleInspector} title="Inspector"><PanelLeft size={16} /></button>
@@ -28,6 +36,10 @@ export function EditToolbar(p: EditToolbarProps) {
       {p.toolMode === "stamp" && <CustomDropdown ariaLabel="Stamp type" options={[
         { groupLabel: "Chords", options: Object.keys(CHORD_STAMPS) }, { groupLabel: "Scales", options: Object.keys(SCALE_STAMPS) },
       ]} value={p.stampType} onChange={v => p.onStampTypeChange(String(v))} />}
+    </div>
+    <div className="active-tool-readout" role="status" aria-live="polite" aria-atomic="true">
+      <strong>{TOOLS.find(tool => tool.mode === p.toolMode)?.label} tool</strong>
+      <span>{ACTIVE_TOOL_HELP[p.toolMode]}</span>
     </div>
     <div className="view-controls" role="group" aria-label="Canvas view">
       <button className="icon-button follow-toggle" aria-pressed={p.followPlayback} aria-label="Follow playback" title="Follow playhead" onClick={p.onToggleFollow}><LocateFixed size={16} /></button>
