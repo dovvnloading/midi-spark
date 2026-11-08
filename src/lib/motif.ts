@@ -231,9 +231,18 @@ export function generateMotif(
   }
   const sourceEnd = Math.ceil(source.reduce((end, n) => Math.max(end, n.timeStart + n.duration), 0) / 4);
   const targetBars = options.operation === "continue" ? options.continuationBars : 0;
-  if (sourceEnd + targetBars > 64) return {ok: false, reason: "The melody and continuation must fit within 64 bars."};
+  if (input.totalBars > 64 || sourceEnd + targetBars > 64) {
+    return {ok: false, reason: "The melody and continuation must fit within 64 bars."};
+  }
   const lead = leadLine(source);
   if (lead.length < 2) return {ok: false, reason: "Add at least two distinct melodic onsets."};
+  if (options.operation === "continue") {
+    const motif = phraseFromTail(lead, sourceEnd, options.continuationBars);
+    const expectedNotes = motif.phrase.length * Math.ceil(options.continuationBars / motif.bars);
+    if (expectedNotes > 8192) {
+      return {ok: false, reason: "Too many motif notes to continue safely; simplify or shorten the phrase."};
+    }
+  }
   const analysis = analyzeKeyFromProgression({...input, notes: source});
   const detectedKey = options.keyStrategy === "detect" && !analysis.ambiguous;
   const root = detectedKey ? analysis.best.root : options.root;
