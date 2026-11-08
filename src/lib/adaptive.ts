@@ -333,8 +333,14 @@ export function generateFromMelody(
   if (!Number.isInteger(trackIndex) || trackIndex < 0) {
     return {ok: false, reason: "Choose a valid melody track."};
   }
-  const source = input.notes.filter(note => trackIndexOf(note) === trackIndex);
-  if (source.length === 0) return {ok: false, reason: "Draw or import notes on the melody track first."};
+  const originalMelody = input.notes.filter(note => trackIndexOf(note) === trackIndex);
+  if (originalMelody.length === 0) return {ok: false, reason: "Draw or import notes on the melody track first."};
+  // A linked continuation supplies harmonic evidence after the original phrase.
+  // Its own notes remain on a separately generated, safely replaceable track.
+  const continuation = input.tracks?.find(track =>
+    track.generatedRole === "continuation" && track.sourceTrackIndex === trackIndex);
+  const source = continuation === undefined ? originalMelody :
+    [...originalMelody, ...input.notes.filter(note => trackIndexOf(note) === continuation.index)];
   if (source.some(note => !Number.isInteger(note.midi) || note.midi < 0 || note.midi > 127 ||
     !Number.isFinite(note.timeStart) || note.timeStart < 0 ||
     !Number.isFinite(note.duration) || note.duration <= 0)) {
