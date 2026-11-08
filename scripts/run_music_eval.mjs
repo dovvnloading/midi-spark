@@ -32,7 +32,7 @@ if (run.error || run.status !== 0) {
     const markdown = content("MARKDOWN");
     const json = content("JSON");
     const parsed = JSON.parse(json);
-    if (parsed.benchmark !== "midi-spark-symbolic-quality-v1" ||
+    if (parsed.benchmark !== "midi-spark-symbolic-quality-v2" ||
       !Array.isArray(parsed.results) || parsed.results.length !== 10) {
       throw new Error("Evaluation output schema failed basic validation");
     }
