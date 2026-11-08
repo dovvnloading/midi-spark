@@ -14,7 +14,15 @@ const TOOLS = [
   { mode: "stamp", label: "Stamp", key: "S", Icon: Stamp }, { mode: "cut", label: "Slice", key: "C", Icon: Scissors },
   { mode: "pan", label: "Hand", key: "H", Icon: Hand },
 ] as const;
+const TOOL_GUIDANCE: Record<ToolMode, string> = {
+  draw: "Tap the grid to add notes; drag for length.",
+  select: "Tap a note to select; drag it to move.",
+  stamp: "Tap the grid to stamp a chord or scale.",
+  cut: "Drag across notes to slice them.",
+  pan: "Drag the piano roll to navigate.",
+};
 export function EditToolbar(p: EditToolbarProps) {
+  const activeTool = TOOLS.find(tool => tool.mode === p.toolMode)!;
   return <div className="editor-toolbar" aria-label="Editing controls">
     <div className="tool-cluster"><button className="icon-button inspector-toggle" aria-label="Toggle inspector" aria-pressed={p.inspectorOpen} onClick={p.onToggleInspector} title="Inspector"><PanelLeft size={16} /></button>
       <span className="control-divider" />
@@ -22,6 +30,9 @@ export function EditToolbar(p: EditToolbarProps) {
         {TOOLS.map(({ mode, label, key, Icon }) => <button key={mode} onClick={() => p.onToolModeChange(mode)} aria-label={label + " tool"}
           aria-pressed={p.toolMode === mode} title={label + " (" + key + ")"}><Icon size={16} /><span>{label}</span></button>)}
       </div>
+    </div>
+    <div className="mobile-tool-guidance" role="status" aria-live="polite">
+      <strong>{activeTool.label} tool</strong><span>{TOOL_GUIDANCE[p.toolMode]}</span>
     </div>
     <div className="precision-controls"><label><span>Snap</span><CustomDropdown ariaLabel="Grid snap" options={SNAP_OPTIONS.map(o => o.value === 0 ? { ...o, label: "Off" } : o)} value={p.snapResolution} onChange={v => p.onSnapResolutionChange(Number(v))} /></label>
       <label><span>Length</span><CustomDropdown ariaLabel="Draw length" options={NOTE_LENGTH_OPTIONS} value={p.noteLength} onChange={v => p.onNoteLengthChange(Number(v))} /></label>
