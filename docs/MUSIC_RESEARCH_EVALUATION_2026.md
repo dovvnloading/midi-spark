@@ -1,7 +1,7 @@
 # MIDI Spark — Research & Evaluation Audit
 ## Symbolic melody conditioning, harmony, continuation, and musical quality
 **Research date:** 8 November 2026  
-**Evidence:** MIDI Spark main branch at commit bc15914c; upstream project documentation and peer-reviewed papers linked below.  
+**Evidence:** MIDI Spark main branch at commit bc15914c, reproducible evaluation on research PR #31, and upstream project documentation and peer-reviewed papers linked below.  
 **Status:** Comparative research and a reproducible local benchmark are implemented on a review branch. The synthetic benchmark is a diagnostic, not a trained-model competition.
 
 ## Executive finding
@@ -76,42 +76,63 @@ MusicGen Melody and MIDI-SAG illustrate the distinction between MIDI-conditioned
 | Chord-tail spill | Fraction of generated accompaniment notes extending beyond their assigned chord window | A correctness invariant, not an aesthetic quality score; should be zero |
 | Scale-tone rate | Share of generated accompaniment notes in the selected major/minor scale | Highly chromatic but deliberate chord choices may score lower |
 | Pitch-class entropy | Shannon entropy (bits) of backing pitch-class counts | Distribution breadth; noise can have higher entropy than great music |
-| Take diversity | Unique exact generated MIDI signatures / twelve seeds | Measures whether the seed changes the result; novelty by itself is not quality |
+| Exact take diversity | Unique exact generated MIDI event signatures / twelve seeds | Detects seed effects but can be inflated by velocity jitter; novelty alone is not quality |
+| Structural take diversity | Fraction of distinct pitch/onset/duration/track patterns after sixteenth-grid quantization, ignoring velocities | A more musically meaningful variation check; still not a preference metric |
+| Chord-path diversity | Unique chord name, onset and duration sequences / twelve seeds | Distinguishes actual reharmonizations from mere accompaniment note variations |
 | Mean melodic interval | Mean absolute semitone step between generated continuation onsets | Reveals leap sizes, not phrase appeal |
 | Runtime p50/p95 | Measured execution time of all 480 calls inside the Node/Vitest process | Machine/CI load dependent; neither browser UI latency nor audio inference latency |
 
 All values must be interpreted as **scenario-level diagnostics**, not a weighted aesthetic composite. Scenarios receive equal weight in aggregates, avoiding one dense polyphonic test dominating many small phrases. Strong user-facing claims require an independent, rights-cleared test set and human listening.
 
-### Measured pilot — 8 November 2026 GitHub Actions
+### Measured pilot — 8 November 2026, benchmark v3
 
-The first successful real-engine diagnostic run, **[CI run 42484176393](https://github.com/dovvnloading/midi-spark/actions/runs/42484176393)**, yielded the following **equally weighted averages across 10 synthetic scenarios** (12 seeded takes each, 480 generator calls):
+The latest successful reproducible evaluation, **[CI run 42484759736](https://github.com/dovvnloading/midi-spark/actions/runs/42484759736)**, executes 480 actual generator calls on ten original synthetic phrases with twelve fixed seeds each. A report artifact, `symbolic-music-evaluation`, contains **120 individually identifiable phrase/seed records**, generated chord paths, a scenario-level summary, and a machine-readable JSON file. The latter enables genuine *paired* same-seed evaluation after an algorithm change. The metrics below are **equally weighted means across ten scenarios**, not weighted means across all notes.
 
-| Metric | Observed |
+| Diagnostic | Result |
 |---|---:|
 | Tonic-only chord-tone coverage | **66.8%** |
-| Local greedy diatonic triads | **76.1%** |
-| MIDI Spark one chord per bar | **88.6%** |
-| MIDI Spark adaptive harmony | **97.3%** |
-| Mean adaptive distinct chord changes per bar | **1.07** |
-| Close lead-register overlap | **1.2%** |
-| Generated note tails crossing chord boundaries | **0.0%** |
+| Local greedy diatonic-triad chord-tone coverage | **76.1%** |
+| MIDI Spark one chord/bar chord-tone coverage | **88.6%** |
+| MIDI Spark adaptive chord pacing chord-tone coverage | **97.3%** |
+| Mean adaptive distinct chord changes/bar | **1.07** |
+| Lead-register proximity overlap (±2 semitones) | **1.2%** |
+| Accompaniment notes crossing their chord window | **0.0%** |
 | Backing scale-tone rate | **99.1%** |
-| Unique accompaniment takes across 12 seeds | **22.5%** |
-| Unique continuation takes / reimagination takes | **100% / 100%** |
-| Approximate Node/Vitest p50 / p95 operation timing | **0.43 / 0.98 ms** |
+| Backing pitch-class entropy | **2.46 bits** |
+| Exact unique accompaniment takes/12 seeds | **22.5%** |
+| **Structural** unique accompaniment takes/12 seeds | **22.5%** |
+| **Unique chord paths**/12 seeds | **20.0%** |
+| Exact unique Continue takes | **100.0%** |
+| **Structural** unique Continue takes | **65.0%** |
+| Exact unique Reimagine takes | **100.0%** |
+| **Structural** unique Reimagine takes | **97.5%** |
+| Mean generated continuation interval | **3.26 semitones** |
 
-The per-fixture CSV-equivalent breakdown, all seed run descriptors, and machine-readable values are published as Markdown/JSON workflow artifacts, not copied into app state.
+**Important interpretation:**
 
-**Interpretation:**
+- **97.3% is not a musical-quality score or a model win rate.** This is literal chord-tone membership measured on deliberately constructed synthetic examples. The generator's objective explicitly rewards chord tones; a model that covers more melody notes by changing chords more frequently can inflate this number without making better music. It does not measure harmonic interest, phrasing, restraint, style, or listener preference.
+- **The 76.1% greedy baseline is not a fair same-vocabulary ablation.** It uses seven plain diatonic triads, no extended/borrowed harmony, and no half-bar segmentation. The apparent gap is descriptive. A rigorous next benchmark must use *identical candidate chords and harmonic windows* and vary only local greedy versus sequence-level optimization.
+- **Accompaniment structural diversity and chord-path diversity are low**: respectively **22.5% and 20%** across twelve seeds, or roughly 2.7 distinct backing structures and 2.4 chord paths out of 12. These figures deliberately ignore cosmetic velocity differences (and structural variation quantizes onsets/durations to a sixteenth-note grid). The present "Try another harmonization" button has limited meaningful exploration on these test melodies.
+- **Continue's 100% exact uniqueness overstates meaningful variety.** Removing velocity jitter and minor timing distinctions reduces its **structural uniqueness to 65.0%**. Reimagine remains structurally diverse at **97.5%**, but high novelty itself does not imply musically coherent motifs.
+- **Source-note invariants and 0% chord-tail spill are genuine engineering findings.** Near-lead overlap of 1.2% is a possible masking diagnostic, not proof of ideal voicing.
+- The actual CI job executes the real engine with fixed random seeds and without a pretrained checkpoint. Node/Vitest runtimes fluctuate with host load and should never be used to claim a browser audio or neural-inference latency advantage.
+- These descriptive aggregate values have **no human subjects, confidence intervals, or representative held-out repertoire**, and should not appear as a commercial claim of "SOTA quality."
 
-- The large chord-tone membership score means the search matches the pitch classes of these synthetic phrases. It **does not mean 97.3% musical quality**: the score aligns with the engine's own objective, and broad chord vocabularies plus frequent chord changes raise it mechanically.
-- The greedy comparison is **not** a matched-vocabulary, same-search ablation. It uses seven plain diatonic triads, whereas MIDI Spark considers more harmonies and optimized half-bar splits. The gap is descriptive, not causal evidence of algorithmic superiority.
-- The clearest **product problem** is that only **22.5%** of generated accompaniment MIDI signatures were distinct across twelve seeds per fixture. This is roughly 2.7 distinct takes out of 12. Repeated "Try another harmonization" can therefore be an underwhelming experience. Before optimizing, add a **structural novelty** metric (chord path and grid-quantized pitch/onset patterns) that cannot be gamed by insignificant velocity jitter.
-- The 100% unique melody-generation rates reflect event-signature diversity; they do not guarantee good motifs, just different MIDI events. They require a human coherence evaluation.
-- The 0% chord-tail violation and unchanged source notes are meaningful **correctness** evidence. A low near-lead collision ratio suggests limited immediate register overlap but is not proof of good orchestration.
-- Very small latency numbers are Node-process timings for simple fixtures; they say nothing about browser audio initialization, large input files, device memory use or neural-model deployment time.
+### Reproduce and compare a prospective improvement
 
-**Next measured hypothesis:** improve the *structural* diversity and phrase coherence of alternative accompaniment takes without materially degrading source-note preservation, tone fit, or generated-track ownership. Compare the same fixture/seed set before and after any algorithmic change, and confirm with blinded listening.
+```sh
+npm ci
+npm run eval:music
+# Output: music-evaluation.md and music-evaluation.json
+
+# Run in a second checkout/commit and retain each JSON artifact;
+# comparison rejects changed fixture IDs, seeds, or benchmark schema.
+npm run eval:compare -- path/to/before.json path/to/after.json
+```
+
+The *v3* benchmark version adds per-seed chord-path records, structural and chord-path diversity metrics, and report-pair compatibility validation. **Reports from v1 or v2 are not strictly comparable to v3** without rerunning those earlier commits with the same metric definitions and fixture/seed set.
+
+**Next testable hypothesis:** introduce an explicit near-best **k-best/diversity-aware chord-path sampler**, with a minimum meaningful structural difference between alternatives, while keeping hard preservation invariants and bounded harmonic dissonance. Compare before/after using paired v3 records, check for coverage/collision/chord-change regressions, and then run a rights-cleared blinded listening test. Do not optimize exclusively for diversity: random chord changes could improve novelty while making the harmony worse.
 
 ### Baseline fairness and what has *not* been run
 
@@ -129,7 +150,7 @@ Run **npm run eval:music** after npm ci. The command executes the real generator
 - scripts/run_music_eval.mjs — no-dependency Node report writer
 - .github/workflows/ci.yml — execution and artifact retention
 
-Any metric or baseline definition change must increment the benchmark identifier and document that its values are **not directly comparable** with the older version.
+The benchmark currently reports `midi-spark-symbolic-quality-v3` with 120 per-seed records. Future changes to the metric or fixture definitions must increment this benchmark identifier and document that their values are **not directly comparable** with the older version. Use `npm run eval:compare -- old.json new.json` only for compatible v3 reports; the tool checks paired fixture/seed identities and workloads before showing deltas.
 
 ## 4. Listening-study protocol (not yet conducted)
 
