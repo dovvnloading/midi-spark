@@ -1,30 +1,93 @@
-/** Curated original synthesis patches. All sounds are generated locally by Tone.js;
- * no samples, downloads or external sound service are required. */
-export type Wave = "sine" | "triangle" | "square" | "sawtooth";
+/** Original procedural instrument patches. No external samples or audio files.
+ * The engine, spectral color, modulation and routing define each instrument. */
+export type Wave = "sine" | "triangle" | "square" | "sawtooth" |
+  "fatsawtooth" | "fattriangle" | "fatsquare" | "pulse" | "pwm";
+export type PlainWave = "sine" | "triangle" | "square" | "sawtooth";
 export interface Envelope { attack: number; decay: number; sustain: number; release: number }
-export type EffectFamily = "classic" | "epiano" | "pad" | "pluck" | "dream";
+export type EffectFamily = "classic" | "epiano" | "pad" | "pluck" | "dream" | "dry" | "tape";
+export type Modulation =
+  | { kind: "chorus"; rate: number; depth: number; wet: number; delay: number; spread: number }
+  | { kind: "tremolo"; rate: number; depth: number; wet: number }
+  | { kind: "autoFilter"; rate: number; depth: number; wet: number; base: number; octaves: number }
+  | { kind: "autoPan"; rate: number; depth: number; wet: number }
+  | { kind: "vibrato"; rate: number; depth: number; wet: number }
+  | { kind: "phaser"; rate: number; wet: number; base: number; octaves: number };
+export interface TimbreColor { type: "lowpass" | "highpass" | "bandpass"; frequency: number; q: number }
 export type PresetPatch =
-  | { engine: "basic"; wave: Wave; volume: number; envelope: Envelope }
-  | { engine: "fm"; wave: Wave; modulationWave: Wave; volume: number; harmonicity: number; modulationIndex: number; envelope: Envelope; modulationEnvelope: Envelope }
-  | { engine: "am"; wave: Wave; modulationWave: Wave; volume: number; harmonicity: number; envelope: Envelope; modulationEnvelope: Envelope }
-  | { engine: "mono"; wave: Wave; volume: number; envelope: Envelope; baseFrequency: number; octaves: number; q: number; filterEnvelope: Envelope };
+  | { engine: "basic"; wave: Wave; volume: number; envelope: Envelope;
+      unison?: { count: number; spread: number } }
+  | { engine: "fm"; wave: PlainWave; modulationWave: PlainWave; volume: number;
+      harmonicity: number; modulationIndex: number; envelope: Envelope; modulationEnvelope: Envelope }
+  | { engine: "am"; wave: PlainWave; modulationWave: PlainWave; volume: number;
+      harmonicity: number; envelope: Envelope; modulationEnvelope: Envelope }
+  | { engine: "mono"; wave: Wave; volume: number; envelope: Envelope;
+      baseFrequency: number; octaves: number; q: number; filterEnvelope: Envelope;
+      unison?: { count: number; spread: number } }
+  | { engine: "duo"; wave: PlainWave; secondWave: PlainWave; volume: number;
+      harmonicity: number; vibratoRate: number; vibratoAmount: number;
+      envelope: Envelope; secondEnvelope: Envelope }
+  | { engine: "membrane"; wave: PlainWave; volume: number; pitchDecay: number;
+      octaves: number; envelope: Envelope };
 
-export const PRESET_CATEGORIES = ["Keys", "Analog & Retro", "Pads & Atmospheres", "Plucks & Mallets", "Leads", "Bass"] as const;
+export const PRESET_CATEGORIES = ["Keys", "Analog & Retro", "Pads & Atmospheres",
+  "Plucks & Mallets", "Leads", "Bass", "Motion & Experimental"] as const;
 export type PresetCategory = (typeof PRESET_CATEGORIES)[number];
-
-const env = (attack: number, decay: number, sustain: number, release: number): Envelope => ({ attack, decay, sustain, release });
-const basic = (wave: Wave, volume: number, envelope: Envelope): PresetPatch => ({ engine: "basic", wave, volume, envelope });
-const fm = (volume: number, harmonicity: number, modulationIndex: number, envelope: Envelope, modulationEnvelope: Envelope, wave: Wave = "sine", modulationWave: Wave = "sine"): PresetPatch => ({ engine: "fm", wave, modulationWave, volume, harmonicity, modulationIndex, envelope, modulationEnvelope });
-const am = (volume: number, harmonicity: number, envelope: Envelope, modulationEnvelope: Envelope, wave: Wave = "sine", modulationWave: Wave = "square"): PresetPatch => ({ engine: "am", wave, modulationWave, volume, harmonicity, envelope, modulationEnvelope });
-const mono = (wave: Wave, volume: number, envelope: Envelope, baseFrequency: number, octaves: number, filterEnvelope: Envelope, q = 2): PresetPatch => ({ engine: "mono", wave, volume, envelope, baseFrequency, octaves, filterEnvelope, q });
+const env = (attack: number, decay: number, sustain: number, release: number): Envelope =>
+  ({ attack, decay, sustain, release });
+const basic = (wave: Wave, volume: number, envelope: Envelope,
+  unison?: {count: number; spread: number}): PresetPatch =>
+  ({ engine: "basic", wave, volume, envelope, ...(unison ? {unison} : {}) });
+const fm = (volume: number, harmonicity: number, modulationIndex: number,
+  envelope: Envelope, modulationEnvelope: Envelope, wave: PlainWave = "sine",
+  modulationWave: PlainWave = "sine"): PresetPatch =>
+  ({ engine: "fm", wave, modulationWave, volume, harmonicity, modulationIndex, envelope, modulationEnvelope });
+const am = (volume: number, harmonicity: number, envelope: Envelope,
+  modulationEnvelope: Envelope, wave: PlainWave = "sine", modulationWave: PlainWave = "square"): PresetPatch =>
+  ({ engine: "am", wave, modulationWave, volume, harmonicity, envelope, modulationEnvelope });
+const mono = (wave: Wave, volume: number, envelope: Envelope, baseFrequency: number,
+  octaves: number, filterEnvelope: Envelope, q = 2,
+  unison?: {count: number; spread: number}): PresetPatch =>
+  ({ engine: "mono", wave, volume, envelope, baseFrequency, octaves,
+     filterEnvelope, q, ...(unison ? {unison} : {}) });
+const duo = (volume: number, wave: PlainWave, secondWave: PlainWave,
+  envelope: Envelope, secondEnvelope: Envelope,
+  harmonicity = 1.006, vibratoRate = 5, vibratoAmount = 0.18): PresetPatch =>
+  ({ engine: "duo", volume, wave, secondWave, envelope, secondEnvelope,
+    harmonicity, vibratoRate, vibratoAmount });
+const membrane = (volume: number, pitchDecay: number, octaves: number,
+  envelope: Envelope, wave: PlainWave = "sine"): PresetPatch =>
+  ({ engine: "membrane", wave, volume, pitchDecay, octaves, envelope });
+const chorus = (rate: number, depth: number, wet: number, delay = 3, spread = 180): Modulation =>
+  ({ kind: "chorus", rate, depth, wet, delay, spread });
+const tremolo = (rate: number, depth: number, wet: number): Modulation =>
+  ({ kind: "tremolo", rate, depth, wet });
+const sweep = (rate: number, depth: number, wet: number, base: number, octaves: number): Modulation =>
+  ({ kind: "autoFilter", rate, depth, wet, base, octaves });
+const pan = (rate: number, depth: number, wet: number): Modulation =>
+  ({ kind: "autoPan", rate, depth, wet });
+const vibrato = (rate: number, depth: number, wet: number): Modulation =>
+  ({ kind: "vibrato", rate, depth, wet });
+const phaser = (rate: number, wet: number, base: number, octaves: number): Modulation =>
+  ({ kind: "phaser", rate, wet, base, octaves });
+const low = (frequency: number, q = .5): TimbreColor => ({type: "lowpass", frequency, q});
+const high = (frequency: number, q = .5): TimbreColor => ({type: "highpass", frequency, q});
+const band = (frequency: number, q = .5): TimbreColor => ({type: "bandpass", frequency, q});
 
 export interface PresetDefinition {
   id: string;
   label: string;
   category: PresetCategory;
   description: string;
+  /** Credible synthesis descriptors for the picker, not genre-based hype. */
+  character: string;
   fx: EffectFamily;
   patch: PresetPatch;
+  color?: TimbreColor;
+  motion?: readonly Modulation[];
+  /** Soft < 1, punchy > 1. Must retain useful MIDI low-velocity dynamics. */
+  velocityCurve?: number;
+  /** Polyphony cap for expensive unison/dual-oscillator voices. */
+  polyphony?: number;
 }
 
 /** Keep original IDs intact for previously saved sessions and imported mixes. */
