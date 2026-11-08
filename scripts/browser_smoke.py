@@ -67,10 +67,10 @@ with sync_playwright() as p:
  # selection, and saved instrument state, all in the real browser.
  page.get_by_role('button',name='Preview sound: Classic Analog. Open sound library').click()
  expect(page.get_by_role('dialog',name='Sound library')).to_be_visible()
- assert page.locator('.sound-library-row').count()==33
+ assert page.locator('.sound-library-row').count()==49
  page.get_by_role('button',name='Keys',exact=True).click()
- assert page.locator('.sound-library-row').count()==6
- page.get_by_role('searchbox',name='Search presets').fill('glass')
+ assert page.locator('.sound-library-row').count()==8
+ page.get_by_role('searchbox',name='Search presets').fill('glass piano')
  assert page.locator('.sound-library-row').count()==1
  page.get_by_role('button',name='Preview Glass Piano',exact=True).click()
  page.locator('.sound-library-select').filter(has_text='Glass Piano').click()
@@ -78,9 +78,29 @@ with sync_playwright() as p:
  assert 'Glass Piano' in page.locator('.sound-picker-title').first.inner_text()
  page.wait_for_timeout(650)
  assert snap(page)['synthType']=='glass'
- record('33 sounds are searchable, categorized, audible and persist after selection')
+ record('49 expressive sounds remain searchable, categorized, auditionable and persistent')
  page.locator('.sound-picker-trigger').first.click()
  expect(page.get_by_role('dialog',name='Sound library')).to_be_visible()
+ # A representative sweep through every synthesis architecture and each
+ # preset's actual audio constructors catches Web Audio graph failures.
+ page.get_by_role('button',name='All',exact=True).click()
+ page.get_by_role('searchbox',name='Search presets').fill('')
+ assert page.locator('.sound-library-row').count()==49
+ prior=snap(page)['synthType']
+ for i in range(49):
+  page.locator('.sound-library-row-play').nth(i).click()
+  page.wait_for_timeout(60)
+ assert snap(page)['synthType']==prior
+ assert page.get_by_text('Audio preview could not start',exact=False).count()==0
+ record('All 49 preset engines and modulation graphs audition without changing the selected sound')
+ page.get_by_role('button',name='Motion & Experimental',exact=True).click()
+ assert page.locator('.sound-library-row').count()==3
+ page.get_by_role('searchbox',name='Search presets').fill('wow')
+ assert page.locator('.sound-library-row').count()==1
+ assert 'Magnetic Warble' in page.locator('.sound-library-row').first.inner_text()
+ page.get_by_role('searchbox',name='Search presets').fill('')
+ page.get_by_role('button',name='All',exact=True).click()
+ record('Timbral and modulation descriptors are searchable, including experimental sounds')
  page.locator('.inspector-panel:not([hidden])').evaluate("(el) => { el.scrollTop += 40; el.dispatchEvent(new Event('scroll')); }")
  expect(page.get_by_role('dialog',name='Sound library')).to_be_visible()
  page.keyboard.press('Escape')
