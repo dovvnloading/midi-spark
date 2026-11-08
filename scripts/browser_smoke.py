@@ -788,7 +788,9 @@ with sync_playwright() as p:
  assert all(n==before_edit[i] for i,n in enumerate(exact) if i!=index)
  keyedit.get_by_role('button',name='Increase selected velocity by 10 percentage points').click()
  assert abs(snap(keyedit)['progression']['notes'][index]['velocity']-.72)<.001
- record('Exact numeric velocity entry and ten-point nudges isolate neighboring notes')
+ assert vel.input_value()=='72'
+ assert keyedit.locator('.velocity-hit-target[tabindex="0"]').count()==1
+ record('Exact numeric velocity entry and ten-point nudges update the displayed value and isolate neighbors')
  keyedit.get_by_test_id('piano-note').nth(1).focus()
  keyedit.keyboard.press('Delete')
  assert len(snap(keyedit)['progression']['notes'])==4
