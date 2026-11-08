@@ -402,6 +402,7 @@ with sync_playwright() as p:
  # Quota failure must not be presented as a successful save.
  page.evaluate("() => { Storage.prototype.setItem = () => { throw new DOMException('Quota', 'QuotaExceededError'); }; }")
  page.get_by_role('spinbutton',name='Tempo',exact=True).fill('123')
+ page.get_by_role('spinbutton',name='Tempo',exact=True).press('Enter')
  page.wait_for_timeout(500)
  expect(page.get_by_text('Autosave unavailable — export to keep your work',exact=True)).to_be_visible()
  record('Autosave quota failure is reported honestly')
