@@ -227,9 +227,12 @@ duplicate, and delete tracks directly in the mixer. A track with notes requires
 confirmation before deletion, and Undo restores deleted notes and metadata.
 
 Every strip has its own instrument preset, level fader, mute button, and
-multi-solo button. Tracks have independent synth voices and gain buses, so
-mix changes can be heard during playback without changing MIDI notes. Effects
-are shared per synth preset.
+multi-solo button. Tracks have independent synth voices and gain buses, so mix
+changes can be heard during playback without rewriting MIDI notes. Presets
+now carry individually programmed spectral color, expressive velocity curves
+and stereo/LFO modulation; common space/echo buses remain shared to avoid
+multiplying heavyweight reverbs. A single master limiter helps control peaks
+from dense unison or layered parts.
 
 Click a track's name to **focus that lane** in the piano roll: only its notes
 and velocity bars appear, and notes drawn or stamped there are assigned to the
@@ -246,25 +249,46 @@ of browser synth patches. New tracks receive a safe unused melodic MIDI channel
 tracks survive export/import with their names; since an empty MIDI track has no
 channel-bearing notes, a reader may report its channel as the default.
 
-### Built-In Sound Engine
+### Built-In Sound Engine — 49 Expressive Instruments
 
-A **33-sound curated synth library** is available to preview entirely in your browser —
-no samples, downloads, or external accounts. Explore **Keys**, **Analog & Retro**,
-**Pads & Atmospheres**, **Plucks & Mallets**, **Leads**, and **Bass**. The sounds
-are original Tone.js synth patches inspired by broad instrument families, not
-recorded acoustic instrument samples.
+The redesigned **49-instrument sound bank** uses seven useful categories:
+**Keys**, **Analog & Retro**, **Pads & Atmospheres**, **Plucks & Mallets**,
+**Leads**, **Bass**, and **Motion & Experimental**. All 33 previous preset IDs
+remain intact, so older projects, autosaves and track mixes still load.
+Six genuinely different synthesis architectures provide the variety:
+subtractive and unison oscillators, dual-oscillator voicing, FM, AM,
+filtered mono synths, and tuned membrane basses. There are **no external
+samples, soundfonts, cloud calls, accounts or downloads**.
 
-Click the sound field in **Compose → Preview sound**, or in any **Tracks** mixer
-strip, to open the searchable categorized library. Use the play button on any
-sound to **audition without selecting**, or click a sound to select it and hear
-it immediately. A separate play button beside the selected sound lets you
-compare patches quickly. Existing Classic Analog, Electric Piano, Atmospheric
-Pad, Modern Pluck, and Dreamwave sessions continue to load unchanged. Each
-track has independent synth and gain control; shared effects are reused to
-avoid allocating a separate reverb rack for every sound.
+The main difference is how the sounds behave, not the names:
 
-Sound choices affect the browser preview only — they do **not** change the MIDI
-instrument programs preserved from imported files on export.
+- **Motion and texture** are individualized. Instruments use their own
+  combinations of low/band/highpass color, LFO filter sweeps, pitch vibrato,
+  tremolo, chorus, phasing, and stereo autopanning. Classic dry sub, pluck and
+  mallet sounds bypass the lush shared ambient racks; sustained atmospheres
+  evolve in stereo with longer releases.
+- **Dynamic response** follows the MIDI velocity curve per instrument. Soft
+  velvet keys respond very differently from tines, resonant bass and hard
+  plucks. The browser audition plays a gentle attack followed by a harder
+  attack, so the difference can be heard before selecting a sound.
+- **Polyphony and CPU** are budgeted per voice (especially layered unison and
+  dual-oscillator patches); processors are allocated only for active presets
+  and disposed when you replace them. Shared delay/reverb sends keep
+  multitrack arrangements lightweight.
+- **Creative discovery** shows a meaningful synthesis character for each
+  sound and supports search by timbre, motion or engine. For example, search
+  `FM`, `pulse`, `vibrato`, `membrane` or `chorus`.
+
+Open **Compose → Preview sound**, or any **Tracks** sound selector.
+Click the row's play button to audition without changing your selection;
+selecting a sound applies it and previews it immediately. Notes, exported
+MIDI events, General MIDI programs and source-track ownership are unaffected
+by this browser-only sound choice.
+
+The bank is a collection of **original procedural synthesizer instruments**,
+not acoustic recordings or an identical sampled instrument library. Detailed
+patch and modulation choices, performance safeguards, and a critical listening
+checklist are documented in [Sound Design Engineering](docs/SOUND_DESIGN.md).
 
 ### MIDI Import & Export
 
