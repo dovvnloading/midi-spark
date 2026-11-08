@@ -91,6 +91,9 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
       .toLowerCase().includes(query.trim().toLowerCase()),
   );
 
+  const filtersActive = category !== "All" || query.trim().length > 0;
+  const resetFilters = () => { setQuery(""); setCategory("All"); searchRef.current?.focus(); };
+
   const mobile = window.innerWidth <= 760;
   const width = Math.min(390, window.innerWidth - 24);
   const maxHeight = Math.min(500, window.innerHeight - 24);
@@ -207,9 +210,13 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
               </button>
             ))}
           </div>
+          <div className="sound-library-summary">
+            <p role="status" aria-live="polite" aria-atomic="true">{filtered.length} of {SOUND_PRESETS.length} sounds{category !== "All" ? " · " + category : ""}</p>
+            {filtersActive && <button type="button" className="sound-library-reset" onClick={resetFilters}>Clear filters</button>}
+          </div>
           <div className="sound-library-results" aria-label="Preset results">
             {filtered.length === 0 ? (
-              <p className="sound-library-empty">No matching sounds. Try another search.</p>
+              <p className="sound-library-empty">No matching sounds. Clear the filters or try a different timbre.</p>
             ) : filtered.map((preset) => (
               <div className="sound-library-row" key={preset.id}>
                 <button
@@ -227,7 +234,7 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
                     <small>{preset.description}</small>
                     <span className="sound-library-row-character">{preset.character}</span>
                   </span>
-                  {preset.id === value && <Check size={15} aria-hidden="true" />}
+                  {preset.id === value && <span className="sound-library-selected-status"><Check size={14} aria-hidden="true" /> Selected</span>}
                 </button>
                 <button
                   type="button"
