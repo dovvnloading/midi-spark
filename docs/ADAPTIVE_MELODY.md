@@ -2,10 +2,11 @@
 
 ## Purpose and non-goals
 
-Midi Spark's **Follow melody** operation is a transparent, browser-only symbolic
-harmonizer. It takes an existing MIDI note track as an immutable condition and
-builds chord, bass and harmony parts around it. It is not audio transcription,
-a generative neural model or a guarantee of a uniquely "correct" harmony.
+Midi Spark's **Follow melody** mode is a transparent, browser-only symbolic
+composition system. Three distinct operations — **Harmonize**, **Continue**,
+and **Reimagine** — condition generated notes on an original, immutable MIDI
+source track. It is not audio transcription, a generative neural model or a
+guarantee of a uniquely "correct" continuation or chord progression.
 
 Design constraints:
 
@@ -17,7 +18,8 @@ Design constraints:
   import/export must remain usable.
 - Work without online services or new runtime dependencies.
 
-The implementation lives in `src/lib/adaptive.ts`. State/UI orchestration is in
+Harmonization lives in `src/lib/adaptive.ts`; source-aware continuation and
+variation are in `src/lib/motif.ts`. State/UI orchestration is in
 `src/App.tsx` and `src/components/Sidebar.tsx`. Ownership metadata is on
 `TrackMetadata` and optional chord metadata in `ProgressionData`.
 
@@ -78,10 +80,39 @@ Sparse, balanced and active accompaniment options control note density.
 If the source melody has many onsets in a bar, the generator automatically
 reduces density to leave room for the lead. No operations change source notes.
 
-### 5. Ownership and editing semantics
+### 5. Melody continuation and reimagination
+
+These are independent transformations of the *representation* of a source
+melody; source MIDI events are not edited in either operation.
+
+- Source notes are sorted into onset groups, reducing nearly simultaneous
+  polyphonic notes to the highest audible lead voice. The original polyphonic
+  data stays unchanged; only the new melodic track is monophonic.
+- **Continue** extracts a recent phrase up to four bars long, preserving its
+  note-onset spacing and durations. It projects intervals relative to a new
+  anchor close to the last original pitch, optionally using diatonic
+  neighboring tones and occasional contour inversion at high creative distance.
+  The phrase is repeated as required to fill the requested 1/2/4/8-bar
+  extension. Registers, duration bounds and octave leaps are constrained.
+- **Reimagine** retains the source phrase's onset and duration structure
+  with limited controlled off-grid rhythmic adjustments, scale-neighbor
+  substitutions, and velocity changes. Its source opening is kept and its
+  final pitch remains recognizable. A generated alternative is stored on its
+  own track, soloed on first generation so the unmodified source can be
+  compared by changing solo/mute in Tracks.
+- The key/mode comes from Compose, or from *unambiguous* key analysis.
+  When analysis is uncertain, Compose remains authoritative.
+- A linked continuation becomes extra *harmonic evidence* in the harmonizer;
+  its notes are still preserved when bass/harmony regenerate.
+
+These heuristic transformations are deliberately bounded and deterministic
+under a supplied random stream. No claim is made that they rival large
+trained melody-generation models in musical originality or consistency.
+
+### 6. Ownership and editing semantics
 
 Generated track headers carry:
-- `generatedRole: "bass" | "harmony"`
+- `generatedRole: "bass" | "harmony" | "continuation" | "variation"`
 - `sourceTrackIndex: number`
 
 These are *app-specific* fields, persisted in local browser sessions and
@@ -100,7 +131,7 @@ back the entire generated progression in one step.
 Unit and integration checks cover:
 
 - Input/source melody exact preservation (pitch, time, duration, velocity, track).
-- Reusing generated track IDs on repeated harmonization.
+- Reusing generated track IDs on repeated harmonization, continuation and reimagination.
 - Leaving unrelated imported MIDI tracks and metadata unchanged.
 - Selecting a nonzero source track from a multi-track file.
 - Seeded repeatability and immutable state.
@@ -108,7 +139,7 @@ Unit and integration checks cover:
 - Reporting empty, malformed, over-limit and channel-exhausted cases.
 - Version-one autosave and ownership-marker validation.
 - Playwright/Chromium browser flow: MIDI import, track choice, harmonize,
-  regenerate, undo and reload.
+  continue, reimagine, regenerate, undo, reload and standard MIDI re-import.
 
 Run `npm run typecheck && npm run lint && npm test && npm run build` and
 the existing `scripts/browser_smoke.py` production-browser checks.
@@ -120,10 +151,10 @@ the existing `scripts/browser_smoke.py` production-browser checks.
    timeline model, not a special-case added inside the harmonizer.
 2. **Harmony granularity.** One chord per bar is reliable for this release.
    A later iteration can use phrase-aware half-bar or adaptive change points.
-3. **Phrase and motif continuation.** Interval-contour and duration-token
-   extraction can support "Continue melody" and call/response generation.
-   The current release deliberately prioritizes exact preservation of the
-   supplied notes over unvalidated source-editing transformations.
+3. **Phrase understanding.** The motif generator is presently an explainable
+   recent-phrase transformation, not a pretrained symbolic sequence model.
+   Future quality work includes stronger hierarchical phrasing, voice-leading,
+   multi-phrase rhythmic development and an evaluation dataset.
 4. **Learned alternatives.** A future optional model should be benchmarked
    against this deterministic engine for perceived harmony, melodic identity,
    latency, memory cost, offline operation and licensing. Avoid introducing a
