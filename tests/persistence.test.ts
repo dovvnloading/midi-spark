@@ -168,6 +168,43 @@ describe("saveSession / loadSession", () => {
     expect(loadSession()).toBeNull();
   });
 
+  it("round-trips melody-generation choices and track ownership without breaking v1 sessions", () => {
+    const session: SavedSession = {
+      ...sampleSession,
+      melodySourceMode: "follow",
+      melodySourceTrackIndex: 1,
+      harmonicFit: 83,
+      accompanimentDensity: "active",
+      melodyKeyStrategy: "detect",
+      progression: {
+        ...sampleProgression,
+        tracks: [
+          {index: 0, name: "Melody", channel: 1},
+          {index: 1, name: "Generated Bass", channel: 2, generatedRole: "bass", sourceTrackIndex: 0},
+        ],
+        chords: [{name: "C", timeStart: 0, duration: 4, generatedSourceTrackIndex: 0}],
+      },
+    };
+    saveSession(session);
+    expect(loadSession()).toEqual(session);
+    saveSession(sampleSession);
+    expect(loadSession()).toEqual(sampleSession);
+  });
+
+  it("rejects unsupported melody preferences and invalid ownership markers", () => {
+    for (const changed of [
+      {harmonicFit: 128},
+      {accompanimentDensity: "storm"},
+      {melodySourceTrackIndex: -1},
+      {melodyKeyStrategy: "oracle"},
+      {progression: {...sampleProgression,
+        tracks: [{index: 0, name: "Generated Bass", generatedRole: "bass", sourceTrackIndex: -1}]}},
+    ]) {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({...sampleSession, ...changed}));
+      expect(loadSession()).toBeNull();
+    }
+  });
+
   it("round-trips a null progression (no sequence generated yet)", () => {
     const session: SavedSession = { ...sampleSession, progression: null };
     saveSession(session);
