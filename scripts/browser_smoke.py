@@ -680,6 +680,34 @@ with sync_playwright() as p:
  assert persisted_phrase['progression']==local['progression']
  record('Source-phrase preference and real loop range persist through browser reload')
  phrase.close()
+ # Touch-only source loop selection: no Shift key or ruler precision needed.
+ mobile_loop=b.new_page(viewport={'width':390,'height':844},has_touch=True)
+ mobile_loop.on('pageerror',lambda error:errors.append(str(error)))
+ mobile_loop.goto(args.url)
+ mobile_loop.get_by_role('button',name='Generate pattern',exact=True).last.click()
+ mobile_loop.wait_for_timeout(650)
+ loop_original=snap(mobile_loop)['progression']
+ assert loop_original['totalBars']==4
+ mobile_loop.get_by_role('button',name='Toggle inspector',exact=True).click()
+ mobile_loop.get_by_role('button',name='Follow melody',exact=True).click()
+ mobile_loop.get_by_role('button',name='Loop range',exact=True).click()
+ mobile_loop.get_by_role('combobox',name='Loop from bar',exact=True).select_option('2')
+ mobile_loop.get_by_role('combobox',name='Loop through bar',exact=True).select_option('3')
+ assert snap(mobile_loop)['loopRegion']=={'start':4,'end':12}
+ record('Touch-only mobile bar selectors create a precise loop without Shift-drag')
+ mobile_loop.get_by_role('button',name='Use full pattern',exact=True).click()
+ assert snap(mobile_loop)['loopRegion']=={'start':0,'end':16}
+ mobile_loop.get_by_role('button',name='Clear loop selection',exact=True).click()
+ assert snap(mobile_loop)['loopRegion'] is None
+ mobile_loop.get_by_role('combobox',name='Loop from bar',exact=True).select_option('2')
+ mobile_loop.get_by_role('combobox',name='Loop through bar',exact=True).select_option('3')
+ mobile_loop.get_by_role('button',name='Harmonize melody',exact=False).click()
+ mobile_loop.wait_for_timeout(650)
+ touch_result=snap(mobile_loop)
+ assert touch_result['progression']['notes'][:len(loop_original['notes'])]==loop_original['notes']
+ assert all(4<=c['timeStart']<12 for c in touch_result['progression']['chords'] if c.get('generatedSourceTrackIndex')==0)
+ record('Touch-selected loop harmonizes only requested bars without replacing authored melody')
+ mobile_loop.close()
  assert not errors,errors
  record('No browser page errors during the complete suite')
  (OUTPUT/'geometry.json').write_text(json.dumps(metrics,indent=2))
