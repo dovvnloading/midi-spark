@@ -880,13 +880,22 @@ with sync_playwright() as p:
   assert reading.evaluate('document.documentElement.scrollWidth')<=width+1,(width,'horizontal overflow')
   reading.screenshot(path=str(OUTPUT/f'typography-{width}.png'))
  record('Typography screenshots at 320, 390, 768 and 1440 pixels without horizontal overflow')
- reading.set_viewport_size({'width':1440,'height':900})
- reading.evaluate("document.body.style.zoom='2'")
- expect(reading.get_by_role('button',name='Generate pattern',exact=False).first).to_be_visible()
- expect(reading.get_by_role('button',name='Fit pattern',exact=True)).to_be_visible()
- reading.screenshot(path=str(OUTPUT/'typography-200-percent.png'))
- record('200% zoom keeps primary Generate and Fit controls visible')
  reading.close()
+ # Emulate 200% browser zoom by reducing CSS viewport size while keeping the
+ # physical 1440×900 pixels. body.style.zoom does not reflow media queries.
+ zoomed=b.new_page(viewport={'width':720,'height':450},device_scale_factor=2,has_touch=True)
+ zoomed.on('pageerror',lambda error:errors.append(str(error)))
+ zoomed.goto(args.url)
+ zoomed.get_by_role('button',name='Toggle inspector',exact=True).click()
+ zoomed.wait_for_timeout(400)
+ expect(zoomed.get_by_role('button',name='Generate pattern',exact=False).first).to_be_visible()
+ inspector_box=zoomed.locator('#studio-inspector').bounding_box()
+ assert inspector_box and inspector_box['x']>=-1 and inspector_box['x']+inspector_box['width']<=721,inspector_box
+ expect(zoomed.get_by_role('button',name='Fit pattern',exact=True)).to_be_visible()
+ assert zoomed.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
+ zoomed.screenshot(path=str(OUTPUT/'typography-200-percent.png'))
+ record('200% effective CSS viewport reflows primary Generate and Fit controls')
+ zoomed.close()
  # Source meter is disclosed alongside the editor, survives autosave, and
  # does not pretend that the fixed 4/4 grid follows the source bar lines.
  meter=b.new_page(viewport={'width':1280,'height':800})

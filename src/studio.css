@@ -783,3 +783,39 @@ button:disabled { opacity: .42; }
   .editor-active-tool, .time-signature, .edit-target-indicator { font-size: var(--type-ui-ancillary); }
   .compose-panel .compose-action-topline small { font-size: var(--type-ui-ancillary); }
 }
+
+/* Remaining non-spatial labels in menus, transport controls and the sound
+   library should use operational type, not dense piano-roll annotation type. */
+.precision-controls label > span,
+.project-menu-content p,
+.sound-library-row-copy small,
+.sound-library-footer,
+.sound-library-summary,
+.sound-picker-helper,
+.dialog-content footer,
+.dialog-content dl > div {
+  font-size: var(--type-ui-operational);
+  color: var(--fg-ui-secondary);
+  line-height: 1.45;
+}
+.sound-library-eyebrow,
+.sound-library-row-character,
+.sound-library-selected-status,
+.sound-picker-character,
+.sound-library-categories button {
+  font-size: var(--type-ui-ancillary);
+  color: var(--fg-ui-muted);
+  line-height: 1.45;
+}
+.sound-library-categories button { min-height: 40px; }
+
+/* Interactive outlines also need contrast against their surrounding surfaces,
+   independent of label color. These borders must meet the 3:1 non-text target. */
+.tool-segment,
+.precision-controls .select-field select,
+.editor-context-right select,
+.sound-picker-trigger,
+.sound-library-search,
+.active-tool-readout {
+  border-color: var(--stroke-ui-control);
+}
