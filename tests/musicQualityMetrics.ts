@@ -79,11 +79,11 @@ export function pitchClassEntropy(notes: readonly NoteEvent[]): number {
   if (!notes.length) return 0;
   const bins = new Array<number>(12).fill(0);
   for (const note of notes) bins[pc(note.midi)] += 1;
-  return -bins.filter(value => value > 0)
+  return Math.max(0, -bins.filter(value => value > 0)
     .reduce((sum, count) => {
       const p = count / notes.length;
       return sum + p * Math.log2(p);
-    }, 0);
+    }, 0));
 }
 
 export function scaleToneRate(notes: readonly NoteEvent[], root: string, mode: "major" | "minor"): number {
