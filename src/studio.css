@@ -659,3 +659,42 @@ button:disabled { opacity: .42; }
 @media (max-width: 760px) and (max-height: 700px) {
   .editor-footnote { display: none; }
 }
+
+/* Follow Melody: three readable tasks, with optional expert tuning. */
+.melody-adaptive-controls { gap: 13px; }
+.melody-step-heading {
+  display: flex; align-items: center; gap: 9px;
+  margin: 2px 0 0; color: #edf4e9;
+}
+.melody-step-heading > span {
+  display: grid; place-items: center; flex: 0 0 26px;
+  height: 26px; border: 1px solid #759270; border-radius: 50%;
+  background: #334a38; color: #e1f3d2;
+  font: 700 12px var(--font-mono);
+}
+.melody-step-heading h4 { margin: 0; font-size: 13px; font-weight: 710; }
+.melody-task-help { margin: -6px 1px 2px; padding: 8px 10px; border-left: 2px solid #789f73; background: #263b2d; }
+.melody-advanced {
+  margin-top: 3px; border: 1px solid #526b58;
+  border-radius: 9px; background: #1a2927; color: #d4e6d8;
+}
+.melody-advanced > summary {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 11px 12px; cursor: pointer; list-style: none;
+}
+.melody-advanced > summary::-webkit-details-marker { display: none; }
+.melody-advanced > summary::before {
+  content: "+"; position: absolute; right: 12px;
+  font-size: 20px; line-height: 14px; color: #c4e2b1;
+}
+.melody-advanced[open] > summary::before { content: "−"; }
+.melody-advanced > summary { position: relative; padding-right: 34px; }
+.melody-advanced > summary strong { color: #e4f2e0; font-size: 12px; font-weight: 680; }
+.melody-advanced > summary span { color: #b9cbbd; font-size: 11px; line-height: 1.45; }
+.melody-advanced-content { display: grid; gap: 12px; padding: 13px 12px 15px; border-top: 1px solid #3f5b4d; }
+.melody-advanced-content .expression-control + .expression-control { margin-top: 0; }
+.melody-advanced-content .melody-key-heading { margin: 2px 0 0; }
+@media (max-width: 760px) {
+  .melody-step-heading h4 { font-size: 13px; }
+  .melody-advanced > summary { min-height: 44px; }
+}
