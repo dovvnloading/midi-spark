@@ -164,7 +164,10 @@ describe("melody-guided motif composition", () => {
     }, seededRandom(4));
     expect(arrangement.ok).toBe(true);
     if (!arrangement.ok) return;
-    expect(arrangement.progression.chords).toHaveLength(6);
+    expect(arrangement.progression.chords.filter(chord => chord.generatedSourceTrackIndex === 4))
+      .toHaveLength(6);
+    expect(arrangement.progression.chords.filter(chord => chord.generatedSourceTrackIndex === undefined))
+      .toEqual(seed().chords);
     expect(arrangement.progression.notes.filter(n => n.trackIndex === first.generatedTrackIndex))
       .toEqual(first.progression.notes.filter(n => n.trackIndex === first.generatedTrackIndex));
     expect(arrangement.progression.notes.filter(n => n.trackIndex === 4))
