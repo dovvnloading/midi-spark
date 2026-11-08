@@ -777,6 +777,7 @@ with sync_playwright() as p:
  keyedit.keyboard.press('ControlOrMeta+z')
  assert snap(keyedit)['progression']['notes']==before_edit
  record('Keyboard note navigation, single-note selection, pitch and duration edits undo cleanly')
+ keyedit.locator('.note-precision-summary').click()
  vel=keyedit.get_by_test_id('precision-note-velocity')
  vel.fill('62');vel.press('Tab')
  exact=snap(keyedit)['progression']['notes']

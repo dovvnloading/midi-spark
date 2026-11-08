@@ -61,7 +61,13 @@ export function NotePrecisionEditor({
     }
   };
 
-  return <div className="note-precision-editor" role="group" aria-label="Precise note editing">
+  return <details className="note-precision-editor">
+    <summary className="note-precision-summary">
+      Precise note editing <span>{activeNote
+        ? (Note.fromMidi(activeNote.midi) ?? activeNote.name) + " selected · expand to adjust"
+        : "Choose a note · keyboard and touch controls"}</span>
+    </summary>
+    <div className="note-precision-body" role="group" aria-label="Precise note editing">
     <label className="note-precision-picker">Choose note
       <select data-testid="precision-note-select" aria-label="Choose note to edit" value={activeIndex ?? ""}
         onChange={event => onSelectionChange(event.target.value === ""
@@ -106,5 +112,6 @@ export function NotePrecisionEditor({
       {selectedVisible.length > 1 && <span className="precision-selection-count">Velocity edits apply to {selectedVisible.length} selected notes</span>}
     </div>}
     {!activeNote && <span className="precision-note-help">Select a note here or on the grid for exact keyboard and touch editing.</span>}
-  </div>;
+    </div>
+  </details>;
 }

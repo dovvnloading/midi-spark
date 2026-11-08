@@ -552,9 +552,18 @@ button:disabled { opacity: .42; }
 
 /* Keyboard and touch precision-edit alternative to sub-note-width hit targets. */
 .note-precision-editor {
-  display: flex; flex-shrink: 0; gap: 10px; align-items: end; flex-wrap: wrap;
-  padding: 8px 14px; border-bottom: 1px solid #4d6659;
+  display: block; flex-shrink: 0; border-bottom: 1px solid #4d6659;
   background: #22302d; color: #dceade; font-size: 11px;
+}
+.note-precision-summary {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  min-height: 36px; padding: 7px 14px; cursor: pointer;
+  font-size: 12px; font-weight: 680; color: #e5f1dc;
+}
+.note-precision-summary span { font-weight: 450; font-size: 11px; color: #b7cbb9; }
+.note-precision-body {
+  display: flex; gap: 10px; align-items: end; flex-wrap: wrap;
+  padding: 8px 14px; border-top: 1px solid #425649;
 }
 .note-precision-editor label { display: flex; flex-direction: column; gap: 4px; font-weight: 620; }
 .note-precision-editor select, .note-precision-editor input {
@@ -579,7 +588,9 @@ button:disabled { opacity: .42; }
 .velocity-hit-target { background: transparent; border: 0; padding: 0; border-radius: 3px; }
 .velocity-hit-target:focus-visible { outline: 2px solid #f1e5a3; outline-offset: 2px; z-index: 55; }
 @media (max-width: 760px) {
-  .note-precision-editor { padding: 7px 9px; gap: 7px; max-height: 160px; overflow-y: auto; }
+  .note-precision-editor[open] { max-height: 150px; overflow-y: auto; }
+  .note-precision-summary { padding: 7px 9px; min-height: 40px; position: sticky; top: 0; background: #22302d; z-index: 1; }
+  .note-precision-body { padding: 7px 9px; gap: 7px; }
   .note-precision-picker { flex-basis: 100%; max-width: none; }
   .note-precision-fields { gap: 6px; }
   .note-precision-fields input { width: 68px; height: 40px; }
