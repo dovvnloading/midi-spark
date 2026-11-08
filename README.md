@@ -102,8 +102,9 @@ The **Follow melody → Creative operation** selector now has three actions:
   permits more or less diatonic substitution and contour inversion. The original
   notes and other user tracks are never modified.
 - **Reimagine** creates a recognizable alternative on a separate **Melody
-  Variation** track, preserving the phrase's recognizable opening and ending
-  while adding bounded pitch and rhythmic changes. The new alternative is
+  Variation** track, preserving the phrase's exact opening/ending pitches
+  and onset times while applying bounded changes to interior notes.
+  The new alternative is
   automatically soloed for A/B playback; use Tracks to adjust solo/mute.
 - **Harmonize** can also use the linked continuation as a harmonic guide, so
   bass and chords follow the new passage as well as the original phrase.
