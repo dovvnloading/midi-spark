@@ -242,6 +242,23 @@ describe("saveSession / loadSession", () => {
     }
   });
 
+  it("round-trips an adaptive harmonic pacing setting without breaking older v1 saves", () => {
+    for (const harmonicPacing of ["bar", "adaptive", "half-bar"] as const) {
+      const updated: SavedSession = {...sampleSession, harmonicPacing};
+      saveSession(updated);
+      expect(loadSession()).toEqual(updated);
+    }
+    saveSession(sampleSession);
+    expect(loadSession()).toEqual(sampleSession);
+  });
+
+  it("rejects unsupported harmonic pacing in saved composer settings", () => {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+      ...sampleSession, harmonicPacing: "rapid-fire",
+    }));
+    expect(loadSession()).toBeNull();
+  });
+
   it("round-trips a null progression (no sequence generated yet)", () => {
     const session: SavedSession = { ...sampleSession, progression: null };
     saveSession(session);
