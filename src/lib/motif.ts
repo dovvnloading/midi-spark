@@ -137,12 +137,13 @@ function varyExisting(
       pitch = toScale(original.midi, scale, low, high);
       pitch = scaleShift(pitch, direction * (amount >= 0.8 && random() > 0.8 ? 2 : 1), scale, low, high);
     }
-    // Preserve phrase opening and cadence, especially at low creativity.
-    if (i === lead.length - 1 && amount > 0.85 && random() > 0.8) {
-      pitch = toScale(pitch, scale, low, high);
-    }
+    // Identity anchors are absolute: even at 100% creativity, the initial
+    // and final pitches remain exactly the user's notes, not approximations.
+    // Only interior notes receive leap constraints and substitutions.
     const previous = events.at(-1);
-    if (previous && amount > 0) pitch = pitchWithinRange(pitch, previous.midi, low, high);
+    if (previous && amount > 0 && i < lead.length - 1) {
+      pitch = pitchWithinRange(pitch, previous.midi, low, high);
+    }
     let time = original.timeStart;
     if (i > 0 && i < lead.length - 1 && random() < amount * 0.38) {
       const move = random() < 0.5 ? -0.125 : 0.125;
