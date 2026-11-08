@@ -70,7 +70,7 @@ with sync_playwright() as p:
  assert page.locator('.sound-library-row').count()==49
  page.get_by_role('button',name='Keys',exact=True).click()
  assert page.locator('.sound-library-row').count()==8
- page.get_by_role('searchbox',name='Search presets').fill('glass')
+ page.get_by_role('searchbox',name='Search presets').fill('glass piano')
  assert page.locator('.sound-library-row').count()==1
  page.get_by_role('button',name='Preview Glass Piano',exact=True).click()
  page.locator('.sound-library-select').filter(has_text='Glass Piano').click()
