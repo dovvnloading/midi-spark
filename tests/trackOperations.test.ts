@@ -86,4 +86,21 @@ describe("native track lifecycle", () => {
     expect(added.progression.tracks?.at(-1)?.channel).toBe(15);
     expect(added.progression.tracks?.some(track => track.channel === 9)).toBe(false);
   });
+  it("treats copies of generated tracks as independent user-owned parts", () => {
+    const source: ProgressionData = {
+      notes: [{midi: 48, name: "C3", timeStart: 0, duration: 1, velocity: 0.7, trackIndex: 1}],
+      tracks: [
+        {index: 0, name: "Melody", channel: 0},
+        {index: 1, name: "Generated Bass", channel: 1, generatedRole: "bass", sourceTrackIndex: 0},
+      ],
+      chords: [], totalBars: 1,
+    };
+    const duplicated = duplicateTrack(source, 1);
+    expect(duplicated).not.toBeNull();
+    const meta = duplicated!.progression.tracks?.find(t => t.index === duplicated!.index);
+    expect(meta?.generatedRole).toBeUndefined();
+    expect(meta?.sourceTrackIndex).toBeUndefined();
+    expect(duplicated!.progression.notes.find(n => n.trackIndex === duplicated!.index)?.midi).toBe(48);
+  });
+
 });
