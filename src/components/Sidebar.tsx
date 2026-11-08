@@ -21,6 +21,8 @@ export interface SidebarProps {
   selectedMelodyNoteCount: number;
   hasExplicitLoop: boolean;
   harmonicFit: number;
+  harmonyExploration: number;
+  onHarmonyExplorationChange: (value: number) => void;
   accompanimentDensity: AccompanimentDensity;
   harmonicPacing: HarmonicPacing;
   onHarmonicPacingChange: (value: HarmonicPacing) => void;
@@ -136,6 +138,15 @@ export function Sidebar(p: SidebarProps) {
               <CustomSlider value={p.harmonicFit} min={0} max={100}
                 onChange={p.onHarmonicFitChange} label="Harmonic fit to melody" />
               <div className="range-captions"><span>Exploratory</span><span>Close fit</span></div>
+            </div>
+            <div className="expression-control">
+              <div className="field-heading"><h4>Harmony exploration</h4>
+                <output>{p.harmonyExploration}<span>%</span></output></div>
+              <CustomSlider value={p.harmonyExploration} min={0} max={100}
+                onChange={p.onHarmonyExplorationChange} label="Harmony exploration" />
+              <div className="range-captions"><span>Closest path</span><span>More alternatives</span></div>
+              <p className="generation-hint">Find different near-best chord paths without forcing
+                arbitrary dissonance. Zero uses the original harmonic search.</p>
             </div>
             <div className="field-heading"><h4>Chord changes</h4></div>
             <div className="generation-mode melody-task" role="group" aria-label="Harmonic pacing">
