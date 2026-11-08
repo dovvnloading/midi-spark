@@ -7,6 +7,7 @@ import {
   PRESET_CATEGORIES,
   SOUND_PRESETS,
   type PresetCategory,
+  type PresetDefinition,
   type SynthType,
 } from "../lib/presets";
 
@@ -81,10 +82,12 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
     setOpen(true);
   };
 
+  const motionTerms = (preset: PresetDefinition): string =>
+    (preset.motion ?? []).map(modulation => modulation.kind).join(" ");
   const filtered = SOUND_PRESETS.filter((preset) =>
     (category === "All" || category === preset.category) &&
     (preset.label + " " + preset.description + " " + preset.category + " " + preset.character +
-      " " + preset.patch.engine + " " + (preset.motion ?? []).map(m => m.kind).join(" "))
+      " " + preset.patch.engine + " " + motionTerms(preset))
       .toLowerCase().includes(query.trim().toLowerCase()),
   );
 
