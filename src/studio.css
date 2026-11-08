@@ -653,3 +653,9 @@ button:disabled { opacity: .42; }
 @media (max-width: 760px) {
   .editor-toolbar { gap: 6px; padding-inline: 6px; }
 }
+
+/* On short phones the active-tool readout replaces the duplicated footer hint.
+   Keep 40px touch controls and the precision selector, not a cramped canvas. */
+@media (max-width: 760px) and (max-height: 700px) {
+  .editor-footnote { display: none; }
+}
