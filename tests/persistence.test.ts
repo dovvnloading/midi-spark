@@ -259,6 +259,24 @@ describe("saveSession / loadSession", () => {
     expect(loadSession()).toBeNull();
   });
 
+  it("retains phrase scope choice while keeping actual note selection ephemeral", () => {
+    for (const melodyPhraseScope of ["track", "selected", "loop"] as const) {
+      const updated: SavedSession = {...sampleSession, melodyPhraseScope};
+      saveSession(updated);
+      expect(loadSession()).toEqual(updated);
+    }
+    // Existing v1 saves have no phrase scope field and remain compatible.
+    saveSession(sampleSession);
+    expect(loadSession()).toEqual(sampleSession);
+  });
+
+  it("refuses malformed persisted phrase scope instead of silently changing behavior", () => {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+      ...sampleSession, melodyPhraseScope: "other-track",
+    }));
+    expect(loadSession()).toBeNull();
+  });
+
   it("round-trips a null progression (no sequence generated yet)", () => {
     const session: SavedSession = { ...sampleSession, progression: null };
     saveSession(session);
