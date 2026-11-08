@@ -480,17 +480,10 @@ button:disabled { opacity: .42; }
 .position-display small { font-size: 9px; }
 .editor-footnote, .app-status { font-size: 11px; }
 .track-audibility, .track-name-button small { font-size: 10px; }
-.mobile-tool-guidance { display: none; }
+.editor-active-tool { font-size: 11px; font-weight: 650; color: #d6e8c6; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-footnote > span:last-child { min-width: 0; white-space: nowrap; }
 
 @media (max-width: 760px) {
-  .mobile-tool-guidance {
-    display: flex; align-items: center; gap: 8px; flex: 1 0 100%;
-    min-height: 29px; padding: 5px 8px; border-radius: 7px;
-    background: #26362d; border: 1px solid #466149;
-    color: #d7e8d1; font-size: 11px; line-height: 1.4;
-  }
-  .mobile-tool-guidance strong { white-space: nowrap; color: #dbf2bb; }
-  .mobile-tool-guidance span { color: #b6cab7; }
   .track-toggles button { min-width: 40px; height: 40px; font-size: 12px; }
   .track-management button { min-height: 40px; }
   .compose-actions { padding-bottom: max(13px, env(safe-area-inset-bottom)); }
