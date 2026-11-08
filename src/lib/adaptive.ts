@@ -328,6 +328,7 @@ function chooseDiverseHarmony(
   candidates: readonly ChordCandidate[], regions: readonly HarmonicRegion[],
   fit: number, tension: number, random: RandomSource,
   exploration: number, previousChords: readonly { name: string; timeStart: number; duration?: number }[],
+  leftContext: ChordCandidate | null = null, rightContext: ChordCandidate | null = null,
 ): { harmony: ChordCandidate[]; alternativesConsidered: number;
      chordFitRetained: number; changedChordRegions: number } {
   const beamWidth = 12;
@@ -340,9 +341,13 @@ function chooseDiverseHarmony(
     for (let j = 0; j < candidates.length; j++) {
       const chord = candidates[j];
       const evidence = chordFit(chord, region.notes, fit, tension) * (region.duration === 2 ? 0.82 : 1);
-      const cadence = segment === regions.length - 1 && chord.degree === 0 ? 0.24 : 0;
+      const cadence = segment !== regions.length - 1 ? 0 :
+        rightContext ? 0.70 * transition(chord, rightContext, true) :
+        chord.degree === 0 ? 0.24 : 0;
       if (segment === 0) {
-        row.push([{ index: j, score: evidence + (chord.degree === 0 ? 0.28 : 0), previous: null }]);
+        const opening = leftContext ? 0.70 * transition(leftContext, chord, true) :
+          chord.degree === 0 ? 0.28 : 0;
+        row.push([{ index: j, score: evidence + cadence + opening, previous: null }]);
         continue;
       }
       const options: HarmonyPathNode[] = [];
@@ -704,9 +709,30 @@ export function generateFromMelody(
     (start >= target.start && start < target.end);
   const previousChords = input.chords.filter(chord =>
     chord.generatedSourceTrackIndex === trackIndex && insideTarget(chord.timeStart));
+  // A selected/looped middle phrase must connect to existing backing before
+  // and after the selected region. Don't treat its first bar as a new tonic
+  // or its final bar as the end of the complete song.
+  const ownedOutside = input.chords.filter(chord =>
+    chord.generatedSourceTrackIndex === trackIndex && !insideTarget(chord.timeStart));
+  const beforeRegion = ownedOutside.filter(chord =>
+    chord.timeStart + chord.duration <= regions[0].timeStart + 1e-8)
+    .sort((a, b) => b.timeStart + b.duration - a.timeStart - a.duration)[0];
+  const afterRegion = ownedOutside.filter(chord =>
+    chord.timeStart >= regions[regions.length - 1].timeStart +
+      regions[regions.length - 1].duration - 1e-8)
+    .sort((a, b) => a.timeStart - b.timeStart)[0];
+  const matchContext = (name?: string): ChordCandidate | null => {
+    if (!name) return null;
+    const exact = candidates.find(candidate => candidate.name === name);
+    if (exact) return exact;
+    const tonal = Chord.get(name);
+    const chroma = tonal.tonic ? Note.chroma(tonal.tonic) : null;
+    return chroma === null ? null :
+      candidates.find(candidate => candidate.rootPc === chroma) ?? null;
+  };
   const explored = exploration > 0
     ? chooseDiverseHarmony(candidates, regions, options.harmonicFit, options.tension, random,
-      exploration, previousChords)
+      exploration, previousChords, matchContext(beforeRegion?.name), matchContext(afterRegion?.name))
     : null;
   const selectedHarmony = explored?.harmony ??
     chooseHarmony(candidates, regions, options.harmonicFit, options.tension, random, previousChords);
