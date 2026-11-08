@@ -692,7 +692,7 @@ export default function App() {
     link.download = `midi-spark_${root}_${mode}.mid`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    notify("MIDI file exported and ready for your DAW.", "success");
+    notify("MIDI exported: notes and GM programs only. Browser synth sounds are not embedded in .mid files.", "success");
   }, [progression, bpm, root, mode, notify]);
 
   /** Parsing completes before replacing anything. Invalid files and Cancel
@@ -1072,7 +1072,11 @@ export default function App() {
             onQuantize={handleQuantize} onTranspose={handleTranspose} onHumanize={handleHumanize} swingAmount={swingAmount}
             onSwingAmountChange={setSwingAmount} onApplySwing={handleApplySwing} noteLength={noteLength} onNoteLengthChange={setNoteLength}
             onChop={handleChopSelected} onDuplicateBar={handleDuplicateBar} />}
-          tracks={<TrackStudio tracks={tracks} mixer={trackMix} defaultSynth={synthType} focusedTrack={visibleFocusedTrack}
+          tracks={<TrackStudio tracks={tracks} mixer={trackMix}
+            midiPrograms={Object.fromEntries((progression?.tracks ?? []).map(track => [
+              track.index, track.program ?? null,
+            ]))}
+            defaultSynth={synthType} focusedTrack={visibleFocusedTrack}
             onFocusTrack={handleFocusTrack} onChange={handleTrackChange} onAddTrack={handleAddTrack}
             onRenameTrack={handleRenameTrack} onDuplicateTrack={handleDuplicateTrack} onDeleteTrack={handleDeleteTrack}
             onPreviewError={message => notify(message, "error")} />}
