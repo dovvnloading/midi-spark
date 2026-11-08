@@ -313,7 +313,13 @@ button:disabled { opacity: .42; }
 .editor-title > span { color: #96a99d; }
 .editor-context-right { gap: 12px; color: #a8b9aa; }
 .editor-context-right select { background: #243032; border: 1px solid #425650; border-radius: 7px; padding: 5px 7px; }
-.time-signature { color: #bcd2b9; background: #26342f; border-color: #526b54; border-radius: 6px; font-size: 10px; padding: 5px 7px; }
+.time-signature { color: #bcd2b9; background: #26342f; border-color: #526b54; border-radius: 6px; font-size: 10px; padding: 5px 7px; white-space: nowrap; }
+.meter-import-warning {
+  flex-shrink: 0; margin: 0; padding: 9px 16px;
+  background: #332b1d; color: #f4ddae; border-bottom: 1px solid #6d5730;
+  font-size: 12px; line-height: 1.5;
+}
+.meter-import-warning strong { font-weight: 700; }
 .editor-toolbar { gap: 12px; min-height: 58px; padding: 8px 16px; border-bottom-color: #3a4846; background: #1b2426; }
 .tool-cluster { gap: 7px; }
 .tool-cluster .control-divider { margin-inline: 3px; }

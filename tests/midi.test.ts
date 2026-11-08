@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { Midi } from "@tonejs/midi";
-import { exportToMidiBlob, parseMidiBuffer } from "../src/lib/midi";
+import { exportToMidiBlob, parseMidiBuffer, unsupportedSourceMeters } from "../src/lib/midi";
 import { ProgressionData } from "../src/lib/theory";
 import { generateSequence } from "../src/lib/theory";
 import { addTrack, duplicateTrack, renameTrack } from "../src/lib/trackOperations";
@@ -112,6 +112,35 @@ describe("MIDI export/import round-trip", () => {
 });
 
 describe("parseMidiBuffer", () => {
+  for (const [numerator, denominator] of [[3, 4], [6, 8], [4, 4]] as const) {
+    it("tracks an imported " + numerator + "/" + denominator + " meter without claiming the editor uses it", () => {
+      const midi = new Midi();
+      midi.header.timeSignatures.push({ ticks: 0, timeSignature: [numerator, denominator] });
+      midi.header.update();
+      midi.addTrack().addNote({ midi: 60, ticks: 0, durationTicks: 480, velocity: 0.8 });
+      const { progression } = parseMidiBuffer(midi.toArray().buffer as ArrayBuffer);
+      expect(progression.sourceTimeSignatures).toEqual([numerator + "/" + denominator]);
+      expect(unsupportedSourceMeters(progression)).toEqual(
+        numerator === 4 && denominator === 4 ? [] : [numerator + "/" + denominator],
+      );
+      expect(progression.notes[0].duration).toBeCloseTo(1);
+    });
+  }
+
+  it("retains multiple source meter changes for a persistent warning", () => {
+    const midi = new Midi();
+    midi.header.timeSignatures.push(
+      { ticks: 0, timeSignature: [3, 4] },
+      { ticks: 1440, timeSignature: [4, 4] },
+      { ticks: 3360, timeSignature: [6, 8] },
+    );
+    midi.header.update();
+    midi.addTrack().addNote({ midi: 60, ticks: 0, durationTicks: 480, velocity: 0.8 });
+    const { progression } = parseMidiBuffer(midi.toArray().buffer as ArrayBuffer);
+    expect(progression.sourceTimeSignatures).toEqual(["3/4", "4/4", "6/8"]);
+    expect(unsupportedSourceMeters(progression)).toEqual(["3/4", "6/8"]);
+  });
+
   it("converts ticks using the file's own PPQ (regression: 128 was hardcoded)", () => {
     // Build a file through @tonejs/midi's own writer (PPQ 480 by default):
     // one quarter note at beat 1. Under the old hardcoded /128 conversion this

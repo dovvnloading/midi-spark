@@ -8,6 +8,11 @@ export interface ImportedMidi {
   bpm: number | null;
 }
 
+/** Imported non-4/4 meters that cannot be represented by the editor's grid. */
+export function unsupportedSourceMeters(progression: ProgressionData): string[] {
+  return [...new Set((progression.sourceTimeSignatures ?? []).filter(meter => meter !== "4/4"))];
+}
+
 /** Serialize a progression at 480 PPQ with track separation and known General
  *  MIDI program/channel metadata. Untagged notes belong to track 0. Browser
  *  synth patches remain independent from General MIDI programs. */
@@ -95,10 +100,15 @@ export function parseMidiBuffer(buffer: ArrayBuffer): ImportedMidi {
 
   const maxTime = notes.reduce((m, n) => Math.max(m, n.timeStart + n.duration), 0);
   const totalBars = Math.max(1, Math.ceil(maxTime / 4));
+  // Keep the source signatures for an honest import warning. Editor bar
+  // boundaries and MIDI export still operate on a fixed 4/4 grid.
+  const sourceTimeSignatures = [...new Set(midi.header.timeSignatures.map(
+    ({ timeSignature }) => timeSignature[0] + "/" + timeSignature[1],
+  ))];
 
   const firstTempo = midi.header.tempos[0];
   return {
-    progression: { notes, chords: [], totalBars, tracks },
+    progression: { notes, chords: [], totalBars, tracks, sourceTimeSignatures },
     bpm: firstTempo ? firstTempo.bpm : null,
   };
 }

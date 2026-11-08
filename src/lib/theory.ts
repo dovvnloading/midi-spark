@@ -46,6 +46,8 @@ export interface ProgressionData {
   tracks?: TrackMetadata[];
   /** Monotonic per-project allocator; optional for legacy sessions. */
   nextTrackIndex?: number;
+  /** Original MIDI time-signature markings. The editor grid remains fixed 4/4. */
+  sourceTimeSignatures?: string[];
 }
 
 export const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11];

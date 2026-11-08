@@ -124,7 +124,9 @@ function isProgressionData(v: unknown): v is ProgressionData {
     p.chords.every(isChordEvent) &&
     isFiniteNumber(p.totalBars) &&
     (p.nextTrackIndex === undefined || (Number.isInteger(p.nextTrackIndex) && (p.nextTrackIndex as number) >= 0)) &&
-    (p.tracks === undefined || (Array.isArray(p.tracks) && p.tracks.every(isTrackMetadata)))
+    (p.tracks === undefined || (Array.isArray(p.tracks) && p.tracks.every(isTrackMetadata))) &&
+    (p.sourceTimeSignatures === undefined || (Array.isArray(p.sourceTimeSignatures) &&
+      p.sourceTimeSignatures.every(signature => typeof signature === "string" && /^[1-9]\d*\/[1-9]\d*$/.test(signature))))
   );
 }
 

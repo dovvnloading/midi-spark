@@ -20,7 +20,7 @@ import {
   seekAudio,
   SynthType,
 } from "./lib/audio";
-import { exportToMidiBlob, parseMidiFile } from "./lib/midi";
+import { exportToMidiBlob, parseMidiFile, unsupportedSourceMeters } from "./lib/midi";
 import { generateFromMelody, isAdaptiveTrack, type AccompanimentDensity, type MelodyKeyStrategy,
   type HarmonicPacing } from "./lib/adaptive";
 import { generateMotif, type ContinuationBars } from "./lib/motif";
@@ -727,7 +727,10 @@ export default function App() {
         (alternative ? " (also " + alternative.root + " " + alternative.mode + ")" : "") +
         ". Adjust in Compose."
       : " · Estimated key: " + keyLabel + ".";
-    notify("Imported " + fileName + " · " + parsed.notes.length + " notes" + keyDetail, "success");
+    const unsupportedMeters = unsupportedSourceMeters(parsed);
+    notify("Imported " + fileName + " · " + parsed.notes.length + " notes" + keyDetail +
+      (unsupportedMeters.length ? " Source meter " + unsupportedMeters.join(", ") +
+        " is shown on a 4/4 editor grid." : ""), unsupportedMeters.length ? "info" : "success");
   }, [commit, notify, handleStop]);
 
   const loadMidiFile = useCallback(async (file: File) => {
@@ -1042,6 +1045,7 @@ export default function App() {
     setToolMode("draw"); setScrollAnchorKey(k => k + 1); setFitRequest(k => k + 1); setMobileInspectorOpen(false);
   };
   const hasNotes = !!progression?.notes.length;
+  const unsupportedMeters = progression ? unsupportedSourceMeters(progression) : [];
   const displayedSynth = tracks.length === 1 ? trackMix[tracks[0].index]?.synthType ?? synthType : synthType;
   return (
     <div className={"workbench" + (!desktopInspectorOpen ? " inspector-collapsed" : "")} style={{ "--inspector-width": inspectorWidth + "px" } as CSSProperties} onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
@@ -1100,9 +1104,13 @@ export default function App() {
                   ? "New → " + (tracks[0]?.name ?? "Track 1")
                   : "Edit: " + (tracks.find(t => t.index === visibleFocusedTrack)?.name ?? "Track")}
               </strong></>}
-              <span className="time-signature" title="4/4 editor grid; imported meter may differ">4/4 grid</span>
+              <span className="time-signature" title="The editor uses four quarter notes per bar, regardless of the original MIDI meter">4/4 editor grid</span>
             </div>
           </div>
+          {unsupportedMeters.length > 0 && <p className="meter-import-warning" role="status">
+            <strong>Imported meter: {progression?.sourceTimeSignatures?.join(", ")}.</strong>{" "}
+            Notes retain their quarter-note timing, but the editor uses 4/4 bars; original measure boundaries and time signatures are not preserved on export.
+          </p>}
           <EditToolbar toolMode={toolMode} stampType={stampType} noteLength={noteLength} snapResolution={snapResolution} zoomX={zoomX}
             followPlayback={followPlayback} inspectorOpen={desktopInspectorOpen} onToolModeChange={setToolMode} onStampTypeChange={setStampType}
             onNoteLengthChange={setNoteLength} onSnapResolutionChange={setSnapResolution} onZoomChange={setZoomX}
