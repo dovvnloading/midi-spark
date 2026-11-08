@@ -41,7 +41,7 @@ describe("expressive sound bank", () => {
   });
 
   it("delivers individual timbral signatures and genuinely different LFO motion", () => {
-    const motionKinds = new Set(presets.flatMap(p =>
+    const motionKinds = new Set<string>(presets.flatMap(p =>
       (p.motion ?? []).map(m => m.kind)));
     for (const kind of ["chorus", "tremolo", "autoFilter", "autoPan", "vibrato", "phaser"]) {
       expect(motionKinds.has(kind), kind).toBe(true);
