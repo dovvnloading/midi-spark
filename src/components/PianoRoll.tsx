@@ -62,6 +62,7 @@ export interface PianoRollProps {
   onScrub: (tick: number) => void;
   onScrubStateChange: (isScrubbing: boolean) => void;
   onLivePreview: (preview: ProgressionData | null) => void;
+  onAudioPreviewError?: (message: string) => void;
 }
 
 interface LoopDrag {
@@ -381,6 +382,7 @@ export function PianoRoll({
     snapTick,
     zoomX,
     onLivePreview,
+    onAudioPreviewError,
   ]);
 
   // ----- Interaction handlers -----
@@ -500,13 +502,15 @@ export function PianoRoll({
           };
         });
       commit((prev) => prev ? ensureBarsCoverNotes({ ...prev, notes: [...prev.notes, ...newNotes] }) : prev);
-      if (!isScale) void initAudio().then(() => newNotes.forEach(n => playNote(n.name, 0.5, n.velocity, focusedTrack ?? 0))).catch(() => {});
+      if (!isScale) void initAudio().then(() => newNotes.forEach(n => playNote(n.name, 0.5, n.velocity, focusedTrack ?? 0)))
+        .catch(() => onAudioPreviewError?.("Audio preview could not start. Notes are still editable; use Play to retry after enabling audio."));
       return;
     }
 
     // Default: draw a single note.
     const name = Note.fromMidi(midi) || "C4";
-    void initAudio().then(() => playNote(name, 0.25, 0.8, focusedTrack ?? 0)).catch(() => {});
+    void initAudio().then(() => playNote(name, 0.25, 0.8, focusedTrack ?? 0))
+      .catch(() => onAudioPreviewError?.("Audio preview could not start. Notes are still editable; use Play to retry after enabling audio."));
     setDragDrawState({
       startTick: tick,
       startMidi: midi,
@@ -931,6 +935,7 @@ export function PianoRoll({
                           try {
                             await initAudio();
                           } catch {
+                            onAudioPreviewError?.("Audio preview could not start. Notes are still editable; use Play to retry after enabling audio.");
                             return; // Still allow editing when audio is unavailable.
                           }
                           const name = Note.fromMidi(midi);
