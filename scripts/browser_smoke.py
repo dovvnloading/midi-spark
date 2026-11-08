@@ -252,8 +252,11 @@ with sync_playwright() as p:
  assert page.get_by_role('combobox',name='Edit track',exact=True).input_value()=='2'
  page.get_by_role('button',name='Draw tool',exact=True).click()
  page.get_by_role('button',name='Fit pattern',exact=True).click()
+ # Fit repositions the scroll container on the next layout/effect frame.
+ page.wait_for_timeout(300)
  x,y=grid_point(page,64,1)
  page.mouse.click(x,y)
+ page.wait_for_timeout(120)
  drawn=snap(page)['progression']
  assert len([n for n in drawn['notes'] if n['trackIndex']==2])==1
  record('Adding an empty track focuses a new lane and drawing writes to it')
