@@ -101,7 +101,16 @@ export function deleteTrack(data: ProgressionData, index: number): ProgressionDa
   return {
     ...data,
     notes: data.notes.filter(note => trackIndexOf(note) !== index),
-    tracks: trackHeaders(data).filter(track => track.index !== index),
+    tracks: trackHeaders(data).filter(track => track.index !== index).map(track => {
+      if (track.sourceTrackIndex !== index) return track;
+      // Retained accompaniments become ordinary editable tracks if their
+      // conditioning melody is removed. Do not leave dangling ownership IDs.
+      const detached = { ...track };
+      delete detached.generatedRole;
+      delete detached.sourceTrackIndex;
+      return detached;
+    }),
+    chords: data.chords.filter(chord => chord.generatedSourceTrackIndex !== index),
     nextTrackIndex: nextTrackIndex(data),
   };
 }
