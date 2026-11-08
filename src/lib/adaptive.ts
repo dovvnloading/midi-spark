@@ -272,6 +272,34 @@ function chooseHarmony(
   return result.reverse();
 }
 
+/** A split proposed from local evidence may still resolve to one sustained
+ * harmony after the global progression is optimized. Avoid needless chord
+ * restrikes when both halves end up using exactly the same chord. */
+function mergeRedundantHalfBars(
+  regions: readonly HarmonicRegion[], chords: readonly ChordCandidate[],
+  pacing: HarmonicPacing,
+): { regions: HarmonicRegion[]; chords: ChordCandidate[] } {
+  if (pacing !== "adaptive") return { regions: [...regions], chords: [...chords] };
+  const mergedRegions: HarmonicRegion[] = [];
+  const mergedChords: ChordCandidate[] = [];
+  for (let i = 0; i < regions.length; i++) {
+    const current = regions[i];
+    const previous = mergedRegions.at(-1);
+    const previousChord = mergedChords.at(-1);
+    if (previous && previousChord?.name === chords[i].name &&
+      previous.duration === 2 && current.duration === 2 &&
+      current.timeStart % 4 === 2 && current.timeStart === previous.timeStart + 2) {
+      mergedRegions[mergedRegions.length - 1] = {
+        ...previous, duration: 4, notes: [...previous.notes, ...current.notes],
+      };
+      continue;
+    }
+    mergedRegions.push(current);
+    mergedChords.push(chords[i]);
+  }
+  return { regions: mergedRegions, chords: mergedChords };
+}
+
 function median(values: readonly number[]): number {
   if (values.length === 0) return 67;
   const sorted = [...values].sort((a, b) => a - b);
@@ -439,7 +467,8 @@ export function generateFromMelody(
   if (candidates.length === 0) return {ok: false, reason: "Select a valid key and scale in Compose."};
   const regions = planHarmonicRegions(source, bars, pacing, candidates, options.harmonicFit, options.tension);
   const previousChords = input.chords.filter(chord => chord.generatedSourceTrackIndex === trackIndex);
-  const harmony = chooseHarmony(candidates, regions, options.harmonicFit, options.tension, random, previousChords);
+  const selectedHarmony = chooseHarmony(candidates, regions, options.harmonicFit, options.tension, random, previousChords);
+  const refined = mergeRedundantHalfBars(regions, selectedHarmony, pacing);
 
   let working = input;
   const selectedTracks: number[] = [];
@@ -458,9 +487,9 @@ export function generateFromMelody(
   }
   const [bassIndex, harmonyIndex] = selectedTracks;
   const generated = new Set(selectedTracks);
-  const accompaniment = makeAccompaniment(source, regions, harmony, bassIndex, harmonyIndex, options.density, random);
-  const chords = harmony.map((chord, index) => ({
-    name: chord.name, timeStart: regions[index].timeStart, duration: regions[index].duration,
+  const accompaniment = makeAccompaniment(source, refined.regions, refined.chords, bassIndex, harmonyIndex, options.density, random);
+  const chords = refined.chords.map((chord, index) => ({
+    name: chord.name, timeStart: refined.regions[index].timeStart, duration: refined.regions[index].duration,
     generatedSourceTrackIndex: trackIndex,
   }));
 
