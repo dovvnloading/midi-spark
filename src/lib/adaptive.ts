@@ -394,9 +394,15 @@ function makeAccompaniment(
     while (bass + 12 <= Math.min(48, bassTop)) bass += 12;
     bass = clamp(bass, 28, 52);
 
-    const localLine = [...notes].sort((a, b) => a.timeStart - b.timeStart || b.midi - a.midi);
-    const contour = localLine.length >= 2
-      ? localLine[localLine.length - 1].midi - localLine[0].midi : 0;
+    const leadOnsets = new Map<number, number>();
+    for (const note of notes) {
+      if (note.timeStart < start || note.timeStart >= start + duration) continue;
+      const onset = Math.round(note.timeStart * 16) / 16;
+      leadOnsets.set(onset, Math.max(note.midi, leadOnsets.get(onset) ?? -1));
+    }
+    const leadLine = [...leadOnsets.entries()].sort(([a], [b]) => a - b);
+    const contour = leadLine.length >= 2
+      ? leadLine[leadLine.length - 1][1] - leadLine[0][1] : 0;
     // Opposite-direction arpeggios make space for a rising/falling melody.
     const descendingArp = contour >= 3 ? true : contour <= -3 ? false : fallbackArpDirection;
     const effectiveDensity = busyMelody && density === "active" ? "balanced"
