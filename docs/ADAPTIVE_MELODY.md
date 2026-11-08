@@ -86,6 +86,14 @@ guarantee of satisfying human preference or avoiding every dissonance.
 High-fit melody passages sometimes have very few truly different valid chord
 paths; the solver does **not** force false novelty in such cases.
 
+For a selected or looped **middle phrase**, the search also scores its
+transition **from the already generated chord before the selected bars and
+into the already generated chord after them**. This avoids treating a local
+edit as a new song opening or forced final cadence. The neighboring chords
+and all generated notes outside the selection remain untouched. Only
+candidates with compatible root interpretation participate in these
+boundary scores; the original zero-exploration Viterbi remains unchanged.
+
 **Harmonic pacing (follow-up):** *Each bar* maintains the original one-chord
 per four beats, while *2 / bar* explicitly requests two-beat segments.
 *Adaptive* compares the chord evidence for the first and second halves of
