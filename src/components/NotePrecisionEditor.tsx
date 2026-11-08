@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import { Note } from "@tonaljs/tonal";
 import type { ProgressionData } from "../lib/theory";
 import { listTracks, trackIndexOf } from "../lib/tracks";
@@ -24,6 +24,26 @@ export function NotePrecisionEditor({
   const selectedVisible = visible.filter(({ index }) => selectedIndices.has(index)).map(({ index }) => index);
   const activeIndex = selectedVisible[0] ?? null;
   const activeNote = activeIndex === null ? null : progression.notes[activeIndex];
+  const fieldInputs = useRef<Partial<Record<NoteField, HTMLInputElement | null>>>({});
+
+  // Numeric fields intentionally allow incomplete typing drafts. When note
+  // changes arrive from keyboard edits, undo or velocity nudge buttons, keep
+  // unfocused inputs in sync without overwriting the actively edited draft.
+  useEffect(() => {
+    if (!activeNote) return;
+    const values: Record<NoteField, number> = {
+      midi: activeNote.midi,
+      timeStart: activeNote.timeStart,
+      duration: activeNote.duration,
+      velocity: Math.round(activeNote.velocity * 100),
+    };
+    for (const field of Object.keys(values) as NoteField[]) {
+      const input = fieldInputs.current[field];
+      if (input && document.activeElement !== input) {
+        input.value = String(values[field]);
+      }
+    }
+  }, [activeNote]);
 
   const apply = (field: NoteField, text: string) => {
     if (activeIndex === null || !text.trim()) return;
@@ -81,25 +101,25 @@ export function NotePrecisionEditor({
     </label>
     {activeNote && <div className="note-precision-fields" key={activeIndex}>
       <label>Pitch (MIDI)
-        <input data-testid="precision-note-pitch" aria-label="Selected note MIDI pitch" type="number"
+        <input ref={element => { fieldInputs.current.midi = element; }} data-testid="precision-note-pitch" aria-label="Selected note MIDI pitch" type="number"
           min={0} max={127} step={1} defaultValue={activeNote.midi}
           onBlur={event => apply("midi", event.currentTarget.value)}
           onKeyDown={event => onFieldKey(event, activeNote.midi)} />
       </label>
       <label>Start (beats)
-        <input data-testid="precision-note-start" aria-label="Selected note start in quarter notes" type="number"
+        <input ref={element => { fieldInputs.current.timeStart = element; }} data-testid="precision-note-start" aria-label="Selected note start in quarter notes" type="number"
           min={0} max={1024} step={0.25} defaultValue={activeNote.timeStart}
           onBlur={event => apply("timeStart", event.currentTarget.value)}
           onKeyDown={event => onFieldKey(event, activeNote.timeStart)} />
       </label>
       <label>Length (beats)
-        <input data-testid="precision-note-duration" aria-label="Selected note duration in quarter notes" type="number"
+        <input ref={element => { fieldInputs.current.duration = element; }} data-testid="precision-note-duration" aria-label="Selected note duration in quarter notes" type="number"
           min={0.015625} max={1024} step={0.25} defaultValue={activeNote.duration}
           onBlur={event => apply("duration", event.currentTarget.value)}
           onKeyDown={event => onFieldKey(event, activeNote.duration)} />
       </label>
       <label>Velocity (%)
-        <input data-testid="precision-note-velocity" aria-label="Selected note velocity percent" type="number"
+        <input ref={element => { fieldInputs.current.velocity = element; }} data-testid="precision-note-velocity" aria-label="Selected note velocity percent" type="number"
           min={10} max={100} step={1} defaultValue={Math.round(activeNote.velocity * 100)}
           onBlur={event => apply("velocity", event.currentTarget.value)}
           onKeyDown={velocityKey} />
