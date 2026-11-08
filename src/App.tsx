@@ -1047,8 +1047,16 @@ export default function App() {
             <div className="editor-context-right">{progression && <><span className="pattern-length">{progression.totalBars} bars</span>
               <select aria-label="Edit track" value={visibleFocusedTrack ?? "all"} onChange={event => handleFocusTrack(event.target.value === "all" ? null : Number(event.target.value))}>
                 <option value="all">All tracks</option>{tracks.map(t => <option key={t.index} value={t.index}>{t.name}</option>)}
-              </select></>}
-              <span className="time-signature">4/4</span>
+              </select>
+              <strong className="edit-target-indicator" aria-live="polite" title={
+                visibleFocusedTrack === null
+                  ? "Viewing all tracks. New notes go to " + (tracks[0]?.name ?? "Track 1")
+                  : "Editing only " + (tracks.find(t => t.index === visibleFocusedTrack)?.name ?? "selected track")}>
+                {visibleFocusedTrack === null
+                  ? "New → " + (tracks[0]?.name ?? "Track 1")
+                  : "Edit: " + (tracks.find(t => t.index === visibleFocusedTrack)?.name ?? "Track")}
+              </strong></>}
+              <span className="time-signature" title="4/4 editor grid; imported meter may differ">4/4 grid</span>
             </div>
           </div>
           <EditToolbar toolMode={toolMode} stampType={stampType} noteLength={noteLength} snapResolution={snapResolution} zoomX={zoomX}
