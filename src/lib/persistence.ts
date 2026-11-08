@@ -28,6 +28,7 @@ export interface SavedSession {
   /** Saved preference only; actual note selection is ephemeral. */
   melodyPhraseScope?: MelodySourceScope;
   harmonicFit?: number;
+  harmonyExploration?: number;
   accompanimentDensity?: AccompanimentDensity;
   harmonicPacing?: HarmonicPacing;
   melodyKeyStrategy?: MelodyKeyStrategy;
@@ -145,6 +146,8 @@ function isValidSession(v: unknown): v is SavedSession {
     (s.melodyPhraseScope === undefined || s.melodyPhraseScope === "track" ||
       s.melodyPhraseScope === "selected" || s.melodyPhraseScope === "loop") &&
     (s.harmonicFit === undefined || (isFiniteNumber(s.harmonicFit) && s.harmonicFit >= 0 && s.harmonicFit <= 100)) &&
+    (s.harmonyExploration === undefined || (isFiniteNumber(s.harmonyExploration) &&
+      s.harmonyExploration >= 0 && s.harmonyExploration <= 100)) &&
     (s.accompanimentDensity === undefined || ["sparse", "balanced", "active"].includes(String(s.accompanimentDensity))) &&
     (s.harmonicPacing === undefined || s.harmonicPacing === "bar" ||
       s.harmonicPacing === "adaptive" || s.harmonicPacing === "half-bar") &&
