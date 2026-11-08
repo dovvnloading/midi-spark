@@ -83,7 +83,8 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
 
   const filtered = SOUND_PRESETS.filter((preset) =>
     (category === "All" || category === preset.category) &&
-    (preset.label + " " + preset.description + " " + preset.category)
+    (preset.label + " " + preset.description + " " + preset.category + " " + preset.character +
+      " " + preset.patch.engine + " " + (preset.motion ?? []).map(m => m.kind).join(" "))
       .toLowerCase().includes(query.trim().toLowerCase()),
   );
 
@@ -128,7 +129,7 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
           className="sound-picker-listen"
           aria-busy={auditioning === value}
           aria-label={"Audition " + selected.label}
-          title={"Hear " + selected.label + " without changing the MIDI"}
+          title={"Hear " + selected.label + " with soft then strong velocity, without changing the MIDI"}
           onClick={() => preview(value)}
         >
           {auditioning === value
@@ -137,6 +138,7 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
         </button>
       </div>
       <p className="sound-picker-helper">{selected.description}</p>
+      <p className="sound-picker-character">{selected.character}</p>
       <span className="sr-only" role="status" aria-live="polite">
         {auditioning ? "Preparing " + PRESET_BY_ID[auditioning].label : ""}
       </span>
@@ -220,6 +222,7 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
                   <span className="sound-library-row-copy">
                     <strong>{preset.label}</strong>
                     <small>{preset.description}</small>
+                    <span className="sound-library-row-character">{preset.character}</span>
                   </span>
                   {preset.id === value && <Check size={15} aria-hidden="true" />}
                 </button>
@@ -236,7 +239,7 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
               </div>
             ))}
           </div>
-          <p className="sound-library-footer">Synthesized in your browser · No downloads · Preview only</p>
+          <p className="sound-library-footer">Every instrument synthesized locally · Preview contrasts soft and strong notes</p>
         </div>
         </>,
         document.body,
