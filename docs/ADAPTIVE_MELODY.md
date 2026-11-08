@@ -62,7 +62,29 @@ Transitions reward plausible root movement, common tones and functional
 predominant–dominant–tonic motion, while discouraging gratuitous changes in
 silent bars. A first-order dynamic-programming (Viterbi-style) search picks
 the highest-scoring *sequence*, rather than selecting each bar independently.
-A small seeded perturbation allows repeatable alternative harmonizations.
+A small seeded perturbation allows repeatable alternative harmonizations
+in the legacy mode (Harmony exploration = 0).
+
+**Diversity-aware global search:** for a nonzero exploration control, a
+bounded k-best dynamic-programming search retains multiple global chord paths
+per possible terminal chord. The method computes actual literal chord-tone
+compatibility for each path, rejects alternatives whose harmonic objective
+or note-weighted chord membership falls too far below the highest-ranked
+solution, then selects up to 14 structurally distinct near-best paths through
+a farthest-first diversity pass. A seeded, score-weighted draw chooses one
+without giving arbitrary low-quality paths equal probability. On regeneration,
+paths that differ from the currently generated harmonization are preferred
+when credible alternatives exist; bass/harmony source ownership, MIDI channels,
+undo semantics and the original melody remain unchanged.
+
+**Bounds and guarantees:** current implementation retains at most 12
+trajectory hypotheses per chord per segment and only samples from paths whose
+DP score is within a bounded loss and whose chord-tone compatibility differs
+by no more than `0.012 + 0.045 * exploration / 100` from the optimal path.
+This is a *local search guarantee against its own scoring function*, not a
+guarantee of satisfying human preference or avoiding every dissonance.
+High-fit melody passages sometimes have very few truly different valid chord
+paths; the solver does **not** force false novelty in such cases.
 
 **Harmonic pacing (follow-up):** *Each bar* maintains the original one-chord
 per four beats, while *2 / bar* explicitly requests two-beat segments.
