@@ -33,6 +33,21 @@ interface CaseResult {
   seedCount: number;
 }
 
+interface SeedSample {
+  fixtureId: string;
+  seed: number;
+  barCoverage: number;
+  adaptiveCoverage: number;
+  adaptiveChangesPerBar: number;
+  nearLeadCollision: number;
+  chordTailSpill: number;
+  generatedBackingNotes: number;
+  generatedContinuationNotes: number;
+  generatedVariationNotes: number;
+  /** Chord labels are needed for path-level comparisons across commits. */
+  chordPath: Array<{ name: string; timeStart: number; duration: number }>;
+}
+
 interface QualityReport {
   benchmark: string;
   methodology: string;
@@ -40,6 +55,7 @@ interface QualityReport {
   seedsPerFixture: number;
   runs: number;
   results: CaseResult[];
+  samples: SeedSample[];
   aggregate: Omit<CaseResult, "id" | "seedCount">;
   runtimeMs: { p50: number; p95: number; max: number };
   limitations: string[];
@@ -54,6 +70,7 @@ const fixed = (n: number) => n.toFixed(2);
  * are NOT measured here. */
 function runEvaluation(): QualityReport {
   const results: CaseResult[] = [];
+  const samples: SeedSample[] = [];
   const timings: number[] = [];
   let runs = 0;
 
@@ -158,6 +175,20 @@ function runEvaluation(): QualityReport {
         }
         takes.push(output);
       }
+      samples.push({
+        fixtureId: fixture.id, seed,
+        barCoverage: barCoverage.at(-1) ?? 0,
+        adaptiveCoverage: adaptiveCoverage.at(-1) ?? 0,
+        adaptiveChangesPerBar: adaptiveChangesPerBar.at(-1) ?? 0,
+        nearLeadCollision: collisions.at(-1) ?? 0,
+        chordTailSpill: spills.at(-1) ?? 0,
+        generatedBackingNotes: generated.length,
+        generatedContinuationNotes: continueTakes.at(-1)?.length ?? 0,
+        generatedVariationNotes: reimagineTakes.at(-1)?.length ?? 0,
+        chordPath: adapted.progression.chords.map(chord => ({
+          name: chord.name, timeStart: chord.timeStart, duration: chord.duration,
+        })),
+      });
       expect(JSON.stringify(source), fixture.id + ": source mutated").toBe(sourceSnapshot);
     }
 
@@ -193,11 +224,11 @@ function runEvaluation(): QualityReport {
   ) as QualityReport["aggregate"];
   const sortedTimings = [...timings].sort((a, b) => a - b);
   return {
-    benchmark: "midi-spark-symbolic-quality-v2",
+    benchmark: "midi-spark-symbolic-quality-v3",
     methodology: "10 original synthetic phrases x 12 fixed seeds x 4 actual engine calls; basic tonic/greedy triad diagnostics",
     fixtures: results.length,
     seedsPerFixture: SEEDS.length,
-    runs, results, aggregate,
+    runs, results, samples, aggregate,
     runtimeMs: {
       p50: percentile(sortedTimings, 0.5),
       p95: percentile(sortedTimings, 0.95),
@@ -226,6 +257,7 @@ function markdownReport(report: QualityReport): string {
     "- Scenario corpus: " + report.fixtures + " original, synthetic four-bar MIDI melodies; no copyrighted works.",
     "- Fixed seeds: " + report.seedsPerFixture + " per fixture.",
     "- Engine calls: " + report.runs + " (bar harmonization, adaptive harmonization, Continue, Reimagine).",
+    "- Machine JSON includes " + report.samples.length + " scenario/seed records with chord paths.",
     "- Chord baselines: tonic-only and local greedy diatonic triads. **No external pretrained model was executed.**",
     "",
     "## Aggregate across fixtures (equal scenario weight)",
@@ -282,6 +314,9 @@ describe("reproducible symbolic-music diagnostic benchmark", () => {
     const report = runEvaluation();
     expect(report.fixtures).toBe(10);
     expect(report.runs).toBe(report.fixtures * report.seedsPerFixture * 4);
+    expect(report.samples).toHaveLength(report.fixtures * report.seedsPerFixture);
+    expect(new Set(report.samples.map(s => s.fixtureId + ":" + s.seed)).size)
+      .toBe(report.samples.length);
     expect(report.aggregate.tailSpill).toBe(0);
     expect(report.aggregate.adaptiveCoverage).toBeGreaterThan(0);
     expect(report.aggregate.backingStructuralDiversity).toBeLessThanOrEqual(
