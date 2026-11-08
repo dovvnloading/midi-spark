@@ -753,6 +753,54 @@ with sync_playwright() as p:
  assert all(4<=c['timeStart']<12 for c in touch_result['progression']['chords'] if c.get('generatedSourceTrackIndex')==0)
  record('Touch-selected loop harmonizes only requested bars without replacing authored melody')
  mobile_loop.close()
+ # Keyboard-only note navigation and precision editing for imported multitrack MIDI.
+ keyedit=b.new_page(viewport={'width':390,'height':844},has_touch=True)
+ keyedit.on('pageerror',lambda error:errors.append(str(error)))
+ keyedit.goto(args.url)
+ import_fixture(keyedit)
+ keyedit.get_by_role('combobox',name='Edit track',exact=True).select_option('0')
+ assert keyedit.get_by_test_id('piano-note').count()==3
+ keyedit.get_by_test_id('piano-note').first.focus()
+ keyedit.keyboard.press('ArrowRight')
+ keyedit.wait_for_timeout(70)
+ keyedit.keyboard.press('Enter')
+ picked=keyedit.locator('[data-testid="piano-note"][data-selected="true"]')
+ assert picked.count()==1
+ index=int(picked.get_attribute('data-note-index'))
+ before_edit=snap(keyedit)['progression']['notes']
+ keyedit.keyboard.press('Alt+ArrowUp')
+ assert snap(keyedit)['progression']['notes'][index]['midi']==before_edit[index]['midi']+1
+ keyedit.keyboard.press('ControlOrMeta+z')
+ assert snap(keyedit)['progression']['notes']==before_edit
+ keyedit.keyboard.press(']')
+ assert snap(keyedit)['progression']['notes'][index]['duration']>before_edit[index]['duration']
+ keyedit.keyboard.press('ControlOrMeta+z')
+ assert snap(keyedit)['progression']['notes']==before_edit
+ record('Keyboard note navigation, single-note selection, pitch and duration edits undo cleanly')
+ # Undo clears note selection, so explicitly reselect before editing velocity.
+ keyedit.locator('[data-testid="piano-note"][data-note-index="'+str(index)+'"]').focus()
+ keyedit.keyboard.press('Enter')
+ keyedit.locator('.note-precision-summary').click()
+ vel=keyedit.get_by_test_id('precision-note-velocity')
+ vel.fill('62');vel.press('Tab')
+ exact=snap(keyedit)['progression']['notes']
+ assert abs(exact[index]['velocity']-.62)<.001
+ assert all(n==before_edit[i] for i,n in enumerate(exact) if i!=index)
+ keyedit.get_by_role('button',name='Increase selected velocity by 10 percentage points').click()
+ assert abs(snap(keyedit)['progression']['notes'][index]['velocity']-.72)<.001
+ assert vel.input_value()=='72'
+ assert keyedit.locator('.velocity-hit-target[tabindex="0"]').count()==1
+ record('Exact numeric velocity entry and ten-point nudges update the displayed value and isolate neighbors')
+ keyedit.get_by_test_id('piano-note').nth(1).focus()
+ keyedit.keyboard.press('Delete')
+ assert len(snap(keyedit)['progression']['notes'])==4
+ keyedit.keyboard.press('ControlOrMeta+z')
+ assert len(snap(keyedit)['progression']['notes'])==5
+ keyedit.get_by_role('combobox',name='Edit track',exact=True).select_option('1')
+ assert keyedit.get_by_test_id('piano-note').count()==2
+ assert keyedit.get_by_test_id('precision-note-select').locator('option').count()==3
+ record('Keyboard Delete/Undo and precision chooser respect focused-track isolation')
+ keyedit.close()
  assert not errors,errors
  record('No browser page errors during the complete suite')
  (OUTPUT/'geometry.json').write_text(json.dumps(metrics,indent=2))
