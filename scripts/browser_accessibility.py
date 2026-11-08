@@ -163,7 +163,12 @@ with sync_playwright() as playwright:
             h=max(0,min(a["y"]+a["h"],b["y"]+b["h"])-max(a["y"],b["y"]))
             assert w*h<=1,("header overlap",a,b)
     zoom.get_by_role("button",name="Toggle inspector",exact=True).click()
+    zoom.wait_for_timeout(400)  # Let the slide-in sheet finish before geometry checks.
     expect(zoom.get_by_role("button",name="Generate pattern",exact=False).first).to_be_visible()
+    panel=zoom.locator("#studio-inspector").bounding_box()
+    button=zoom.get_by_role("button",name="Generate pattern",exact=False).first.bounding_box()
+    assert panel and panel["x"]>=-1 and panel["x"]+panel["width"]<=721,("inspector offscreen",panel)
+    assert button and button["x"]>=0 and button["x"]+button["width"]<=721,("Generate offscreen",button)
     zoom.screenshot(path=str(output/"typography-200-percent-reflow.png"))
     record("200% equivalent viewport: no header overlap; primary controls reachable")
     zoom.close()
