@@ -549,3 +549,82 @@ button:disabled { opacity: .42; }
   .replace-project-comparison strong { font-size: 11px; }
   .replace-project-actions button { flex: 1 1 100%; }
 }
+
+/* Operational typography and contrast baseline. Keep MIDI key/note pixels and
+   note labels independently zoomable for precise piano-roll work. */
+.compose-panel .panel-version,
+.compose-panel .eyebrow,
+.compose-panel .inspector-overline,
+.compose-panel .section-index,
+.compose-panel .composition-summary-copy small,
+.compose-panel .quick-directions-heading span,
+.compose-panel .field-hint,
+.inspector-overline {
+  font-size: var(--type-ui-ancillary);
+  color: var(--fg-ui-muted);
+  line-height: 1.4;
+}
+.compose-panel .field-control > span,
+.compose-panel .field-heading h4,
+.compose-panel .generation-hint,
+.compose-panel .range-captions,
+.compose-panel .compose-action-note,
+.compose-panel .sound-picker-helper,
+.compose-panel .sound-picker-title small,
+.inspector-note, .field-description,
+.track-panel .track-name-button small,
+.track-panel .track-audibility,
+.track-panel .track-midi-export-note {
+  font-size: var(--type-ui-operational);
+  color: var(--fg-ui-secondary);
+  line-height: 1.5;
+}
+.compose-panel .section-heading h3,
+.compose-panel .field-section h3,
+.track-panel .field-heading h4 {
+  font-size: var(--type-ui-heading);
+  color: var(--fg-ui-primary);
+}
+.compose-panel .generation-mode button,
+.compose-panel .segmented button,
+.compose-panel .feel-presets button,
+.compose-panel .compose-action-topline,
+.compose-panel .compose-action-topline > span,
+.compose-panel .compose-action-topline small,
+.track-panel .track-management button {
+  font-size: var(--type-ui-operational);
+  color: var(--fg-ui-secondary);
+}
+.compose-panel .generation-mode button[aria-pressed="true"],
+.compose-panel .segmented button[aria-pressed="true"],
+.compose-panel .feel-presets button[aria-pressed="true"] { color: var(--fg-ui-primary); }
+.inspector-tabs button,
+.editor-footnote,
+.app-status,
+.app-status button,
+.status-hints,
+.editor-active-tool,
+.edit-target-indicator,
+.editor-context-right,
+.time-signature,
+.position-display small,
+.tempo-field span {
+  font-size: var(--type-ui-operational);
+  color: var(--fg-ui-secondary);
+  line-height: 1.35;
+}
+.compose-panel .select-field select,
+.compose-panel .generation-mode,
+.compose-panel .segmented,
+.track-panel .track-toggles button {
+  border-color: var(--stroke-ui-control);
+}
+.compose-panel .field-heading output,
+.compose-panel .range-captions { color: var(--fg-ui-primary); }
+.compose-panel .generation-hint,
+.compose-panel .panel-intro p { color: var(--fg-ui-secondary); }
+@media (max-width: 760px) {
+  .editor-footnote, .app-status { font-size: var(--type-ui-ancillary); }
+  .editor-active-tool, .time-signature, .edit-target-indicator { font-size: var(--type-ui-ancillary); }
+  .compose-panel .compose-action-topline small { font-size: var(--type-ui-ancillary); }
+}
