@@ -376,6 +376,9 @@ function makeAccompaniment(
   const pushedGroove = offbeatShare > 0.48 ? true :
     offbeatShare < 0.18 ? false : random() > 0.5;
   const fallbackArpDirection = random() > 0.5;
+  // The phrase determines the broad contour; the seed still chooses which
+  // inversion tone the arpeggio starts from, keeping alternatives audible.
+  const arpOffset = random() > 0.5 ? 1 : 0;
   const globalCenter = median(source.map(note => note.midi));
   let previousVoicing: number[] = [];
   for (let i = 0; i < chords.length; i++) {
@@ -431,8 +434,8 @@ function makeAccompaniment(
       }
     } else {
       for (let step = 0; step < duration / 0.5; step++) {
-        const index = descendingArp ? voicing.length - 1 - (step % voicing.length) :
-          step % voicing.length;
+        const index = descendingArp ? voicing.length - 1 - ((step + arpOffset) % voicing.length) :
+          (step + arpOffset) % voicing.length;
         out.push(makeNote(voicing[index], start + step * 0.5, 0.43,
           step % 4 === 0 ? 0.55 : 0.40, harmonyIndex));
       }
