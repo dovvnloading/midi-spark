@@ -444,3 +444,12 @@ button:disabled { opacity: .42; }
 @media (prefers-reduced-motion: reduce) {
   .generate-button:hover:not(:disabled), .play-button:hover:not(:disabled) { transform: none; }
 }
+
+/* Melody-conditioned composition controls share the hardware-inspired inspector. */
+.melody-adaptive-controls { display: grid; gap: 16px; padding-top: 16px; }
+.melody-adaptive-controls .expression-control { margin-top: 2px; }
+.melody-adaptive-controls .melody-density { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.melody-adaptive-controls .generation-mode button { min-width: 0; padding-inline: 4px; }
+.melody-key-heading { margin-bottom: -8px; }
+.melody-source-section .generation-hint { margin-top: 0; }
+.generate-button:disabled { opacity: .48; cursor: not-allowed; }

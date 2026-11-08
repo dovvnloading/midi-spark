@@ -71,6 +71,10 @@ export function duplicateTrack(data: ProgressionData, index: number): TrackCreat
   if (!listTracks(data).some(track => track.index === index)) return null;
   const headers = trackHeaders(data);
   const source = headers.find(track => track.index === index)!;
+  // Copies are user-owned, never silently replaced during regeneration.
+  const copiedHeader: TrackMetadata = {...source};
+  delete copiedHeader.generatedRole;
+  delete copiedHeader.sourceTrackIndex;
   const used = new Set(headers.map(track => track.channel).filter((value): value is number => value !== undefined));
   const channel = nextUnusedChannel(used);
   if (channel === null) return null;
@@ -84,7 +88,7 @@ export function duplicateTrack(data: ProgressionData, index: number): TrackCreat
         ...data.notes.filter(note => trackIndexOf(note) === index).map(note => ({ ...note, trackIndex: newIndex })),
       ],
       tracks: [...headers, {
-        ...source, index: newIndex, name: (source.name + " copy").slice(0, 48), channel,
+        ...copiedHeader, index: newIndex, name: (source.name + " copy").slice(0, 48), channel,
       }],
       nextTrackIndex: newIndex + 1,
     },
@@ -97,7 +101,16 @@ export function deleteTrack(data: ProgressionData, index: number): ProgressionDa
   return {
     ...data,
     notes: data.notes.filter(note => trackIndexOf(note) !== index),
-    tracks: trackHeaders(data).filter(track => track.index !== index),
+    tracks: trackHeaders(data).filter(track => track.index !== index).map(track => {
+      if (track.sourceTrackIndex !== index) return track;
+      // Retained accompaniments become ordinary editable tracks if their
+      // conditioning melody is removed. Do not leave dangling ownership IDs.
+      const detached = { ...track };
+      delete detached.generatedRole;
+      delete detached.sourceTrackIndex;
+      return detached;
+    }),
+    chords: data.chords.filter(chord => chord.generatedSourceTrackIndex !== index),
     nextTrackIndex: nextTrackIndex(data),
   };
 }

@@ -21,6 +21,7 @@ import {
   SynthType,
 } from "./lib/audio";
 import { exportToMidiBlob, parseMidiFile } from "./lib/midi";
+import { generateFromMelody, isAdaptiveTrack, type AccompanimentDensity, type MelodyKeyStrategy } from "./lib/adaptive";
 import { MAX_BPM, MIN_BPM, clamp } from "./lib/constants";
 import { normalizeLoopRange, sequenceEndQuarters, type LoopRange } from "./lib/timeline";
 import {
@@ -73,6 +74,11 @@ export default function App() {
   );
   const [bars, setBars] = useState(savedSession?.bars ?? 4);
   const [generationMode, setGenerationMode] = useState<"single" | "layers">(savedSession?.generationMode ?? "single");
+  const [melodySourceMode, setMelodySourceMode] = useState<"scratch" | "follow">(savedSession?.melodySourceMode ?? "scratch");
+  const [melodySourceTrackIndex, setMelodySourceTrackIndex] = useState<number | null>(savedSession?.melodySourceTrackIndex ?? null);
+  const [harmonicFit, setHarmonicFit] = useState(savedSession?.harmonicFit ?? 82);
+  const [accompanimentDensity, setAccompanimentDensity] = useState<AccompanimentDensity>(savedSession?.accompanimentDensity ?? "balanced");
+  const [melodyKeyStrategy, setMelodyKeyStrategy] = useState<MelodyKeyStrategy>(savedSession?.melodyKeyStrategy ?? "manual");
 
   // Transport / sound
   const [bpm, setBpm] = useState(savedSession?.bpm ?? 120);
@@ -107,6 +113,14 @@ export default function App() {
     focusedTrack !== null && tracks.some((track) => track.index === focusedTrack)
       ? focusedTrack
       : null;
+  const melodyTracks = useMemo(() => {
+    const generated = new Set(progression?.tracks?.filter(isAdaptiveTrack).map(track => track.index) ?? []);
+    return tracks.filter(track => track.noteCount > 0 && !generated.has(track.index));
+  }, [progression, tracks]);
+  const effectiveMelodySourceTrackIndex = melodyTracks.some(track => track.index === melodySourceTrackIndex)
+    ? melodySourceTrackIndex
+    : visibleFocusedTrack !== null && melodyTracks.some(track => track.index === visibleFocusedTrack)
+      ? visibleFocusedTrack : melodyTracks[0]?.index ?? null;
   const trackMix = useMemo(
     () => reconcileTrackMix(progression, trackOverrides, synthType),
     [progression, trackOverrides, synthType],
@@ -227,6 +241,11 @@ export default function App() {
         complexity,
         bars,
         generationMode,
+        melodySourceMode,
+        melodySourceTrackIndex,
+        harmonicFit,
+        accompanimentDensity,
+        melodyKeyStrategy,
         synthType,
         snapResolution,
         noteLength,
@@ -247,6 +266,11 @@ export default function App() {
     complexity,
     bars,
     generationMode,
+    melodySourceMode,
+    melodySourceTrackIndex,
+    harmonicFit,
+    accompanimentDensity,
+    melodyKeyStrategy,
     synthType,
     snapResolution,
     noteLength,
@@ -470,6 +494,48 @@ export default function App() {
   // ----- Generation -----
 
   const handleGenerate = useCallback(() => {
+    if (melodySourceMode === "follow") {
+      if (!progression || effectiveMelodySourceTrackIndex === null) {
+        notify("Draw or import a melody, then choose its track.", "error");
+        return;
+      }
+      const result = generateFromMelody(progression, {
+        sourceTrackIndex: effectiveMelodySourceTrackIndex,
+        root, mode, tension: dissonance, harmonicFit,
+        density: accompanimentDensity, keyStrategy: melodyKeyStrategy,
+      });
+      if (!result.ok) {
+        notify(result.reason, "error");
+        return;
+      }
+      handleStop();
+      commit(result.progression);
+      setSelectedNoteIndices(new Set());
+      // Never overwrite a user's mixer changes when regenerating existing parts.
+      setTrackOverrides(previous => {
+        const next = { ...previous };
+        result.generatedTrackIndices.forEach((index, i) => {
+          if (next[index] === undefined) {
+            const preset = i === 0 ? "sub" : synthType === "sub" ? "epiano" : synthType;
+            next[index] = defaultTrackSettings(index, preset);
+          }
+        });
+        return next;
+      });
+      if (result.usedDetectedKey) {
+        setRoot(result.root);
+        setMode(result.mode);
+      }
+      setFocusedTrack(null);
+      // Keep Compose visible so users can rapidly audition alternative harmonies.
+      setCurrentTick(0);
+      setFitRequest(k => k + 1);
+      setMobileInspectorOpen(false);
+      notify("Generated melody-aware Bass + Harmony in " + result.root + " " + result.mode +
+        (melodyKeyStrategy === "detect" && result.keyWasAmbiguous ? " (key uncertain; using Compose key)." : ".") +
+        " Original melody preserved.", "success");
+      return;
+    }
     handleStop();
     const layered = generationMode === "layers";
     const seq = generateSequence(root, mode, bars, dissonance, complexity, layered);
@@ -488,9 +554,14 @@ export default function App() {
     setFitRequest(k => k + 1);
     setMobileInspectorOpen(false);
     notify("Generated a " + seq.totalBars + "-bar pattern in " + root + " " + mode + (layered ? " with separate Bass and Harmony tracks." : "."), "success");
-  }, [root, mode, bars, dissonance, complexity, generationMode, synthType, commit, notify, handleStop]);
+  }, [root, mode, bars, dissonance, complexity, generationMode, synthType, commit, notify, handleStop,
+    progression, effectiveMelodySourceTrackIndex, melodySourceMode, harmonicFit, accompanimentDensity, melodyKeyStrategy]);
 
   const handleGenerateVariations = useCallback(() => {
+    if (melodySourceMode === "follow") {
+      handleGenerate();
+      return;
+    }
     if (!progression) return;
     const seq = applyVariationToProgression(
       progression,
@@ -503,7 +574,7 @@ export default function App() {
     setSelectedNoteIndices(new Set());
     setCurrentTick(0);
     notify("Rhythmic variation added. Undo with Ctrl/⌘+Z.", "success");
-  }, [progression, dissonance, complexity, root, mode, commit, notify]);
+  }, [progression, dissonance, complexity, root, mode, commit, notify, melodySourceMode, handleGenerate]);
 
   // ----- MIDI file I/O -----
 
@@ -538,6 +609,7 @@ export default function App() {
         setSelectedNoteIndices(new Set());
         setTrackOverrides({});
         setFocusedTrack(null);
+        setMelodySourceTrackIndex(null);
         setLoopRegion(null);
         setCurrentTick(0);
         setScrollAnchorKey((k) => k + 1);
@@ -839,7 +911,7 @@ export default function App() {
   const startBlank = () => {
     handleStop();
     commit({ notes: [], chords: [], totalBars: bars });
-    setSelectedNoteIndices(new Set()); setTrackOverrides({}); setFocusedTrack(null); setLoopRegion(null);
+    setSelectedNoteIndices(new Set()); setTrackOverrides({}); setFocusedTrack(null); setMelodySourceTrackIndex(null); setLoopRegion(null);
     setToolMode("draw"); setScrollAnchorKey(k => k + 1); setFitRequest(k => k + 1); setMobileInspectorOpen(false);
   };
   const hasNotes = !!progression?.notes.length;
@@ -855,6 +927,13 @@ export default function App() {
           onToggle={toggleInspector} width={inspectorWidth} onResize={setInspectorWidth}
           compose={<Sidebar root={root} mode={mode} dissonance={dissonance} complexity={complexity} bars={bars} canVary={hasNotes}
             generationMode={generationMode} onGenerationModeChange={setGenerationMode}
+            melodySourceMode={melodySourceMode} onMelodySourceModeChange={setMelodySourceMode}
+            melodyTracks={melodyTracks} melodyBarCount={progression?.totalBars ?? null}
+            melodySourceTrackIndex={effectiveMelodySourceTrackIndex}
+            onMelodySourceTrackChange={setMelodySourceTrackIndex}
+            harmonicFit={harmonicFit} onHarmonicFitChange={setHarmonicFit}
+            accompanimentDensity={accompanimentDensity} onAccompanimentDensityChange={setAccompanimentDensity}
+            melodyKeyStrategy={melodyKeyStrategy} onMelodyKeyStrategyChange={setMelodyKeyStrategy}
             synthType={displayedSynth} multiTrack={tracks.length > 1} onSynthChange={handleSynthChange} onOpenTracks={openTracks}
             onRootChange={setRoot} onModeChange={setMode} onDissonanceChange={setDissonance} onComplexityChange={setComplexity} onBarsChange={setBars}
             onGenerate={handleGenerate} onAddVariation={handleGenerateVariations} onPreviewError={message => notify(message, "error")} />}

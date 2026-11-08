@@ -3,6 +3,7 @@ import type { TrackMix } from "./tracks";
 import type { LoopRange } from "./timeline";
 import type { SynthType } from "./audio";
 import { PRESET_IDS } from "./presets";
+import type { AccompanimentDensity, MelodyKeyStrategy } from "./adaptive";
 
 /** Versioned so an incompatible future shape change can invalidate old saves
  *  cleanly (loadSession just won't find this key) instead of crashing on a
@@ -19,6 +20,12 @@ export interface SavedSession {
   bars: number;
   /** Optional so browser sessions saved before layered composition remain valid. */
   generationMode?: "single" | "layers";
+  /** Optional v1 extensions: old sessions continue to load unchanged. */
+  melodySourceMode?: "scratch" | "follow";
+  melodySourceTrackIndex?: number | null;
+  harmonicFit?: number;
+  accompanimentDensity?: AccompanimentDensity;
+  melodyKeyStrategy?: MelodyKeyStrategy;
   synthType: SynthType;
   snapResolution: number;
   noteLength: number;
@@ -55,7 +62,8 @@ function isChordEvent(v: unknown): v is ChordEvent {
   return (
     typeof c.name === "string" &&
     isFiniteNumber(c.timeStart) &&
-    isFiniteNumber(c.duration)
+    isFiniteNumber(c.duration) &&
+    (c.generatedSourceTrackIndex === undefined || (Number.isInteger(c.generatedSourceTrackIndex) && (c.generatedSourceTrackIndex as number) >= 0))
   );
 }
 
@@ -67,7 +75,10 @@ function isTrackMetadata(v: unknown): v is TrackMetadata {
     (t.index as number) >= 0 &&
     typeof t.name === "string" &&
     (t.program === undefined || (Number.isInteger(t.program) && (t.program as number) >= 0 && (t.program as number) <= 127)) &&
-    (t.channel === undefined || (Number.isInteger(t.channel) && (t.channel as number) >= 0 && (t.channel as number) <= 15))
+    (t.channel === undefined || (Number.isInteger(t.channel) && (t.channel as number) >= 0 && (t.channel as number) <= 15)) &&
+    (t.generatedRole === undefined || t.generatedRole === "bass" || t.generatedRole === "harmony") &&
+    (t.sourceTrackIndex === undefined || (Number.isInteger(t.sourceTrackIndex) && (t.sourceTrackIndex as number) >= 0)) &&
+    (t.generatedRole === undefined || t.sourceTrackIndex !== undefined)
   );
 }
 
@@ -120,6 +131,12 @@ function isValidSession(v: unknown): v is SavedSession {
     isFiniteNumber(s.complexity) &&
     isFiniteNumber(s.bars) &&
     (s.generationMode === undefined || s.generationMode === "single" || s.generationMode === "layers") &&
+    (s.melodySourceMode === undefined || s.melodySourceMode === "scratch" || s.melodySourceMode === "follow") &&
+    (s.melodySourceTrackIndex === undefined || s.melodySourceTrackIndex === null ||
+      (Number.isInteger(s.melodySourceTrackIndex) && (s.melodySourceTrackIndex as number) >= 0)) &&
+    (s.harmonicFit === undefined || (isFiniteNumber(s.harmonicFit) && s.harmonicFit >= 0 && s.harmonicFit <= 100)) &&
+    (s.accompanimentDensity === undefined || ["sparse", "balanced", "active"].includes(String(s.accompanimentDensity))) &&
+    (s.melodyKeyStrategy === undefined || s.melodyKeyStrategy === "manual" || s.melodyKeyStrategy === "detect") &&
     typeof s.synthType === "string" &&
     SYNTH_TYPES.has(s.synthType) &&
     isFiniteNumber(s.snapResolution) &&
