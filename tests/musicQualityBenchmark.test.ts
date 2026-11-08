@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { writeFileSync } from "node:fs";
 import { generateFromMelody } from "../src/lib/adaptive";
 import { generateMotif } from "../src/lib/motif";
 import { seededRandom } from "../src/lib/random";
@@ -272,11 +271,11 @@ describe("reproducible symbolic-music diagnostic benchmark", () => {
       Number.isFinite(item.backingPitchEntropy))).toBe(true);
 
     const markdown = markdownReport(report);
-    console.log("\n" + markdown);
-    const path = process.env.MIDI_SPARK_EVAL_OUTPUT;
-    if (path) {
-      writeFileSync(path + ".md", markdown);
-      writeFileSync(path + ".json", JSON.stringify(report, null, 2) + "\n");
-    }
+    // Node's filesystem is deliberately owned by the independent JS CLI,
+    // not by TypeScript test code or production browser bundles.
+    console.log("\n@@MIDI_SPARK_MARKDOWN_BEGIN@@\n" + markdown +
+      "\n@@MIDI_SPARK_MARKDOWN_END@@");
+    console.log("\n@@MIDI_SPARK_JSON_BEGIN@@\n" + JSON.stringify(report, null, 2) +
+      "\n@@MIDI_SPARK_JSON_END@@");
   });
 });
