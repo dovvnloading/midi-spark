@@ -123,6 +123,10 @@ export default function App() {
     savedSession?.trackMix ?? {},
   );
   const tracks = useMemo(() => listTracks(progression), [progression]);
+  // Named empty tracks and saved chord labels are authored work, even when
+  // a composition currently contains no pitched notes.
+  const hasExistingContent = !!(progression &&
+    (progression.notes.length || progression.chords.length || progression.tracks?.length));
   const visibleFocusedTrack =
     focusedTrack !== null && tracks.some((track) => track.index === focusedTrack)
       ? focusedTrack
@@ -652,7 +656,7 @@ export default function App() {
         " Original melody preserved.", "success");
       return;
     }
-    if (progression?.notes.length) {
+    if (hasExistingContent) {
       setPendingReplacement({kind: "generate"});
       return;
     }
@@ -660,7 +664,7 @@ export default function App() {
   }, [root, mode, dissonance, synthType, commit, notify, handleStop,
     progression, effectiveMelodySourceTrackIndex, melodySourceMode, harmonicFit, accompanimentDensity, melodyKeyStrategy,
     melodyTask, motifCreativity, continuationBars, trackMix, harmonicPacing,
-    harmonyExploration, melodyPhraseScope, selectedNoteIndices, loopRegion, generateScratch]);
+    harmonyExploration, melodyPhraseScope, selectedNoteIndices, loopRegion, generateScratch, hasExistingContent]);
 
   const handleGenerateVariations = useCallback(() => {
     if (melodySourceMode === "follow") {
@@ -735,7 +739,7 @@ export default function App() {
         notify("This MIDI file contains no melodic notes to import.", "error");
         return;
       }
-      if (progression?.notes.length) {
+      if (hasExistingContent) {
         setPendingReplacement({kind:"import", filename:file.name, parsed, fileBpm});
       } else {
         applyImportedMidi(parsed, fileBpm, file.name);
@@ -745,7 +749,7 @@ export default function App() {
       console.error(err);
       notify("Couldn't read this MIDI file. Try another .mid or .midi file.", "error");
     }
-  }, [progression, applyImportedMidi, notify]);
+  }, [applyImportedMidi, notify, hasExistingContent]);
 
   const confirmReplacement = useCallback(() => {
     const request = pendingReplacement;
