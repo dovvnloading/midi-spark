@@ -555,3 +555,231 @@ button:disabled { opacity: .42; }
   .replace-project-comparison strong { font-size: 11px; }
   .replace-project-actions button { flex: 1 1 100%; }
 }
+
+/* Keyboard and touch precision-edit alternative to sub-note-width hit targets. */
+.note-precision-editor {
+  display: block; flex-shrink: 0; border-bottom: 1px solid #4d6659;
+  background: #22302d; color: #dceade; font-size: 11px;
+}
+.note-precision-summary {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  min-height: 36px; padding: 7px 14px; cursor: pointer;
+  font-size: 12px; font-weight: 680; color: #e5f1dc;
+}
+.note-precision-summary span { font-weight: 450; font-size: 11px; color: #b7cbb9; }
+.note-precision-body {
+  display: flex; gap: 10px; align-items: end; flex-wrap: wrap;
+  padding: 8px 14px; border-top: 1px solid #425649;
+}
+.note-precision-editor label { display: flex; flex-direction: column; gap: 4px; font-weight: 620; }
+.note-precision-editor select, .note-precision-editor input {
+  height: 38px; border: 1px solid #64816d; border-radius: 6px;
+  background: #14221f; color: #f1f5ed; padding: 0 8px; font: 500 12px var(--font-mono);
+}
+.note-precision-editor select { width: 100%; font-family: var(--font-sans); text-overflow: ellipsis; }
+.note-precision-picker { flex: 1 1 150px; min-width: 120px; max-width: 280px; }
+.note-precision-fields { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; min-width: 0; }
+.note-precision-fields input { width: 76px; }
+.velocity-nudge-controls { display: flex; gap: 4px; align-items: flex-end; }
+.velocity-nudge-controls button {
+  min-width: 39px; height: 38px; border-radius: 6px;
+  border: 1px solid #618565; background: #324a37; color: #f0f8e9; font-weight: 700;
+}
+.velocity-nudge-controls button:hover { background: #3e6044; }
+.precision-note-help, .precision-selection-count { color: #b2cebc; font-size: 11px; line-height: 1.5; }
+.precision-selection-count { flex-basis: 100%; }
+.piano-grid [data-testid="piano-note"]:focus-visible {
+  outline: 2px solid #f1e5a3; outline-offset: 2px; z-index: 35;
+}
+.velocity-hit-target { background: transparent; border: 0; padding: 0; border-radius: 3px; }
+.velocity-hit-target:focus-visible { outline: 2px solid #f1e5a3; outline-offset: 2px; z-index: 55; }
+@media (max-width: 760px) {
+  .note-precision-editor[open] { max-height: 150px; overflow-y: auto; }
+  .note-precision-summary { padding: 7px 9px; min-height: 40px; position: sticky; top: 0; background: #22302d; z-index: 1; }
+  .note-precision-body { padding: 7px 9px; gap: 7px; }
+  .note-precision-picker { flex-basis: 100%; max-width: none; }
+  .note-precision-fields { gap: 6px; }
+  .note-precision-fields input { width: 68px; height: 40px; }
+  .velocity-nudge-controls button { height: 40px; }
+}
+
+/* Precision-editor summary is an additional mobile row: reclaim unused status
+   footer padding rather than shrinking the 40px expansion target or canvas. */
+@media (max-width: 760px) {
+  .editor-footnote { min-height: 20px; padding-block: 2px; }
+}
+
+/* Compact editor: keep the chosen mode visible without hover and give touch
+   controls target sizes independent of the precision-sensitive note grid. */
+.active-tool-readout { display: none; }
+@container (max-width: 940px) {
+  .tool-segment button { width: 40px; height: 40px; min-width: 40px; padding: 0; }
+  .tool-cluster .inspector-toggle { min-width: 40px; height: 40px; }
+  .view-controls .icon-button { min-width: 40px; height: 40px; }
+  .precision-controls .select-field select { min-height: 40px; }
+  .active-tool-readout {
+    display: flex; order: 4; flex: 1 1 100%; min-width: 0;
+    gap: 8px; align-items: baseline; padding: 5px 8px;
+    border-radius: 7px; border: 1px solid #516c55;
+    background: #283e32; color: #d6e9d7;
+    font-size: 11px; line-height: 1.35;
+  }
+  .active-tool-readout strong { flex: 0 0 auto; color: #ebf7dd; font-size: 12px; }
+  .active-tool-readout span { min-width: 0; }
+}
+@media (max-width: 760px) {
+  .track-toggles button { min-width: 44px; height: 44px; }
+  .inspector-close { min-width: 40px; height: 40px; }
+  .editor-toolbar { gap: 7px; padding: 6px 8px; }
+  .tool-cluster .control-divider { margin-inline: 3px; }
+  .tool-segment { gap: 2px; }
+  .tool-segment button { width: 40px; height: 40px; }
+  .view-controls .icon-button { min-width: 40px; height: 40px; }
+  .active-tool-readout { padding-block: 6px; }
+}
+
+/* Two-row mobile toolbar: fit precision settings and tool explanation together,
+   preserving a >=300px canvas even at 375×667. */
+@container (max-width: 650px) {
+  .tool-cluster { gap: 3px; }
+  .tool-cluster .control-divider { display: none; }
+  .precision-controls {
+    order: 3; flex: 0 0 auto; width: auto; gap: 8px;
+    border-top: 0; padding-top: 0;
+  }
+  .precision-controls > label { flex-direction: column; align-items: stretch; gap: 2px; }
+  .precision-controls .select-field { width: 72px; }
+  .active-tool-readout {
+    order: 3; flex: 1 1 115px; width: auto;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+    padding: 4px 7px; min-height: 46px;
+  }
+  .active-tool-readout span { font-size: 10px; line-height: 1.3; }
+}
+@media (max-width: 760px) {
+  .editor-toolbar { gap: 6px; padding-inline: 6px; }
+}
+
+/* On short phones the active-tool readout replaces the duplicated footer hint.
+   Keep 40px touch controls and the precision selector, not a cramped canvas. */
+@media (max-width: 760px) and (max-height: 700px) {
+  .editor-footnote { display: none; }
+}
+
+/* Follow Melody: three readable tasks, with optional expert tuning. */
+.melody-adaptive-controls { gap: 13px; }
+.melody-step-heading {
+  display: flex; align-items: center; gap: 9px;
+  margin: 2px 0 0; color: #edf4e9;
+}
+.melody-step-heading > span {
+  display: grid; place-items: center; flex: 0 0 26px;
+  height: 26px; border: 1px solid #759270; border-radius: 50%;
+  background: #334a38; color: #e1f3d2;
+  font: 700 12px var(--font-mono);
+}
+.melody-step-heading h4 { margin: 0; font-size: 13px; font-weight: 710; }
+.melody-task-help { margin: -6px 1px 2px; padding: 8px 10px; border-left: 2px solid #789f73; background: #263b2d; }
+.melody-advanced {
+  margin-top: 3px; border: 1px solid #526b58;
+  border-radius: 9px; background: #1a2927; color: #d4e6d8;
+}
+.melody-advanced > summary {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 11px 12px; cursor: pointer; list-style: none;
+}
+.melody-advanced > summary::-webkit-details-marker { display: none; }
+.melody-advanced > summary::before {
+  content: "+"; position: absolute; right: 12px;
+  font-size: 20px; line-height: 14px; color: #c4e2b1;
+}
+.melody-advanced[open] > summary::before { content: "−"; }
+.melody-advanced > summary { position: relative; padding-right: 34px; }
+.melody-advanced > summary strong { color: #e4f2e0; font-size: 12px; font-weight: 680; }
+.melody-advanced > summary span { color: #b9cbbd; font-size: 11px; line-height: 1.45; }
+.melody-advanced-content { display: grid; gap: 12px; padding: 13px 12px 15px; border-top: 1px solid #3f5b4d; }
+.melody-advanced-content .expression-control + .expression-control { margin-top: 0; }
+.melody-advanced-content .melody-key-heading { margin: 2px 0 0; }
+@media (max-width: 760px) {
+  .melody-step-heading h4 { font-size: 13px; }
+  .melody-advanced > summary { min-height: 44px; }
+}
+
+/* Operational typography and contrast baseline. Keep MIDI key/note pixels and
+   note labels independently zoomable for precise piano-roll work. */
+.compose-panel .panel-version,
+.compose-panel .eyebrow,
+.compose-panel .inspector-overline,
+.compose-panel .section-index,
+.compose-panel .composition-summary-copy small,
+.compose-panel .quick-directions-heading span,
+.compose-panel .field-hint,
+.inspector-overline {
+  font-size: var(--type-ui-ancillary);
+  color: var(--fg-ui-muted);
+  line-height: 1.4;
+}
+.compose-panel .field-control > span,
+.compose-panel .field-heading h4,
+.compose-panel .generation-hint,
+.compose-panel .range-captions,
+.compose-panel .compose-action-note,
+.compose-panel .sound-picker-helper,
+.compose-panel .sound-picker-title small,
+.inspector-note, .field-description,
+.track-panel .track-name-button small,
+.track-panel .track-audibility,
+.track-panel .track-midi-export-note {
+  font-size: var(--type-ui-operational);
+  color: var(--fg-ui-secondary);
+  line-height: 1.5;
+}
+.compose-panel .section-heading h3,
+.compose-panel .field-section h3,
+.track-panel .field-heading h4 {
+  font-size: var(--type-ui-heading);
+  color: var(--fg-ui-primary);
+}
+.compose-panel .generation-mode button,
+.compose-panel .segmented button,
+.compose-panel .feel-presets button,
+.compose-panel .compose-action-topline,
+.compose-panel .compose-action-topline > span,
+.compose-panel .compose-action-topline small,
+.track-panel .track-management button {
+  font-size: var(--type-ui-operational);
+  color: var(--fg-ui-secondary);
+}
+.compose-panel .generation-mode button[aria-pressed="true"],
+.compose-panel .segmented button[aria-pressed="true"],
+.compose-panel .feel-presets button[aria-pressed="true"] { color: var(--fg-ui-primary); }
+.inspector-tabs button,
+.editor-footnote,
+.app-status,
+.app-status button,
+.status-hints,
+.editor-active-tool,
+.edit-target-indicator,
+.editor-context-right,
+.time-signature,
+.position-display small,
+.tempo-field span {
+  font-size: var(--type-ui-operational);
+  color: var(--fg-ui-secondary);
+  line-height: 1.35;
+}
+.compose-panel .select-field select,
+.compose-panel .generation-mode,
+.compose-panel .segmented,
+.track-panel .track-toggles button {
+  border-color: var(--stroke-ui-control);
+}
+.compose-panel .field-heading output,
+.compose-panel .range-captions { color: var(--fg-ui-primary); }
+.compose-panel .generation-hint,
+.compose-panel .panel-intro p { color: var(--fg-ui-secondary); }
+@media (max-width: 760px) {
+  .editor-footnote, .app-status { font-size: var(--type-ui-ancillary); }
+  .editor-active-tool, .time-signature, .edit-target-indicator { font-size: var(--type-ui-ancillary); }
+  .compose-panel .compose-action-topline small { font-size: var(--type-ui-ancillary); }
+}

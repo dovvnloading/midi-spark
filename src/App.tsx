@@ -926,7 +926,8 @@ export default function App() {
       e.preventDefault(); setShortcutsOpen(true); return;
     }
     // Keyboard navigation in menus and buttons takes priority over editor hotkeys.
-    if (target?.closest('button, summary, a[href], [role="tab"], [role="button"], [role="listbox"], [role="slider"], [role="spinbutton"], [role="menuitem"]')) return;
+    if (target?.closest('button, summary, a[href], [role="tab"], [role="button"], [role="listbox"], [role="slider"], [role="spinbutton"], [role="menuitem"]') &&
+        !target.closest('[data-testid="piano-note"]')) return;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "g") {
       e.preventDefault(); if (!e.repeat) handleGenerate(); return;
     }

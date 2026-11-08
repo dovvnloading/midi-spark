@@ -483,9 +483,17 @@ with sync_playwright() as p:
  original=snap(adaptive)['progression']
  adaptive.get_by_role('tab',name='Compose',exact=True).click()
  adaptive.get_by_role('button',name='Follow melody',exact=True).click()
+ assert adaptive.locator('.melody-step-heading h4').all_inner_texts()==['Choose source','Choose action','Tune result']
+ expect(adaptive.locator('.melody-advanced > summary')).to_be_visible()
+ assert adaptive.locator('.melody-advanced').get_attribute('open') is None
+ adaptive.locator('.melody-advanced > summary').click()
  adaptive.get_by_role('combobox',name='Source melody track',exact=True).select_option('0')
  adaptive.get_by_role('slider',name='Harmonic fit to melody',exact=True).fill('90')
  adaptive.get_by_role('slider',name='Harmony exploration',exact=True).fill('85')
+ assert '85% explore' in adaptive.locator('.melody-advanced > summary').inner_text()
+ adaptive.get_by_role('button',name='Continue',exact=True).click()
+ assert snap(adaptive)['harmonyExploration']==85
+ adaptive.get_by_role('button',name='Harmonize',exact=True).click()
  adaptive.get_by_role('button',name='Balanced',exact=True).click()
  adaptive.get_by_role('button',name='Harmonize melody',exact=False).click()
  adaptive.wait_for_timeout(600)
@@ -516,6 +524,8 @@ with sync_playwright() as p:
  assert restored_adaptive['harmonicFit']==90
  assert restored_adaptive['harmonyExploration']==85
  record('Adaptive harmony is undoable and persistent across browser reload')
+ # Native details is intentionally closed after a page reload; reopen to tune.
+ adaptive.locator('.melody-advanced > summary').click()
  # The old deterministic Viterbi path remains available at exploration=0.
  adaptive.get_by_role('slider',name='Harmony exploration',exact=True).fill('0')
  adaptive.get_by_role('button',name='Harmonize melody',exact=False).click()
@@ -755,6 +765,128 @@ with sync_playwright() as p:
  assert all(4<=c['timeStart']<12 for c in touch_result['progression']['chords'] if c.get('generatedSourceTrackIndex')==0)
  record('Touch-selected loop harmonizes only requested bars without replacing authored melody')
  mobile_loop.close()
+ # Keyboard-only note navigation and precision editing for imported multitrack MIDI.
+ keyedit=b.new_page(viewport={'width':390,'height':844},has_touch=True)
+ keyedit.on('pageerror',lambda error:errors.append(str(error)))
+ keyedit.goto(args.url)
+ import_fixture(keyedit)
+ keyedit.get_by_role('combobox',name='Edit track',exact=True).select_option('0')
+ assert keyedit.get_by_test_id('piano-note').count()==3
+ keyedit.get_by_test_id('piano-note').first.focus()
+ keyedit.keyboard.press('ArrowRight')
+ keyedit.wait_for_timeout(70)
+ keyedit.keyboard.press('Enter')
+ picked=keyedit.locator('[data-testid="piano-note"][data-selected="true"]')
+ assert picked.count()==1
+ index=int(picked.get_attribute('data-note-index'))
+ before_edit=snap(keyedit)['progression']['notes']
+ keyedit.keyboard.press('Alt+ArrowUp')
+ assert snap(keyedit)['progression']['notes'][index]['midi']==before_edit[index]['midi']+1
+ keyedit.keyboard.press('ControlOrMeta+z')
+ assert snap(keyedit)['progression']['notes']==before_edit
+ keyedit.keyboard.press(']')
+ assert snap(keyedit)['progression']['notes'][index]['duration']>before_edit[index]['duration']
+ keyedit.keyboard.press('ControlOrMeta+z')
+ assert snap(keyedit)['progression']['notes']==before_edit
+ record('Keyboard note navigation, single-note selection, pitch and duration edits undo cleanly')
+ # Undo clears note selection, so explicitly reselect before editing velocity.
+ keyedit.locator('[data-testid="piano-note"][data-note-index="'+str(index)+'"]').focus()
+ keyedit.keyboard.press('Enter')
+ keyedit.locator('.note-precision-summary').click()
+ vel=keyedit.get_by_test_id('precision-note-velocity')
+ vel.fill('62');vel.press('Tab')
+ exact=snap(keyedit)['progression']['notes']
+ assert abs(exact[index]['velocity']-.62)<.001
+ assert all(n==before_edit[i] for i,n in enumerate(exact) if i!=index)
+ keyedit.get_by_role('button',name='Increase selected velocity by 10 percentage points').click()
+ assert abs(snap(keyedit)['progression']['notes'][index]['velocity']-.72)<.001
+ assert vel.input_value()=='72'
+ assert keyedit.locator('.velocity-hit-target[tabindex="0"]').count()==1
+ record('Exact numeric velocity entry and ten-point nudges update the displayed value and isolate neighbors')
+ keyedit.get_by_test_id('piano-note').nth(1).focus()
+ keyedit.keyboard.press('Delete')
+ assert len(snap(keyedit)['progression']['notes'])==4
+ keyedit.keyboard.press('ControlOrMeta+z')
+ assert len(snap(keyedit)['progression']['notes'])==5
+ keyedit.get_by_role('combobox',name='Edit track',exact=True).select_option('1')
+ assert keyedit.get_by_test_id('piano-note').count()==2
+ assert keyedit.get_by_test_id('precision-note-select').locator('option').count()==3
+ record('Keyboard Delete/Undo and precision chooser respect focused-track isolation')
+ keyedit.close()
+ # Compact editing tools remain recognizable with 40px targets at 320/390.
+ touch_tools=b.new_page(viewport={'width':320,'height':740},has_touch=True)
+ touch_tools.on('pageerror',lambda error:errors.append(str(error)))
+ touch_tools.goto(args.url)
+ for width in (320,390):
+  touch_tools.set_viewport_size({'width':width,'height':844})
+  for label in ('Draw','Select','Slice','Hand','Stamp'):
+   button=touch_tools.get_by_role('button',name=label+' tool')
+   button.click()
+   rect=button.bounding_box()
+   assert rect['width']>=40 and rect['height']>=40,(width,label,rect)
+   assert label+' tool' in touch_tools.locator('.active-tool-readout').inner_text()
+   assert touch_tools.locator('.active-tool-readout').is_visible()
+  assert touch_tools.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+ record('Compact 320/390px tool sweep gives permanent mode instructions and 40px targets')
+ touch_tools.close()
+ # 390px Follow Melody task hierarchy keeps Generate dock visible and
+ # advanced settings discoverable without forcing every slider onscreen.
+ melody_mobile=b.new_page(viewport={'width':390,'height':844},has_touch=True)
+ melody_mobile.on('pageerror',lambda error:errors.append(str(error)))
+ melody_mobile.goto(args.url)
+ import_fixture(melody_mobile)
+ melody_mobile.get_by_role('button',name='Toggle inspector',exact=True).click()
+ melody_mobile.get_by_role('tab',name='Compose',exact=True).click()
+ melody_mobile.get_by_role('button',name='Follow melody',exact=True).click()
+ assert melody_mobile.locator('.melody-step-heading h4').all_inner_texts()==['Choose source','Choose action','Tune result']
+ assert melody_mobile.locator('.melody-advanced').get_attribute('open') is None
+ expect(melody_mobile.get_by_role('button',name='Harmonize melody',exact=False)).to_be_visible()
+ melody_mobile.get_by_role('button',name='Continue',exact=True).click()
+ expect(melody_mobile.get_by_role('slider',name='Melodic creative distance')).to_be_visible()
+ expect(melody_mobile.get_by_role('button',name='Continue melody',exact=False)).to_be_visible()
+ record('390px melody workflow exposes task essentials and expandable advanced settings')
+ melody_mobile.close()
+ # Sample computed operational text, rather than assuming token declarations
+ # are enough. Conservative background #303e37 is lighter than studio panels.
+ reading=b.new_page(viewport={'width':1440,'height':900},has_touch=True)
+ reading.on('pageerror',lambda error:errors.append(str(error)))
+ reading.goto(args.url)
+ samples=reading.evaluate("""() => {
+  const tests=[
+   ['.compose-panel .panel-version',11],
+   ['.compose-panel .section-index',11],
+   ['.compose-panel .field-hint',11],
+   ['.compose-panel .panel-intro p',12],
+   ['.compose-panel .range-captions',12],
+   ['.editor-footnote',12],
+   ['.app-status',12]
+  ];
+  const linear=c=>{c=c/255;return c<=.04045?c/12.92:Math.pow((c+.055)/1.055,2.4)};
+  const luminance=a=>.2126*linear(a[0])+.7152*linear(a[1])+.0722*linear(a[2]);
+  const background=luminance([48,62,55]);
+  return tests.map(([selector,minSize])=>{
+   const el=document.querySelector(selector);
+   if(!el)return {selector,missing:true};
+   const style=getComputedStyle(el),foreground=style.color.match(/[0-9.]+/g).slice(0,3).map(Number);
+   const fg=luminance(foreground);
+   return {selector,minSize,fontSize:parseFloat(style.fontSize),contrast:(Math.max(fg,background)+.05)/(Math.min(fg,background)+.05)};
+  });
+ }""")
+ assert all(not s.get('missing') and s['fontSize']>=s['minSize'] and s['contrast']>=4.5 for s in samples),samples
+ record('Computed inspector and status typography meets sampled 11/12px sizes and 4.5:1 contrast')
+ for width,height in ((320,740),(390,844),(768,1024),(1440,900)):
+  reading.set_viewport_size({'width':width,'height':height})
+  reading.wait_for_timeout(120)
+  assert reading.evaluate('document.documentElement.scrollWidth')<=width+1,(width,'horizontal overflow')
+  reading.screenshot(path=str(OUTPUT/f'typography-{width}.png'))
+ record('Typography screenshots at 320, 390, 768 and 1440 pixels without horizontal overflow')
+ reading.set_viewport_size({'width':1440,'height':900})
+ reading.evaluate("document.body.style.zoom='2'")
+ expect(reading.get_by_role('button',name='Generate pattern',exact=False).first).to_be_visible()
+ expect(reading.get_by_role('button',name='Fit pattern',exact=True)).to_be_visible()
+ reading.screenshot(path=str(OUTPUT/'typography-200-percent.png'))
+ record('200% zoom keeps primary Generate and Fit controls visible')
+ reading.close()
  # Source meter is disclosed alongside the editor, survives autosave, and
  # does not pretend that the fixed 4/4 grid follows the source bar lines.
  meter=b.new_page(viewport={'width':1280,'height':800})

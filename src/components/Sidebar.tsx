@@ -95,6 +95,7 @@ export function Sidebar(p: SidebarProps) {
               onClick={() => p.onMelodySourceModeChange("follow")}>Follow melody</button>
           </div>
           {p.melodySourceMode === "follow" && <div className="melody-adaptive-controls">
+            <div className="melody-step-heading"><span aria-hidden="true">1</span><h4>Choose source</h4></div>
             {p.melodyTracks.length > 0 ? <label className="field-control">
               <span>Source melody track</span>
               <CustomDropdown ariaLabel="Source melody track" value={p.melodySourceTrackIndex ?? ""}
@@ -160,7 +161,7 @@ export function Sidebar(p: SidebarProps) {
                   Adjust the ruler handles for finer timing.</p>
               </div>;
             })()}
-            <div className="field-heading"><h4>Creative operation</h4></div>
+            <div className="melody-step-heading"><span aria-hidden="true">2</span><h4>Choose action</h4></div>
             <div className="generation-mode melody-task" role="group" aria-label="Melody operation">
               <button type="button" aria-pressed={p.melodyTask === "harmonize"}
                 onClick={() => p.onMelodyTaskChange("harmonize")}>Harmonize</button>
@@ -169,6 +170,14 @@ export function Sidebar(p: SidebarProps) {
               <button type="button" aria-pressed={p.melodyTask === "reimagine"}
                 onClick={() => p.onMelodyTaskChange("reimagine")}>Reimagine</button>
             </div>
+            <p className="generation-hint melody-task-help" role="status">
+              {p.melodyTask === "harmonize"
+                ? "Build backing parts that follow your melody. The source notes stay untouched."
+                : p.melodyTask === "continue"
+                  ? "Extend the chosen phrase on a separate track, leaving the original unchanged."
+                  : "Create a new interpretation on a separate track, soloed for comparison."}
+            </p>
+            <div className="melody-step-heading"><span aria-hidden="true">3</span><h4>Tune result</h4></div>
             {p.melodyTask === "harmonize" ? <>
             <div className="expression-control">
               <div className="field-heading"><h4>Harmonic fit</h4>
@@ -177,6 +186,39 @@ export function Sidebar(p: SidebarProps) {
                 onChange={p.onHarmonicFitChange} label="Harmonic fit to melody" />
               <div className="range-captions"><span>Exploratory</span><span>Close fit</span></div>
             </div>
+
+            </> : <>
+            <div className="expression-control">
+              <div className="field-heading"><h4>Creative distance</h4>
+                <output>{p.motifCreativity}<span>%</span></output></div>
+              <CustomSlider value={p.motifCreativity} min={0} max={100}
+                onChange={p.onMotifCreativityChange} label="Melodic creative distance" />
+              <div className="range-captions"><span>Recognizable</span><span>Adventurous</span></div>
+            </div>
+            {p.melodyTask === "continue" && <>
+              <div className="field-heading"><h4>Additional bars</h4></div>
+              <div className="generation-mode melody-bar-count" role="group" aria-label="Continuation length">
+                {([1, 2, 4, 8] as const).map(count =>
+                  <button key={count} type="button" aria-pressed={p.continuationBars === count}
+                    onClick={() => p.onContinuationBarsChange(count)}>{count}</button>)}
+              </div>
+              <p className="generation-hint">MIDI Spark uses the chosen phrase as a motif, then
+                places the answer after the end of your original melody track—never on top of later notes.
+                Source notes remain exactly as drawn.</p>
+            </>}
+            {p.melodyTask === "reimagine" && <p className="generation-hint">
+              Create an alternate lead on a separate track. Its first and final notes
+              remain recognizable, and it is soloed for easy A/B listening.</p>}
+            </>}
+            <details className="melody-advanced">
+              <summary>
+                <strong>Advanced {p.melodyTask === "harmonize" ? "harmony" : "melody"} options</strong>
+                <span>{p.melodyTask === "harmonize"
+                  ? p.harmonicPacing + " pacing · " + p.accompanimentDensity + " motion · " + p.harmonyExploration + "% explore"
+                  : "Key: " + (p.melodyKeyStrategy === "detect" ? "detect melody" : "Compose key")}</span>
+              </summary>
+              <div className="melody-advanced-content">
+                {p.melodyTask === "harmonize" && <>
             <div className="expression-control">
               <div className="field-heading"><h4>Harmony exploration</h4>
                 <output>{p.harmonyExploration}<span>%</span></output></div>
@@ -205,29 +247,7 @@ export function Sidebar(p: SidebarProps) {
                   {value === "sparse" ? "Sparse" : value === "balanced" ? "Balanced" : "Active"}
                 </button>)}
             </div>
-            </> : <>
-            <div className="expression-control">
-              <div className="field-heading"><h4>Creative distance</h4>
-                <output>{p.motifCreativity}<span>%</span></output></div>
-              <CustomSlider value={p.motifCreativity} min={0} max={100}
-                onChange={p.onMotifCreativityChange} label="Melodic creative distance" />
-              <div className="range-captions"><span>Recognizable</span><span>Adventurous</span></div>
-            </div>
-            {p.melodyTask === "continue" && <>
-              <div className="field-heading"><h4>Additional bars</h4></div>
-              <div className="generation-mode melody-bar-count" role="group" aria-label="Continuation length">
-                {([1, 2, 4, 8] as const).map(count =>
-                  <button key={count} type="button" aria-pressed={p.continuationBars === count}
-                    onClick={() => p.onContinuationBarsChange(count)}>{count}</button>)}
-              </div>
-              <p className="generation-hint">MIDI Spark uses the chosen phrase as a motif, then
-                places the answer after the end of your original melody track—never on top of later notes.
-                Source notes remain exactly as drawn.</p>
-            </>}
-            {p.melodyTask === "reimagine" && <p className="generation-hint">
-              Create an alternate lead on a separate track. Its first and final notes
-              remain recognizable, and it is soloed for easy A/B listening.</p>}
-            </>}
+                </>}
             <div className="field-heading melody-key-heading"><h4>Key strategy</h4></div>
             <div className="generation-mode" role="group" aria-label="Melody key strategy">
               <button type="button" aria-pressed={p.melodyKeyStrategy === "manual"}
@@ -235,10 +255,13 @@ export function Sidebar(p: SidebarProps) {
               <button type="button" aria-pressed={p.melodyKeyStrategy === "detect"}
                 onClick={() => p.onMelodyKeyStrategyChange("detect")}>Detect melody</button>
             </div>
-            <p className="generation-hint">In Selected or Loop mode, Harmonize updates only the
-              covered bars (rounded to bar boundaries); other generated backing stays intact.
-              Original notes are never rewritten. Duplicate a generated part before regenerating
-              to retain your edits.</p>
+            {p.melodyTask === "harmonize" && p.melodyPhraseScope !== "track" && <p className="generation-hint">
+              {p.melodyPhraseScope === "selected" ? "Only bars containing selected notes receive new backing." :
+                "Only bars in your loop range receive new backing."}
+              {" "}Duplicate generated parts first to retain earlier edits.
+            </p>}
+              </div>
+            </details>
           </div>}
         </section>
 

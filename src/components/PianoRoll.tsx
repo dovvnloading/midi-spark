@@ -30,6 +30,8 @@ import {
   getTrackColorClasses,
 } from "../lib/constants";
 import { ToolMode } from "./EditToolbar";
+import { NotePrecisionEditor } from "./NotePrecisionEditor";
+import { editNoteField, type NoteField } from "../lib/noteEditing";
 
 export interface PianoRollProps {
   progression: ProgressionData | null;
@@ -167,6 +169,20 @@ export function PianoRoll({
     (progression ? listTracks(progression)[0]?.index : undefined) ?? 0,
   [focusedTrack, progression]);
 
+  // Roving tab stop: one grid note is reachable by Tab; arrows move between
+  // visible notes, without adding hundreds of tab stops to the page.
+  const [keyboardNoteIndex, setKeyboardNoteIndex] = useState<number | null>(null);
+  const keyboardNoteOrder = useMemo(() => progression?.notes
+    .map((note, index) => ({ note, index }))
+    .filter(({ note }) => focusedTrack === null || trackIndexOf(note) === focusedTrack)
+    .sort((a, b) => a.note.timeStart - b.note.timeStart || a.note.midi - b.note.midi || a.index - b.index)
+    .map(({ index }) => index) ?? [], [progression, focusedTrack]);
+  const tabStopIndex = keyboardNoteIndex !== null && keyboardNoteOrder.includes(keyboardNoteIndex)
+    ? keyboardNoteIndex : keyboardNoteOrder[0] ?? null;
+  const trackNameByIndex = useMemo(() => new Map(
+    listTracks(progression).map(track => [track.index, track.name]),
+  ), [progression]);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const emptyImportRef = useRef<HTMLInputElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -267,7 +283,7 @@ export function PianoRoll({
       const tick = Math.round(note.timeStart * 16);
       const rank = counts.get(tick) ?? 0;
       counts.set(tick, rank + 1);
-      return rank * 7;
+      return rank * 17;
     }) ?? [];
   }, [progression]);
 
@@ -627,6 +643,58 @@ export function PianoRoll({
     onSelectionChange(new Set());
   };
 
+  const handleNoteKeyDown = (event: React.KeyboardEvent<HTMLDivElement>, index: number) => {
+    if (!progression || event.ctrlKey || event.metaKey) return;
+    const note = progression.notes[index];
+    if (!note) return;
+    const arrow = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"].includes(event.key);
+    if (arrow && event.altKey || event.key === "[" || event.key === "]") {
+      event.preventDefault();
+      event.stopPropagation();
+      let field: NoteField;
+      let value: number;
+      if (event.key === "[" || event.key === "]") {
+        field = "duration"; value = note.duration + (event.key === "]" ? snapTick : -snapTick);
+      } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+        field = "midi"; value = note.midi + (event.key === "ArrowUp" ? 1 : -1);
+      } else {
+        field = "timeStart"; value = note.timeStart + (event.key === "ArrowRight" ? snapTick : -snapTick);
+      }
+      commit(prev => prev ? editNoteField(prev, [index], field, value) : prev);
+      onSelectionChange(new Set([index]));
+      return;
+    }
+    if (arrow) {
+      event.preventDefault();
+      event.stopPropagation();
+      const at = keyboardNoteOrder.indexOf(index);
+      const direction = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : -1;
+      const next = keyboardNoteOrder[(at + direction + keyboardNoteOrder.length) % keyboardNoteOrder.length];
+      if (next === undefined) return;
+      if (event.shiftKey) onSelectionChange(new Set([...selectedIndices, index, next]));
+      setKeyboardNoteIndex(next);
+      window.requestAnimationFrame(() => {
+        const element = gridRef.current?.querySelector<HTMLElement>('[data-note-index="' + next + '"]');
+        element?.focus({ preventScroll: true });
+        element?.scrollIntoView({ block: "nearest", inline: "nearest" });
+      });
+      return;
+    }
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      event.stopPropagation();
+      const next = new Set(event.shiftKey ? selectedIndices : []);
+      if (event.shiftKey && next.has(index)) next.delete(index);
+      else next.add(index);
+      onSelectionChange(next);
+    } else if (event.key === "Delete" || event.key === "Backspace") {
+      event.preventDefault();
+      event.stopPropagation();
+      handleNoteDelete(note, index);
+      setKeyboardNoteIndex(null);
+    }
+  };
+
   // ----- Window-level drag handling -----
   // The handlers live in a ref so the single mount-time listener always sees
   // fresh state (no stale-closure bugs, no listener churn per drag frame).
@@ -847,6 +915,14 @@ export function PianoRoll({
   // ----- Render -----
   return (
     <section aria-label="Piano roll editor" className="piano-editor">
+        {progression && progression.notes.length > 0 && <NotePrecisionEditor
+          progression={progression} focusedTrack={focusedTrack}
+          selectedIndices={selectedIndices} onSelectionChange={onSelectionChange} commit={commit} />}
+        <p id="piano-note-keyboard-help" className="sr-only">
+          Use Tab to focus a note, arrows to navigate notes in the focused track, Enter or Space to select,
+          Shift with arrows or Enter to extend selection, Alt with arrows to move pitch or timing,
+          left and right brackets to resize, and Delete to remove. Undo and redo use Control or Command Z.
+        </p>
         <div className="piano-viewport" ref={scrollRef} tabIndex={0} role="region" aria-label="Piano roll canvas"
           onContextMenu={e => e.preventDefault()}>
           {!progression ? (
@@ -1100,6 +1176,16 @@ export function PianoRoll({
                         data-note-index={i}
                         data-midi={n.midi}
                         data-selected={isSelected}
+                        role="button"
+                        tabIndex={tabStopIndex === i ? 0 : -1}
+                        aria-pressed={isSelected}
+                        aria-describedby="piano-note-keyboard-help"
+                        aria-label={(trackNameByIndex.get(trackIndexOf(n)) ?? "Track " + (trackIndexOf(n) + 1)) +
+                          ", " + (Note.fromMidi(n.midi) ?? n.name) + ", bar " + (Math.floor(n.timeStart / 4) + 1) +
+                          ", beat " + ((n.timeStart % 4) + 1).toFixed(2) +
+                          ", duration " + n.duration + " quarter notes, velocity " + Math.round(n.velocity * 100) + " percent"}
+                        onFocus={() => setKeyboardNoteIndex(i)}
+                        onKeyDown={event => handleNoteKeyDown(event, i)}
                         onContextMenu={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -1210,14 +1296,25 @@ export function PianoRoll({
                     }
 
                     const isSelected = selectedIndices.has(i);
-                    const barWidth = 8;
+                    const barWidth = 18;
                     const barHeight = Math.max(3, renderVelocity * (VELOCITY_LANE_HEIGHT - 12));
 
                     return (
-                      <div
+                      <button
+                        type="button"
                         key={`vel-${i}`}
+                        tabIndex={tabStopIndex === i ? 0 : -1}
+                        aria-label={"Velocity " + Math.round(n.velocity * 100) + " percent, " +
+                          (Note.fromMidi(n.midi) ?? n.name) + ", note " + (i + 1)}
+                        aria-pressed={isSelected}
+                        onKeyDown={event => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            onSelectionChange(new Set([i]));
+                          }
+                        }}
                         onPointerDown={(e) => handleVelocityBarPointerDown(e, i)}
-                        className="absolute inset-y-0 cursor-ns-resize group"
+                        className="velocity-hit-target absolute inset-y-0 cursor-ns-resize group"
                         style={{
                           left: `${n.timeStart * zoomX + velocityOffsets[i]}px`,
                           width: `${barWidth}px`,
@@ -1238,7 +1335,7 @@ export function PianoRoll({
                           `}
                           style={{ height: `${barHeight}px` }}
                         />
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
