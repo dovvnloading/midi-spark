@@ -801,6 +801,22 @@ with sync_playwright() as p:
  assert keyedit.get_by_test_id('precision-note-select').locator('option').count()==3
  record('Keyboard Delete/Undo and precision chooser respect focused-track isolation')
  keyedit.close()
+ # Compact editing tools remain recognizable with 40px targets at 320/390.
+ touch_tools=b.new_page(viewport={'width':320,'height':740},has_touch=True)
+ touch_tools.on('pageerror',lambda error:errors.append(str(error)))
+ touch_tools.goto(args.url)
+ for width in (320,390):
+  touch_tools.set_viewport_size({'width':width,'height':844})
+  for label in ('Draw','Select','Slice','Hand','Stamp'):
+   button=touch_tools.get_by_role('button',name=label+' tool')
+   button.click()
+   rect=button.bounding_box()
+   assert rect['width']>=40 and rect['height']>=40,(width,label,rect)
+   assert label+' tool' in touch_tools.locator('.active-tool-readout').inner_text()
+   assert touch_tools.locator('.active-tool-readout').is_visible()
+  assert touch_tools.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+ record('Compact 320/390px tool sweep gives permanent mode instructions and 40px targets')
+ touch_tools.close()
  assert not errors,errors
  record('No browser page errors during the complete suite')
  (OUTPUT/'geometry.json').write_text(json.dumps(metrics,indent=2))
