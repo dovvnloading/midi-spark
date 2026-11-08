@@ -415,6 +415,32 @@ with sync_playwright() as p:
  assert restored_adaptive['progression']==first['progression']
  assert restored_adaptive['harmonicFit']==90
  record('Adaptive harmony is undoable and persistent across browser reload')
+ # A user can choose explicitly fast harmonic rhythm and then return to
+ # evidence-driven pacing without multiplying or damaging source tracks.
+ adaptive.get_by_role('button',name='2 / bar',exact=True).click()
+ adaptive.get_by_role('button',name='Harmonize melody',exact=False).click()
+ adaptive.wait_for_timeout(650)
+ fast_pacing=snap(adaptive)
+ chord_labels=[c for c in fast_pacing['progression']['chords'] if c.get('generatedSourceTrackIndex')==0]
+ assert fast_pacing['harmonicPacing']=='half-bar'
+ assert len(chord_labels)==fast_pacing['progression']['totalBars']*2
+ assert all(c['duration']==2 and c['timeStart']%2==0 for c in chord_labels)
+ assert fast_pacing['progression']['notes'][:len(original['notes'])]==original['notes']
+ assert fast_pacing['progression']['tracks']==source_tracks
+ record('Explicit two-per-bar chords follow the timeline without changing the melody')
+ adaptive.get_by_role('button',name='Adaptive',exact=True).click()
+ adaptive.get_by_role('button',name='Harmonize melody',exact=False).click()
+ adaptive.wait_for_timeout(650)
+ paced=snap(adaptive)
+ labels=[c for c in paced['progression']['chords'] if c.get('generatedSourceTrackIndex')==0]
+ assert paced['harmonicPacing']=='adaptive'
+ assert paced['progression']['totalBars']<=len(labels)<=paced['progression']['totalBars']*2
+ assert paced['progression']['notes'][:len(original['notes'])]==original['notes']
+ assert paced['progression']['tracks']==source_tracks
+ adaptive.wait_for_timeout(650)
+ adaptive.reload();adaptive.wait_for_timeout(650)
+ assert snap(adaptive)['harmonicPacing']=='adaptive'
+ record('Adaptive harmonic pacing preserves source notes, track identities and browser preference')
  adaptive.screenshot(path=str(OUTPUT/'melody-follow.png'))
  with adaptive.expect_download() as adaptive_download:
   adaptive.get_by_role('button',name='Export MIDI',exact=True).click()
@@ -424,7 +450,7 @@ with sync_playwright() as p:
  adaptive.locator('input[type=file]').first.set_input_files(str(adaptive_file))
  adaptive.wait_for_timeout(650)
  adaptive_roundtrip=snap(adaptive)['progression']
- assert len(adaptive_roundtrip['notes'])==len(first['progression']['notes'])
+ assert len(adaptive_roundtrip['notes'])==len(paced['progression']['notes'])
  assert [t['name'] for t in adaptive_roundtrip['tracks']]==[
   'Keys','Bass','Empty pad','Generated Bass','Generated Harmony']
  record('Melody-aware layers export and re-import as standard multi-track MIDI')
@@ -463,7 +489,9 @@ with sync_playwright() as p:
  motif_page.get_by_role('button',name='Harmonize melody',exact=False).click()
  motif_page.wait_for_timeout(650)
  arranged=snap(motif_page)
- assert len([c for c in arranged['progression']['chords'] if c.get('generatedSourceTrackIndex')==0])==arranged['progression']['totalBars']
+ owned=[c for c in arranged['progression']['chords'] if c.get('generatedSourceTrackIndex')==0]
+ assert arranged['progression']['totalBars']<=len(owned)<=2*arranged['progression']['totalBars']
+ assert sum(c['duration'] for c in owned)==arranged['progression']['totalBars']*4
  assert arranged['progression']['notes'][:source_count]==motif_source['notes']
  assert [n for n in arranged['progression']['notes'] if n.get('trackIndex')==tail_index]==[n for n in continued_again['progression']['notes'] if n.get('trackIndex')==tail_index]
  record('Adaptive harmony follows a linked continuation without rewriting either melody')
