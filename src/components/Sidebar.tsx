@@ -7,6 +7,7 @@ import type { SynthType } from "../lib/audio";
 import type { AccompanimentDensity, MelodyKeyStrategy, HarmonicPacing } from "../lib/adaptive";
 import type { ContinuationBars } from "../lib/motif";
 import type { MelodySourceScope } from "../lib/melodyScope";
+import type { LoopRange } from "../lib/timeline";
 
 export interface SidebarProps {
   root: string; mode: "major" | "minor"; dissonance: number; complexity: number; bars: number; canVary: boolean;
@@ -20,6 +21,8 @@ export interface SidebarProps {
   onMelodyPhraseScopeChange: (value: MelodySourceScope) => void;
   selectedMelodyNoteCount: number;
   hasExplicitLoop: boolean;
+  sourceLoopRange: LoopRange | null;
+  onSourceLoopRangeChange: (range: LoopRange | null) => void;
   harmonicFit: number;
   harmonyExploration: number;
   onHarmonyExplorationChange: (value: number) => void;
@@ -119,9 +122,44 @@ export function Sidebar(p: SidebarProps) {
                     ? p.selectedMelodyNoteCount + " source notes selected · switch to Select tool (V) to edit the phrase."
                     : "Select melody notes with the Select tool (V) on the chosen track first."
                   : p.hasExplicitLoop
-                    ? "Use melody attacks within your highlighted timeline loop."
-                    : "Hold Shift and drag the timeline ruler to define a loop range first."}
+                    ? "Use melody attacks inside the chosen range. You can also adjust the handles on the timeline."
+                    : "Choose bars below to set a range. On a keyboard, Shift-drag the ruler; on touch, use the bar selectors or timeline handles."}
             </p>
+            {p.melodyPhraseScope === "loop" && p.melodyBarCount !== null && p.melodyBarCount > 0 && (() => {
+              const lastBar = Math.max(1, p.melodyBarCount);
+              const from = p.sourceLoopRange ? Math.floor(p.sourceLoopRange.start / 4) + 1 : 1;
+              const through = p.sourceLoopRange ? Math.ceil(p.sourceLoopRange.end / 4) : lastBar;
+              const bars = Array.from({length: lastBar}, (_, index) =>
+                ({ label: "Bar " + (index + 1), value: index + 1 }));
+              return <div className="source-loop-editor" aria-label="Choose melody loop bars">
+                <div className="field-pair labeled-field-pair">
+                  <label className="field-control"><span>From bar</span>
+                    <CustomDropdown ariaLabel="Loop from bar" value={from} options={bars}
+                      onChange={value => {
+                        const start = Number(value);
+                        p.onSourceLoopRangeChange({start: (start - 1) * 4,
+                          end: Math.max(start, through) * 4});
+                      }} />
+                  </label>
+                  <label className="field-control"><span>Through bar</span>
+                    <CustomDropdown ariaLabel="Loop through bar" value={through} options={bars}
+                      onChange={value => {
+                        const end = Number(value);
+                        p.onSourceLoopRangeChange({start: (Math.min(from, end) - 1) * 4,
+                          end: end * 4});
+                      }} />
+                  </label>
+                </div>
+                <div className="source-loop-actions">
+                  <button className="text-button" type="button" onClick={() =>
+                    p.onSourceLoopRangeChange({start: 0, end: lastBar * 4})}>Use full pattern</button>
+                  <button className="text-button" type="button" disabled={!p.sourceLoopRange}
+                    onClick={() => p.onSourceLoopRangeChange(null)}>Clear loop selection</button>
+                </div>
+                <p className="generation-hint">Selecting a bar range includes notes that start within those bars.
+                  Adjust the ruler handles for finer timing.</p>
+              </div>;
+            })()}
             <div className="field-heading"><h4>Creative operation</h4></div>
             <div className="generation-mode melody-task" role="group" aria-label="Melody operation">
               <button type="button" aria-pressed={p.melodyTask === "harmonize"}
