@@ -116,32 +116,103 @@ export function presetVelocity(type: SynthType, velocity = 0.8): number {
   return Math.max(0.001, Math.min(1, input ** curve));
 }
 
-type EffectInput = Tone.Chorus | Tone.Tremolo | Tone.Phaser | Tone.PingPongDelay | Tone.FeedbackDelay;
+type EffectInput = Tone.ToneAudioNode;
 interface TrackVoice {
   type: SynthType;
   synth: Tone.PolySynth;
   gain: Tone.Gain;
 }
+/** Shared space/delay buses stay cheap; all preset-specific spectral and LFO
+ * processors are created only when that sound is selected or assigned. */
 const effectInputs: Partial<Record<EffectFamily, EffectInput>> = {};
+const presetProcessing = new WeakMap<Tone.PolySynth, Tone.ToneAudioNode[]>();
 const trackVoices = new Map<number, TrackVoice>();
+let masterOutput: Tone.Limiter | null = null;
 let trackMixer: TrackMix = {};
 let selectedPreview: { type: SynthType; synth: Tone.PolySynth } | null = null;
 let auditionVoice: { type: SynthType; synth: Tone.PolySynth } | null = null;
 let audioInitialization: Promise<void> | null = null;
 let auditionRequestId = 0;
 
-function connectPreset(synth: Tone.PolySynth, type: SynthType): void {
-  const rack = effectInputs[PRESET_BY_ID[type].fx];
-  if (rack) synth.connect(rack);
-  else synth.toDestination();
+function createModulation(profile: Modulation): Tone.ToneAudioNode {
+  switch (profile.kind) {
+    case "chorus":
+      return new Tone.Chorus({
+        frequency: profile.rate, depth: profile.depth, wet: profile.wet,
+        delayTime: profile.delay, spread: profile.spread,
+      }).start();
+    case "tremolo":
+      return new Tone.Tremolo({
+        frequency: profile.rate, depth: profile.depth, wet: profile.wet,
+      }).start();
+    case "autoFilter":
+      return new Tone.AutoFilter({
+        frequency: profile.rate, depth: profile.depth, wet: profile.wet,
+        baseFrequency: profile.base, octaves: profile.octaves,
+        filter: {type: "lowpass", Q: 1.5, rolloff: -12},
+      }).start();
+    case "autoPan":
+      return new Tone.AutoPanner({
+        frequency: profile.rate, depth: profile.depth, wet: profile.wet,
+      }).start();
+    case "vibrato":
+      return new Tone.Vibrato({
+        frequency: profile.rate, depth: profile.depth, wet: profile.wet,
+      });
+    case "phaser":
+      return new Tone.Phaser({
+        frequency: profile.rate, baseFrequency: profile.base,
+        octaves: profile.octaves, wet: profile.wet,
+      });
+  }
+}
+
+/** The signal path is voice -> [unique color/filter/LFOs] -> [track gain]
+ * -> shared family room/echo (or dry) -> master peak limiter.
+ * A track gain remains outside preset modulation so mute/solo works live. */
+function connectPreset(synth: Tone.PolySynth, type: SynthType, gain?: Tone.Gain): void {
+  const preset = PRESET_BY_ID[type];
+  const processors: Tone.ToneAudioNode[] = [];
+  let source: Tone.ToneAudioNode = synth;
+  try {
+    if (preset.color) {
+      const node = new Tone.Filter({
+        type: preset.color.type, frequency: preset.color.frequency, Q: preset.color.q,
+      });
+      source.connect(node);
+      processors.push(node);
+      source = node;
+    }
+    for (const motion of preset.motion ?? []) {
+      const node = createModulation(motion);
+      source.connect(node);
+      processors.push(node);
+      source = node;
+    }
+    const rack = effectInputs[preset.fx];
+    if (gain) {
+      source.connect(gain);
+      gain.connect(rack ?? masterOutput ?? Tone.getDestination());
+    } else {
+      source.connect(rack ?? masterOutput ?? Tone.getDestination());
+    }
+    presetProcessing.set(synth, processors);
+  } catch (error) {
+    processors.reverse().forEach(node => node.dispose());
+    synth.dispose();
+    throw error;
+  }
 }
 
 function releaseVoice(voice: Tone.PolySynth): void {
   voice.releaseAll();
   voice.dispose();
+  presetProcessing.get(voice)?.forEach(node => node.dispose());
+  presetProcessing.delete(voice);
 }
 
-/** Gain buses take effect immediately during sustained notes. */
+/** Gain buses take effect immediately even on sustained notes. Patch changes
+ * release and dispose both the old voices and their LFO/effect processors. */
 export function setTrackMixer(next: TrackMix): void {
   trackMixer = next;
   if (!classicSynth) return;
@@ -162,10 +233,7 @@ export function setTrackMixer(next: TrackMix): void {
     if (!voice) {
       const gain = new Tone.Gain(0);
       const synth = createTrackSynth(setting.synthType);
-      synth.connect(gain);
-      const rack = effectInputs[PRESET_BY_ID[setting.synthType].fx];
-      if (rack) gain.connect(rack);
-      else gain.toDestination();
+      connectPreset(synth, setting.synthType, gain);
       voice = { type: setting.synthType, synth, gain };
       trackVoices.set(id, voice);
     }
