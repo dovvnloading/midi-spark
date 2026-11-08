@@ -844,6 +844,47 @@ with sync_playwright() as p:
  expect(melody_mobile.get_by_role('button',name='Continue melody',exact=False)).to_be_visible()
  record('390px melody workflow exposes task essentials and expandable advanced settings')
  melody_mobile.close()
+ # Sample computed operational text, rather than assuming token declarations
+ # are enough. Conservative background #303e37 is lighter than studio panels.
+ reading=b.new_page(viewport={'width':1440,'height':900},has_touch=True)
+ reading.on('pageerror',lambda error:errors.append(str(error)))
+ reading.goto(args.url)
+ samples=reading.evaluate("""() => {
+  const tests=[
+   ['.compose-panel .panel-version',11],
+   ['.compose-panel .section-index',11],
+   ['.compose-panel .field-hint',11],
+   ['.compose-panel .panel-intro p',12],
+   ['.compose-panel .range-captions',12],
+   ['.editor-footnote',12],
+   ['.app-status',12]
+  ];
+  const linear=c=>{c=c/255;return c<=.04045?c/12.92:Math.pow((c+.055)/1.055,2.4)};
+  const luminance=a=>.2126*linear(a[0])+.7152*linear(a[1])+.0722*linear(a[2]);
+  const background=luminance([48,62,55]);
+  return tests.map(([selector,minSize])=>{
+   const el=document.querySelector(selector);
+   if(!el)return {selector,missing:true};
+   const style=getComputedStyle(el),foreground=style.color.match(/[0-9.]+/g).slice(0,3).map(Number);
+   const fg=luminance(foreground);
+   return {selector,minSize,fontSize:parseFloat(style.fontSize),contrast:(Math.max(fg,background)+.05)/(Math.min(fg,background)+.05)};
+  });
+ }""")
+ assert all(not s.get('missing') and s['fontSize']>=s['minSize'] and s['contrast']>=4.5 for s in samples),samples
+ record('Computed inspector and status typography meets sampled 11/12px sizes and 4.5:1 contrast')
+ for width,height in ((320,740),(390,844),(768,1024),(1440,900)):
+  reading.set_viewport_size({'width':width,'height':height})
+  reading.wait_for_timeout(120)
+  assert reading.evaluate('document.documentElement.scrollWidth')<=width+1,(width,'horizontal overflow')
+  reading.screenshot(path=str(OUTPUT/f'typography-{width}.png'))
+ record('Typography screenshots at 320, 390, 768 and 1440 pixels without horizontal overflow')
+ reading.set_viewport_size({'width':1440,'height':900})
+ reading.evaluate("document.body.style.zoom='2'")
+ expect(reading.get_by_role('button',name='Generate pattern',exact=False).first).to_be_visible()
+ expect(reading.get_by_role('button',name='Fit pattern',exact=True)).to_be_visible()
+ reading.screenshot(path=str(OUTPUT/'typography-200-percent.png'))
+ record('200% zoom keeps primary Generate and Fit controls visible')
+ reading.close()
  assert not errors,errors
  record('No browser page errors during the complete suite')
  (OUTPUT/'geometry.json').write_text(json.dumps(metrics,indent=2))

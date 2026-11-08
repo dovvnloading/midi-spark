@@ -9,6 +9,14 @@
   --text-main: #e9edeb;
   --text-muted: #a4adae;
   --text-subtle: #7f8a8d;
+  /* Semantic, high-contrast operational labels; musical grid stays dense. */
+  --fg-ui-primary: #edf6ee;
+  --fg-ui-secondary: #cbddce;
+  --fg-ui-muted: #b9cfbc;
+  --stroke-ui-control: #819a85;
+  --type-ui-ancillary: 11px;
+  --type-ui-operational: 12px;
+  --type-ui-heading: 13px;
   --accent: #d3e8a0;
   --accent-hover: #e1efbf;
   --border-color: #2c3236;
