@@ -4,13 +4,14 @@ import { analyzeKeyFromProgression } from "./keyAnalysis";
 import { addTrack } from "./trackOperations";
 import { trackIndexOf } from "./tracks";
 import type { RandomSource } from "./random";
+import { resolveMelodyScope, type MelodyScopeOptions } from "./melodyScope";
 
 export type AccompanimentDensity = "sparse" | "balanced" | "active";
 export type MelodyKeyStrategy = "manual" | "detect";
 /** Harmonic pacing uses existing 4/4 quarter-note timing. */
 export type HarmonicPacing = "bar" | "adaptive" | "half-bar";
 
-export interface MelodyGenerationOptions {
+export interface MelodyGenerationOptions extends MelodyScopeOptions {
   sourceTrackIndex: number;
   root: string;
   mode: "major" | "minor";
@@ -477,15 +478,17 @@ export function generateFromMelody(
       !["major", "minor"].includes(options.mode)) {
     return {ok: false, reason: "Choose a valid key strategy and scale."};
   }
-  const originalMelody = input.notes.filter(note => trackIndexOf(note) === trackIndex);
-  if (originalMelody.length === 0) return {ok: false, reason: "Draw or import notes on the melody track first."};
-  // A linked continuation supplies harmonic evidence after the original phrase.
-  // Its own notes remain on a separately generated, safely replaceable track.
-  const continuation = input.tracks?.find(track =>
-    track.generatedRole === "continuation" && track.sourceTrackIndex === trackIndex);
-  const source = continuation === undefined ? originalMelody :
-    [...originalMelody, ...input.notes.filter(note => trackIndexOf(note) === continuation.index)];
-  if (source.some(note => !Number.isInteger(note.midi) || note.midi < 0 || note.midi > 127 ||
+  const scoped = resolveMelodyScope(input, trackIndex, options);
+  if (!scoped.ok) return scoped;
+  const originalMelody = scoped.entireTrack;
+  // A linked continuation guides the full-track harmonizer, but an explicit
+  // selection/loop only follows the notes the user deliberately picked.
+  const continuation = scoped.scope === "track" ? input.tracks?.find(track =>
+    track.generatedRole === "continuation" && track.sourceTrackIndex === trackIndex) : undefined;
+  const source = continuation === undefined ? scoped.notes :
+    [...scoped.notes, ...input.notes.filter(note => trackIndexOf(note) === continuation.index)];
+  if ([...originalMelody, ...source].some(note =>
+    !Number.isInteger(note.midi) || note.midi < 0 || note.midi > 127 ||
     !Number.isFinite(note.timeStart) || note.timeStart < 0 ||
     !Number.isFinite(note.duration) || note.duration <= 0 ||
     !Number.isFinite(note.velocity) || note.velocity < 0 || note.velocity > 1)) {
@@ -507,14 +510,28 @@ export function generateFromMelody(
     return {ok: false, reason: "Choose an original melody track, not a generated accompaniment."};
   }
 
-  const analysis = analyzeKeyFromProgression({...input, notes: originalMelody});
+  const analysis = analyzeKeyFromProgression({...input, notes: scoped.notes});
   const detected = options.keyStrategy === "detect" && !analysis.ambiguous;
   const root = detected ? analysis.best.root : options.root;
   const mode = detected ? analysis.best.mode : options.mode;
   const candidates = chordCandidates(root, mode, options.tension);
   if (candidates.length === 0) return {ok: false, reason: "Select a valid key and scale in Compose."};
-  const regions = planHarmonicRegions(source, bars, pacing, candidates, options.harmonicFit, options.tension);
-  const previousChords = input.chords.filter(chord => chord.generatedSourceTrackIndex === trackIndex);
+  // Harmonic changes remain bar/half-bar aligned. A selected phrase or loop
+  // influences only the covered bars; owned accompaniment elsewhere survives.
+  const target = scoped.scope === "track" ? null : {
+    start: Math.floor(scoped.phraseStart / 4) * 4,
+    end: Math.min(bars * 4, Math.ceil(scoped.phraseEnd / 4) * 4),
+  };
+  const regions = planHarmonicRegions(source, bars, pacing, candidates, options.harmonicFit, options.tension)
+    .filter(region => !target || (region.timeStart >= target.start &&
+      region.timeStart + region.duration <= target.end));
+  if (!regions.length) {
+    return {ok: false, reason: "The chosen phrase is too short for a harmonic window."};
+  }
+  const insideTarget = (start: number) => !target ||
+    (start >= target.start && start < target.end);
+  const previousChords = input.chords.filter(chord =>
+    chord.generatedSourceTrackIndex === trackIndex && insideTarget(chord.timeStart));
   const selectedHarmony = chooseHarmony(candidates, regions, options.harmonicFit, options.tension, random, previousChords);
   const refined = mergeRedundantHalfBars(regions, selectedHarmony, pacing);
 
@@ -546,8 +563,10 @@ export function generateFromMelody(
     progression: {
       ...working,
       totalBars: Math.max(working.totalBars, bars),
-      notes: [...working.notes.filter(note => !generated.has(trackIndexOf(note))), ...accompaniment],
-      chords: [...working.chords.filter(chord => chord.generatedSourceTrackIndex !== trackIndex), ...chords]
+      notes: [...working.notes.filter(note =>
+        !generated.has(trackIndexOf(note)) || !insideTarget(note.timeStart)), ...accompaniment],
+      chords: [...working.chords.filter(chord =>
+        chord.generatedSourceTrackIndex !== trackIndex || !insideTarget(chord.timeStart)), ...chords]
         .sort((a, b) => a.timeStart - b.timeStart),
     },
     root, mode, keyWasAmbiguous: analysis.ambiguous, usedDetectedKey: detected,
