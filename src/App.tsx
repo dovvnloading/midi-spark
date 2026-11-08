@@ -527,7 +527,7 @@ export default function App() {
         setMode(result.mode);
       }
       setFocusedTrack(null);
-      setInspectorTab("tracks");
+      // Keep Compose visible so users can rapidly audition alternative harmonies.
       setCurrentTick(0);
       setFitRequest(k => k + 1);
       setMobileInspectorOpen(false);
@@ -928,7 +928,8 @@ export default function App() {
           compose={<Sidebar root={root} mode={mode} dissonance={dissonance} complexity={complexity} bars={bars} canVary={hasNotes}
             generationMode={generationMode} onGenerationModeChange={setGenerationMode}
             melodySourceMode={melodySourceMode} onMelodySourceModeChange={setMelodySourceMode}
-            melodyTracks={melodyTracks} melodySourceTrackIndex={effectiveMelodySourceTrackIndex}
+            melodyTracks={melodyTracks} melodyBarCount={progression?.totalBars ?? null}
+            melodySourceTrackIndex={effectiveMelodySourceTrackIndex}
             onMelodySourceTrackChange={setMelodySourceTrackIndex}
             harmonicFit={harmonicFit} onHarmonicFitChange={setHarmonicFit}
             accompanimentDensity={accompanimentDensity} onAccompanimentDensityChange={setAccompanimentDensity}
