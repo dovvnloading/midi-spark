@@ -3,7 +3,7 @@ import type { TrackMix } from "./tracks";
 import type { LoopRange } from "./timeline";
 import type { SynthType } from "./audio";
 import { PRESET_IDS } from "./presets";
-import type { AccompanimentDensity, MelodyKeyStrategy } from "./adaptive";
+import type { AccompanimentDensity, MelodyKeyStrategy, HarmonicPacing } from "./adaptive";
 import type { ContinuationBars } from "./motif";
 
 /** Versioned so an incompatible future shape change can invalidate old saves
@@ -26,6 +26,7 @@ export interface SavedSession {
   melodySourceTrackIndex?: number | null;
   harmonicFit?: number;
   accompanimentDensity?: AccompanimentDensity;
+  harmonicPacing?: HarmonicPacing;
   melodyKeyStrategy?: MelodyKeyStrategy;
   melodyTask?: "harmonize" | "continue" | "reimagine";
   motifCreativity?: number;
@@ -140,6 +141,8 @@ function isValidSession(v: unknown): v is SavedSession {
       (Number.isInteger(s.melodySourceTrackIndex) && (s.melodySourceTrackIndex as number) >= 0)) &&
     (s.harmonicFit === undefined || (isFiniteNumber(s.harmonicFit) && s.harmonicFit >= 0 && s.harmonicFit <= 100)) &&
     (s.accompanimentDensity === undefined || ["sparse", "balanced", "active"].includes(String(s.accompanimentDensity))) &&
+    (s.harmonicPacing === undefined || s.harmonicPacing === "bar" ||
+      s.harmonicPacing === "adaptive" || s.harmonicPacing === "half-bar") &&
     (s.melodyKeyStrategy === undefined || s.melodyKeyStrategy === "manual" || s.melodyKeyStrategy === "detect") &&
     (s.melodyTask === undefined || s.melodyTask === "harmonize" || s.melodyTask === "continue" || s.melodyTask === "reimagine") &&
     (s.motifCreativity === undefined || (isFiniteNumber(s.motifCreativity) && s.motifCreativity >= 0 && s.motifCreativity <= 100)) &&

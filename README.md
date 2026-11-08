@@ -72,8 +72,12 @@ around a phrase instead of generating an unrelated progression:
 2. **Tune the harmonic fit.** The higher the fit, the more strongly sustained
    and accented melody tones influence chord selection. Short stepwise passing
    notes receive less weight. **Chord tension** allows sevenths and some
-   chromatic/modal options; **Accompaniment motion** sets the density of the
-   generated backing.
+   chromatic/modal options; **Chord changes** chooses *Each bar* (steady),
+   *Adaptive* (change halfway only when the melody gives independent evidence
+   for contrasting harmonies), or *2 / bar* (regular half-bar changes).
+   **Accompaniment motion** sets the density of the generated backing.
+   The engine follows clear offbeat emphasis and favors arpeggio motion
+   opposite a rising or falling lead, while retaining seeded alternatives.
 3. **Choose the key strategy.** Use the root and mode from Compose, or select
    **Detect melody**. When key detection is uncertain, the app keeps the Compose
    key rather than presenting a guess as certain.

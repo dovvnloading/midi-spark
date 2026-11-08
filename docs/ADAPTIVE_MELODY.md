@@ -64,6 +64,21 @@ silent bars. A first-order dynamic-programming (Viterbi-style) search picks
 the highest-scoring *sequence*, rather than selecting each bar independently.
 A small seeded perturbation allows repeatable alternative harmonizations.
 
+**Harmonic pacing (follow-up):** *Each bar* maintains the original one-chord
+per four beats, while *2 / bar* explicitly requests two-beat segments.
+*Adaptive* compares the chord evidence for the first and second halves of
+each bar against a single four-beat chord: the halves must contain actual
+onsets, prefer different harmonies and collectively improve fit by enough to
+justify an extra change. The same global sequence-level search is run across
+the resulting one- or two-part bar windows, penalizing unnecessary changes
+on beat three. If the optimized path ends up assigning the same chord to
+both halves, it coalesces them into one four-beat event to avoid needless
+bass/chord retriggers. Bass and harmony note durations are bounded to each
+resulting chord window, so a newly chosen chord does not overlap its
+predecessor's notes by accident. Automatic key detection now uses the
+**original user melody** rather than allowing a generated continuation to
+redefine the key; the continuation still contributes harmonic evidence.
+
 No claim is made that these hand-tuned scores match the quality of a
 state-of-the-art learned harmonization model. They provide a reliable,
 inspectable no-server baseline for a controlled MIDI editor.
@@ -78,7 +93,16 @@ of piling up directly on the lead.
 
 Sparse, balanced and active accompaniment options control note density.
 If the source melody has many onsets in a bar, the generator automatically
-reduces density to leave room for the lead. No operations change source notes.
+reduces density to leave room for the lead. Onsets are grouped so polyphonic
+attacks do not skew the groove detector: clearly straight melody timing favors
+on-beat accompaniment, while a strong repeated offbeat emphasis influences
+syncopated bass/chord accents. Within each chord region, rising melodic contour
+favors descending arpeggios (and vice versa), making the accompaniment less
+likely to compete in the same register direction. Seeded arpeggio start-tone
+variations preserve alternative arrangements even when the source groove is
+strong. Per-region accompaniment velocities also scale with the user's
+melodic attack velocities, so quiet phrases aren't dominated by loud,
+fixed-level generated parts. No operations change source notes.
 
 ### 5. Melody continuation and reimagination
 

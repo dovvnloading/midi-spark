@@ -4,7 +4,7 @@ import { SoundPicker } from "./SoundPicker";
 import { CustomSlider } from "./CustomSlider";
 import { ROOT_NOTES } from "../lib/constants";
 import type { SynthType } from "../lib/audio";
-import type { AccompanimentDensity, MelodyKeyStrategy } from "../lib/adaptive";
+import type { AccompanimentDensity, MelodyKeyStrategy, HarmonicPacing } from "../lib/adaptive";
 import type { ContinuationBars } from "../lib/motif";
 
 export interface SidebarProps {
@@ -17,6 +17,8 @@ export interface SidebarProps {
   melodySourceTrackIndex: number | null;
   harmonicFit: number;
   accompanimentDensity: AccompanimentDensity;
+  harmonicPacing: HarmonicPacing;
+  onHarmonicPacingChange: (value: HarmonicPacing) => void;
   melodyKeyStrategy: MelodyKeyStrategy;
   melodyTask: "harmonize" | "continue" | "reimagine";
   motifCreativity: number;
@@ -110,6 +112,17 @@ export function Sidebar(p: SidebarProps) {
                 onChange={p.onHarmonicFitChange} label="Harmonic fit to melody" />
               <div className="range-captions"><span>Exploratory</span><span>Close fit</span></div>
             </div>
+            <div className="field-heading"><h4>Chord changes</h4></div>
+            <div className="generation-mode melody-task" role="group" aria-label="Harmonic pacing">
+              <button type="button" aria-pressed={p.harmonicPacing === "bar"}
+                onClick={() => p.onHarmonicPacingChange("bar")}>Each bar</button>
+              <button type="button" aria-pressed={p.harmonicPacing === "adaptive"}
+                onClick={() => p.onHarmonicPacingChange("adaptive")}>Adaptive</button>
+              <button type="button" aria-pressed={p.harmonicPacing === "half-bar"}
+                onClick={() => p.onHarmonicPacingChange("half-bar")}>2 / bar</button>
+            </div>
+            <p className="generation-hint">Adaptive adds a mid-bar chord only when both
+              halves suggest different harmony. No extra chords for passing notes alone.</p>
             <div className="field-heading"><h4>Accompaniment motion</h4></div>
             <div className="generation-mode melody-density" role="group" aria-label="Accompaniment motion">
               {(["sparse", "balanced", "active"] as const).map(value =>
