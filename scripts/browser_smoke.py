@@ -186,6 +186,7 @@ with sync_playwright() as p:
  expect(page.get_by_role('dialog',name='Replace current composition?')).to_be_visible()
  assert snap(page)['progression']==old_project['progression']
  assert snap(page)['trackMix']==old_project['trackMix']
+ assert page.get_by_role('button',name='Keep current work',exact=True).evaluate('(el)=>document.activeElement===el')
  page.get_by_role('button',name='Keep current work',exact=True).click()
  assert snap(page)['progression']==old_project['progression']
  record('Import replacement confirmation cancels safely without altering an existing composition')
@@ -259,7 +260,9 @@ with sync_playwright() as p:
  roundtrip=snap(page)['progression']
  assert len(roundtrip['notes'])==len(saved['progression']['notes'])
  assert [t['name'] for t in roundtrip['tracks']]==['Keys','Bass','Empty pad']
- record('Real MIDI download and re-import preserve notes and track headers')
+ assert roundtrip['tracks'][0]['program']==4
+ assert roundtrip['tracks'][1]['program']==33
+ record('Real MIDI download retains original GM programs despite changed browser sounds')
  # Test the complete canvas, not an empty-page screenshot.
  page.get_by_role('tab',name='Compose',exact=True).click()
  page.get_by_role('combobox',name='Root key',exact=True).select_option('D')
@@ -463,6 +466,11 @@ with sync_playwright() as p:
  assert first['progression']['tracks'][0]['name']=='Track 1'
  assert first['progression']['notes']==[]
  assert fresh.get_by_role('combobox',name='Edit track',exact=True).input_value()=='0'
+ fresh.locator('input[type=file]').first.set_input_files(str(fixture))
+ expect(fresh.get_by_role('dialog',name='Replace current composition?')).to_be_visible()
+ fresh.keyboard.press('Escape')
+ assert snap(fresh)['progression']==first['progression']
+ record('Even named empty tracks are protected from accidental import and Escape cancels')
  fresh.close()
  record('Brand-new blank project can add and focus a first empty track')
  # Melody-conditioned end-to-end workflow on imported multi-track MIDI.
