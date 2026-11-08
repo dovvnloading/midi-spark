@@ -359,12 +359,21 @@ export async function auditionPreset(type: SynthType): Promise<void> {
     auditionVoice = { type, synth };
   }
   auditionVoice.synth.releaseAll();
-  const notes = PRESET_BY_ID[type].category === "Bass"
-    ? ["C3", "G3"]
-    : PRESET_BY_ID[type].category === "Leads"
+  const category = PRESET_BY_ID[type].category;
+  const notes = category === "Bass"
+    ? ["C2", "G2"]
+    : category === "Leads" || category === "Motion & Experimental"
       ? ["C4", "G4"]
       : ["C4", "E4", "G4"];
-  auditionVoice.synth.triggerAttackRelease(notes, 0.42, "+0.02", 0.45);
+  // Contrast a gentle note against a stronger attack. Static, same-velocity
+  // triads previously concealed why so many presets sounded interchangeable.
+  const atmospheric = category === "Pads & Atmospheres" ||
+    category === "Motion & Experimental";
+  const firstDuration = atmospheric ? 1.65 : 0.64;
+  auditionVoice.synth.triggerAttackRelease(notes, firstDuration, "+0.03",
+    presetVelocity(type, 0.3));
+  auditionVoice.synth.triggerAttackRelease(notes, firstDuration, atmospheric ? "+1.28" : "+0.65",
+    presetVelocity(type, 0.92));
 }
 
 let endingEventId: number | null = null;
@@ -505,7 +514,7 @@ export function playProgression(
         note.name,
         noteDurationTime(note, transport.PPQ),
         time,
-        note.velocity,
+        presetVelocity(voice?.type ?? requestedSynthType, note.velocity),
       );
     },
     data.notes.map((note) => ({
@@ -574,10 +583,10 @@ export function playNote(
   velocity?: number,
   trackIndex?: number,
 ): void {
-  const synth = trackIndex === undefined
-    ? activeSynth
-    : trackVoices.get(trackIndex)?.synth ?? activeSynth;
-  synth?.triggerAttackRelease(name, durationInSeconds, "+0.01", velocity);
+  const trackVoice = trackIndex === undefined ? undefined : trackVoices.get(trackIndex);
+  const synth = trackVoice?.synth ?? activeSynth;
+  synth?.triggerAttackRelease(name, durationInSeconds, "+0.01",
+    presetVelocity(trackVoice?.type ?? requestedSynthType, velocity));
 }
 
 export function stopAudio(): void {
