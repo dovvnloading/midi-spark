@@ -277,6 +277,25 @@ describe("saveSession / loadSession", () => {
     expect(loadSession()).toBeNull();
   });
 
+  it("round-trips exploration from 0 to 100 without invalidating prior v1 saves", () => {
+    for (const harmonyExploration of [0, 62, 100]) {
+      const session: SavedSession = {...sampleSession, harmonyExploration};
+      saveSession(session);
+      expect(loadSession()).toEqual(session);
+    }
+    saveSession(sampleSession);
+    expect(loadSession()).toEqual(sampleSession);
+  });
+
+  it("rejects invalid persisted harmony exploration values", () => {
+    for (const harmonyExploration of [-1, 101, "cosmic", null]) {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+        ...sampleSession, harmonyExploration,
+      }));
+      expect(loadSession()).toBeNull();
+    }
+  });
+
   it("round-trips a null progression (no sequence generated yet)", () => {
     const session: SavedSession = { ...sampleSession, progression: null };
     saveSession(session);
