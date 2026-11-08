@@ -231,14 +231,14 @@ describe("multitrack audio routing", () => {
   it("constructs each new voice family with distinct sound-defining parameters", async () => {
     vi.resetModules();
     const fresh = await import("../src/lib/audio");
-    const { PRESET_BY_ID, SOUND_PRESETS } = await import("../src/lib/presets");
+    const { SOUND_PRESETS } = await import("../src/lib/presets");
     const expected = {
       epiano: "FMSynth", classic: "MonoSynth", pad: "DuoSynth",
       warmPad: "AMSynth", unisonStack: "Synth", punchKick: "MembraneSynth",
     };
     for (const [id, engine] of Object.entries(expected)) {
       const before = mockState.voices.length;
-      const voice = fresh.createTrackSynth(id as keyof typeof PRESET_BY_ID);
+      const voice = fresh.createTrackSynth(id as (typeof SOUND_PRESETS)[number]["id"]);
       expect(mockState.voices[before].engine).toBe(engine);
       expect(mockState.voices[before].options).toBeDefined();
       expect(mockState.voices[before].polyphony).toBeLessThanOrEqual(16);
