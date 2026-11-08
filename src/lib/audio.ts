@@ -1,6 +1,6 @@
 import * as Tone from "tone";
 import { ProgressionData } from "./theory";
-import { PRESET_BY_ID, type EffectFamily, type PresetPatch, type SynthType } from "./presets";
+import { PRESET_BY_ID, type EffectFamily, type Modulation, type PresetPatch, type SynthType } from "./presets";
 import type { TrackMix } from "./tracks";
 import {
   normalizeLoopRange,
@@ -26,19 +26,24 @@ let activeSynth: Tone.PolySynth | null = null;
 let currentPart: Tone.Part | null = null;
 let requestedSynthType: SynthType = "classic";
 
-/** All instrument patches use the same PolySynth note API, despite different
- * oscillator engines. The definitions are kept separate from the audio graph. */
+/** Each patch has its own voice architecture; Tone.PolySynth provides the
+ * same MIDI note API for distinct voices and caps expensive unison/duo patches.
+ * No external samples, network or new runtime dependencies are needed. */
 export function createTrackSynth(type: SynthType): Tone.PolySynth {
   const patch: PresetPatch = PRESET_BY_ID[type].patch;
+  const oscillator = (wave: string, unison?: {count: number; spread: number}) =>
+    unison ? {type: wave, count: unison.count, spread: unison.spread} : {type: wave};
+  let synth: Tone.PolySynth;
   switch (patch.engine) {
     case "basic":
-      return new Tone.PolySynth(Tone.Synth, {
+      synth = new Tone.PolySynth(Tone.Synth, {
         volume: patch.volume,
-        oscillator: { type: patch.wave },
+        oscillator: oscillator(patch.wave, patch.unison),
         envelope: patch.envelope,
       });
+      break;
     case "fm":
-      return new Tone.PolySynth(Tone.FMSynth, {
+      synth = new Tone.PolySynth(Tone.FMSynth, {
         volume: patch.volume,
         harmonicity: patch.harmonicity,
         modulationIndex: patch.modulationIndex,
@@ -47,8 +52,9 @@ export function createTrackSynth(type: SynthType): Tone.PolySynth {
         modulation: { type: patch.modulationWave },
         modulationEnvelope: patch.modulationEnvelope,
       });
+      break;
     case "am":
-      return new Tone.PolySynth(Tone.AMSynth, {
+      synth = new Tone.PolySynth(Tone.AMSynth, {
         volume: patch.volume,
         harmonicity: patch.harmonicity,
         oscillator: { type: patch.wave },
@@ -56,10 +62,11 @@ export function createTrackSynth(type: SynthType): Tone.PolySynth {
         modulation: { type: patch.modulationWave },
         modulationEnvelope: patch.modulationEnvelope,
       });
+      break;
     case "mono":
-      return new Tone.PolySynth(Tone.MonoSynth, {
+      synth = new Tone.PolySynth(Tone.MonoSynth, {
         volume: patch.volume,
-        oscillator: { type: patch.wave },
+        oscillator: oscillator(patch.wave, patch.unison),
         filter: { type: "lowpass", Q: patch.q, rolloff: -24 },
         envelope: patch.envelope,
         filterEnvelope: {
@@ -68,7 +75,45 @@ export function createTrackSynth(type: SynthType): Tone.PolySynth {
           octaves: patch.octaves,
         },
       });
+      break;
+    case "duo":
+      synth = new Tone.PolySynth(Tone.DuoSynth, {
+        volume: patch.volume,
+        harmonicity: patch.harmonicity,
+        vibratoRate: patch.vibratoRate,
+        vibratoAmount: patch.vibratoAmount,
+        voice0: {
+          volume: -10, oscillator: {type: patch.wave},
+          envelope: patch.envelope,
+        },
+        voice1: {
+          volume: -12, oscillator: {type: patch.secondWave},
+          envelope: patch.secondEnvelope,
+        },
+      });
+      break;
+    case "membrane":
+      synth = new Tone.PolySynth(Tone.MembraneSynth, {
+        volume: patch.volume,
+        pitchDecay: patch.pitchDecay,
+        octaves: patch.octaves,
+        oscillator: {type: patch.wave},
+        envelope: patch.envelope,
+      });
+      break;
   }
+  synth.maxPolyphony = PRESET_BY_ID[type].polyphony ??
+    (patch.engine === "duo" ? 8 : patch.engine === "membrane" ? 12 : 16);
+  return synth;
+}
+
+/** MIDI dynamics belong to each patch: keyboard bark and filter-envelope
+ * voices reward stronger attacks while velvety pads remain audible softly.
+ * Exact input MIDI velocities are never edited or rewritten. */
+export function presetVelocity(type: SynthType, velocity = 0.8): number {
+  const curve = PRESET_BY_ID[type].velocityCurve ?? 1;
+  const input = Number.isFinite(velocity) ? Math.max(0, Math.min(1, velocity)) : 0.8;
+  return Math.max(0.001, Math.min(1, input ** curve));
 }
 
 type EffectInput = Tone.Chorus | Tone.Tremolo | Tone.Phaser | Tone.PingPongDelay | Tone.FeedbackDelay;
