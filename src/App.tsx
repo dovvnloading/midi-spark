@@ -1017,6 +1017,7 @@ export default function App() {
             melodySourceTrackIndex={effectiveMelodySourceTrackIndex}
             melodyPhraseScope={melodyPhraseScope} onMelodyPhraseScopeChange={setMelodyPhraseScope}
             selectedMelodyNoteCount={selectedMelodyNoteCount} hasExplicitLoop={loopRegion !== null}
+            sourceLoopRange={loopRegion} onSourceLoopRangeChange={setLoopRegion}
             onMelodySourceTrackChange={setMelodySourceTrackIndex}
             harmonicFit={harmonicFit} onHarmonicFitChange={setHarmonicFit}
             harmonyExploration={harmonyExploration} onHarmonyExplorationChange={setHarmonyExploration}
