@@ -8,6 +8,8 @@ import { CustomSlider } from "./CustomSlider";
 export interface TrackStudioProps {
   tracks: TrackDescriptor[];
   mixer: TrackMix;
+  /** Source MIDI instrument program (zero-based), not the browser patch. */
+  midiPrograms: Record<number, number | null>;
   defaultSynth: SynthType;
   focusedTrack: number | null;
   onFocusTrack: (track: number | null) => void;
@@ -85,6 +87,11 @@ export function TrackStudio(p: TrackStudioProps) {
           </div>}
           <SoundPicker label={track.name + " instrument"} value={setting.synthType}
             onChange={type => p.onChange(track.index, { synthType: type })} onPreviewError={p.onPreviewError} />
+          <p className="track-midi-export-note">Browser sound only · MIDI exports
+            {p.midiPrograms[track.index] === null || p.midiPrograms[track.index] === undefined
+              ? " the default GM program"
+              : " GM program " + (p.midiPrograms[track.index]! + 1)}
+          </p>
           <div className="field-heading"><label>Level</label><output>{Math.round(setting.level * 100)}<span>%</span></output></div>
           <CustomSlider min={0} max={100} value={Math.round(setting.level * 100)}
             label={track.name + " volume"} onChange={value => p.onChange(track.index, { level: value / 100 })} />
