@@ -506,3 +506,13 @@ button:disabled { opacity: .42; }
   .editor-context-right { gap: 5px; }
   .edit-target-indicator { max-width: 66px; }
 }
+
+/* MIDI export truth in the context where users choose browser synth sounds. */
+.browser-sound-export-hint, .track-midi-export-note {
+  margin: 7px 0 0; font-size: 11px; line-height: 1.55;
+  color: #bdd1bf; overflow-wrap: anywhere;
+}
+.track-midi-export-note {
+  padding: 7px 9px; border-left: 2px solid #8eae83;
+  background: #24362d; border-radius: 0 6px 6px 0;
+}
