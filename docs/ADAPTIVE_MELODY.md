@@ -121,9 +121,11 @@ melody; source MIDI events are not edited in either operation.
 - **Reimagine** retains the source phrase's onset and duration structure
   with limited controlled off-grid rhythmic adjustments, scale-neighbor
   substitutions, and velocity changes. Its source opening is kept and its
-  final pitch remains recognizable. A generated alternative is stored on its
-  own track, soloed on first generation so the unmodified source can be
-  compared by changing solo/mute in Tracks.
+  final pitch remains recognizable. The source phrase's first and
+  final pitches/onset times remain exact at every creative distance; only
+  interior notes receive pitch and onset changes. A generated alternative is
+  stored on its own track, soloed on first generation so the unmodified source
+  can be compared by changing solo/mute in Tracks.
 - The key/mode comes from Compose, or from *unambiguous* key analysis.
   When analysis is uncertain, Compose remains authoritative.
 - A linked continuation becomes extra *harmonic evidence* in the harmonizer;
