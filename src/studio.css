@@ -808,3 +808,14 @@ button:disabled { opacity: .42; }
   line-height: 1.45;
 }
 .sound-library-categories button { min-height: 40px; }
+
+/* Interactive outlines also need contrast against their surrounding surfaces,
+   independent of label color. These borders must meet the 3:1 non-text target. */
+.tool-segment,
+.precision-controls .select-field select,
+.editor-context-right select,
+.sound-picker-trigger,
+.sound-library-search,
+.active-tool-readout {
+  border-color: var(--stroke-ui-control);
+}
