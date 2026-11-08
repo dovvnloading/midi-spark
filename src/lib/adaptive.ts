@@ -360,8 +360,22 @@ function makeAccompaniment(
   random: RandomSource,
 ): NoteEvent[] {
   const out: NoteEvent[] = [];
-  const pushedGroove = random() > 0.5;
-  const descendingArp = random() > 0.5;
+  // Follow clear straight/offbeat emphasis, rather than inventing a groove.
+  // Count simultaneous chord onsets once, so polyphony doesn't skew the feel.
+  const onsetVelocities = new Map<number, number>();
+  for (const note of source) {
+    const onset = Math.round(note.timeStart * 8) / 8;
+    onsetVelocities.set(onset, Math.max(onsetVelocities.get(onset) ?? 0, note.velocity));
+  }
+  let totalAccent = 0, offbeatAccent = 0;
+  for (const [onset, velocity] of onsetVelocities) {
+    totalAccent += velocity;
+    if (Math.abs(onset - Math.round(onset)) >= 0.24) offbeatAccent += velocity;
+  }
+  const offbeatShare = totalAccent > 0 ? offbeatAccent / totalAccent : 0.5;
+  const pushedGroove = offbeatShare > 0.48 ? true :
+    offbeatShare < 0.18 ? false : random() > 0.5;
+  const fallbackArpDirection = random() > 0.5;
   const globalCenter = median(source.map(note => note.midi));
   let previousVoicing: number[] = [];
   for (let i = 0; i < chords.length; i++) {
@@ -380,6 +394,11 @@ function makeAccompaniment(
     while (bass + 12 <= Math.min(48, bassTop)) bass += 12;
     bass = clamp(bass, 28, 52);
 
+    const localLine = [...notes].sort((a, b) => a.timeStart - b.timeStart || b.midi - a.midi);
+    const contour = localLine.length >= 2
+      ? localLine[localLine.length - 1].midi - localLine[0].midi : 0;
+    // Opposite-direction arpeggios make space for a rising/falling melody.
+    const descendingArp = contour >= 3 ? true : contour <= -3 ? false : fallbackArpDirection;
     const effectiveDensity = busyMelody && density === "active" ? "balanced"
       : busyMelody && density === "balanced" ? "sparse" : density;
     const bassHits = effectiveDensity === "sparse" ? [0]
