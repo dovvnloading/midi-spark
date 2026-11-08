@@ -13,7 +13,8 @@ import {
 import type { TrackMix } from "../src/lib/tracks";
 
 const mockState = vi.hoisted(() => ({
-  voices: [] as Array<{ id: number; triggers: unknown[][]; disposed: boolean }>,
+  voices: [] as Array<{ id: number; triggers: unknown[][]; disposed: boolean; engine: string; options: unknown; polyphony: number }>,
+  processors: [] as Array<{kind: string; disposed: boolean; options: unknown[]}>,
   parts: [] as Array<{ callback: (time: number, note: unknown) => void; notes: unknown[] }>,
   levels: [] as number[],
   starts: 0,
@@ -38,13 +39,33 @@ vi.mock("tone", () => {
     start() { return this; }
     dispose() { return this; }
   }
+  function effect(kind: string) {
+    return class extends MockNode {
+      private record: {kind: string; disposed: boolean; options: unknown[]};
+      constructor(...options: unknown[]) {
+        super();
+        this.record = {kind, disposed: false, options};
+        mockState.processors.push(this.record);
+      }
+      dispose() { this.record.disposed = true; return this; }
+    };
+  }
   class MockSynth extends MockNode {
-    private record: { id: number; triggers: unknown[][]; disposed: boolean };
-    constructor() {
+    private record: {
+      id: number; triggers: unknown[][]; disposed: boolean;
+      engine: string; options: unknown; polyphony: number;
+    };
+    private _polyphony = 32;
+    constructor(engine?: { name?: string }, options?: unknown) {
       super();
-      this.record = { id: mockState.voices.length, triggers: [], disposed: false };
+      this.record = {
+        id: mockState.voices.length, triggers: [], disposed: false,
+        engine: engine?.name ?? "Unknown", options, polyphony: 32,
+      };
       mockState.voices.push(this.record);
     }
+    set maxPolyphony(value: number) { this._polyphony = value; this.record.polyphony = value; }
+    get maxPolyphony() { return this._polyphony; }
     triggerAttackRelease(...args: unknown[]) { this.record.triggers.push(args); }
     releaseAll() {}
     dispose() { this.record.disposed = true; return this; }
@@ -91,11 +112,17 @@ vi.mock("tone", () => {
   mockState.transport = transport;
   return {
     PolySynth: MockSynth,
-    MonoSynth: class {}, FMSynth: class {}, AMSynth: class {}, Synth: class {},
+    MonoSynth: class MonoSynth {}, FMSynth: class FMSynth {},
+    AMSynth: class AMSynth {}, Synth: class Synth {},
+    DuoSynth: class DuoSynth {}, MembraneSynth: class MembraneSynth {},
     Gain: MockGain,
-    Chorus: MockNode, Reverb: MockNode, Tremolo: MockNode,
-    Phaser: MockNode, PingPongDelay: MockNode, FeedbackDelay: MockNode,
-    StereoWidener: MockNode,
+    Chorus: effect("Chorus"), Reverb: effect("Reverb"),
+    Tremolo: effect("Tremolo"), Phaser: effect("Phaser"),
+    PingPongDelay: effect("PingPongDelay"), FeedbackDelay: effect("FeedbackDelay"),
+    StereoWidener: effect("StereoWidener"),
+    Filter: effect("Filter"), AutoFilter: effect("AutoFilter"),
+    AutoPanner: effect("AutoPanner"), Vibrato: effect("Vibrato"),
+    Limiter: effect("Limiter"),
     getTransport: () => transport,
     getDestination: () => new MockNode(),
     getDraw: () => ({ schedule() {} }),
@@ -157,8 +184,9 @@ describe("multitrack audio routing", () => {
     expect(mockState.voices.length).toBe(before + 5);
     await freshAudio.auditionPreset("kalimba");
     const first = mockState.voices[before + 5];
-    expect(first.triggers).toHaveLength(1);
+    expect(first.triggers).toHaveLength(2);
     expect(first.triggers[0][0]).toEqual(["C4", "E4", "G4"]);
+    expect(first.triggers[0][3]).toBeLessThan(first.triggers[1][3]);
     await freshAudio.auditionPreset("warmPad");
     expect(first.disposed).toBe(true);
     expect(mockState.voices.length).toBe(before + 7);
