@@ -5,6 +5,7 @@ import type { SynthType } from "./audio";
 import { PRESET_IDS } from "./presets";
 import type { AccompanimentDensity, MelodyKeyStrategy, HarmonicPacing } from "./adaptive";
 import type { ContinuationBars } from "./motif";
+import type { MelodySourceScope } from "./melodyScope";
 
 /** Versioned so an incompatible future shape change can invalidate old saves
  *  cleanly (loadSession just won't find this key) instead of crashing on a
@@ -24,6 +25,8 @@ export interface SavedSession {
   /** Optional v1 extensions: old sessions continue to load unchanged. */
   melodySourceMode?: "scratch" | "follow";
   melodySourceTrackIndex?: number | null;
+  /** Saved preference only; actual note selection is ephemeral. */
+  melodyPhraseScope?: MelodySourceScope;
   harmonicFit?: number;
   accompanimentDensity?: AccompanimentDensity;
   harmonicPacing?: HarmonicPacing;
@@ -139,6 +142,8 @@ function isValidSession(v: unknown): v is SavedSession {
     (s.melodySourceMode === undefined || s.melodySourceMode === "scratch" || s.melodySourceMode === "follow") &&
     (s.melodySourceTrackIndex === undefined || s.melodySourceTrackIndex === null ||
       (Number.isInteger(s.melodySourceTrackIndex) && (s.melodySourceTrackIndex as number) >= 0)) &&
+    (s.melodyPhraseScope === undefined || s.melodyPhraseScope === "track" ||
+      s.melodyPhraseScope === "selected" || s.melodyPhraseScope === "loop") &&
     (s.harmonicFit === undefined || (isFiniteNumber(s.harmonicFit) && s.harmonicFit >= 0 && s.harmonicFit <= 100)) &&
     (s.accompanimentDensity === undefined || ["sparse", "balanced", "active"].includes(String(s.accompanimentDensity))) &&
     (s.harmonicPacing === undefined || s.harmonicPacing === "bar" ||
