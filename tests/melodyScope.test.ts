@@ -141,6 +141,24 @@ describe("explicit source-phrase selection", () => {
     expect(result.progression.notes.slice(0, 14)).toEqual(source.notes);
   });
 
+  it("preserves chosen phrase pitch and time anchors even at maximum creative distance", () => {
+    const source = score();
+    const chosen = [4, 5, 6, 7];
+    for (let seed = 0; seed < 30; seed++) {
+      const generated = motif(source, {
+        ...motifOptions, operation: "variation",
+        sourceScope: "selected", sourceNoteIndices: chosen, creativity: 100,
+      }, seed);
+      const output = generated.progression.notes.filter(note =>
+        note.trackIndex === generated.generatedTrackIndex)
+        .sort((a, b) => a.timeStart - b.timeStart);
+      expect(output[0].midi).toBe(source.notes[4].midi);
+      expect(output[0].timeStart).toBe(source.notes[4].timeStart);
+      expect(output.at(-1)?.midi).toBe(source.notes[7].midi);
+      expect(output.at(-1)?.timeStart).toBe(source.notes[7].timeStart);
+    }
+  });
+
   it("never uses notes from a different track even when the editor contains a multitrack selection", () => {
     const invalid = generateMotif(score(), {
       ...motifOptions, sourceScope: "selected", sourceNoteIndices: [5, 12],
