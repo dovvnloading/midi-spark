@@ -387,11 +387,13 @@ with sync_playwright() as p:
  adaptive.get_by_role('button',name='Follow melody',exact=True).click()
  adaptive.get_by_role('combobox',name='Source melody track',exact=True).select_option('0')
  adaptive.get_by_role('slider',name='Harmonic fit to melody',exact=True).fill('90')
+ adaptive.get_by_role('slider',name='Harmony exploration',exact=True).fill('85')
  adaptive.get_by_role('button',name='Balanced',exact=True).click()
  adaptive.get_by_role('button',name='Harmonize melody',exact=False).click()
  adaptive.wait_for_timeout(600)
  first=snap(adaptive)
  assert first['melodySourceMode']=='follow'
+ assert first['harmonyExploration']==85
  assert first['progression']['notes'][:len(original['notes'])]==original['notes']
  source_tracks=first['progression']['tracks']
  auto=[t for t in source_tracks if t.get('generatedRole') in ('bass','harmony')]
@@ -414,7 +416,25 @@ with sync_playwright() as p:
  assert restored_adaptive['melodySourceMode']=='follow'
  assert restored_adaptive['progression']==first['progression']
  assert restored_adaptive['harmonicFit']==90
+ assert restored_adaptive['harmonyExploration']==85
  record('Adaptive harmony is undoable and persistent across browser reload')
+ # The old deterministic Viterbi path remains available at exploration=0.
+ adaptive.get_by_role('slider',name='Harmony exploration',exact=True).fill('0')
+ adaptive.get_by_role('button',name='Harmonize melody',exact=False).click()
+ adaptive.wait_for_timeout(650)
+ legacy_harmony=snap(adaptive)
+ assert legacy_harmony['harmonyExploration']==0
+ assert legacy_harmony['progression']['notes'][:len(original['notes'])]==original['notes']
+ assert legacy_harmony['progression']['tracks']==source_tracks
+ record('Exploration zero retains non-destructive legacy chord search')
+ adaptive.get_by_role('slider',name='Harmony exploration',exact=True).fill('85')
+ adaptive.get_by_role('button',name='Harmonize melody',exact=False).click()
+ adaptive.wait_for_timeout(650)
+ diverse_harmony=snap(adaptive)
+ assert diverse_harmony['harmonyExploration']==85
+ assert diverse_harmony['progression']['notes'][:len(original['notes'])']==original['notes']
+ assert diverse_harmony['progression']['tracks']==source_tracks
+ record('Diverse chord search reuses generated tracks and protects source notes')
  # A user can choose explicitly fast harmonic rhythm and then return to
  # evidence-driven pacing without multiplying or damaging source tracks.
  adaptive.get_by_role('button',name='2 / bar',exact=True).click()
@@ -440,7 +460,8 @@ with sync_playwright() as p:
  adaptive.wait_for_timeout(650)
  adaptive.reload();adaptive.wait_for_timeout(650)
  assert snap(adaptive)['harmonicPacing']=='adaptive'
- record('Adaptive harmonic pacing preserves source notes, track identities and browser preference')
+ assert snap(adaptive)['harmonyExploration']==85
+ record('Adaptive harmonic pacing and exploration persist across browser reload')
  adaptive.screenshot(path=str(OUTPUT/'melody-follow.png'))
  with adaptive.expect_download() as adaptive_download:
   adaptive.get_by_role('button',name='Export MIDI',exact=True).click()
