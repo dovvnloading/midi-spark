@@ -186,7 +186,7 @@ describe("multitrack audio routing", () => {
     const first = mockState.voices[before + 5];
     expect(first.triggers).toHaveLength(2);
     expect(first.triggers[0][0]).toEqual(["C4", "E4", "G4"]);
-    expect(first.triggers[0][3]).toBeLessThan(first.triggers[1][3]);
+    expect(Number(first.triggers[0][3])).toBeLessThan(Number(first.triggers[1][3]));
     await freshAudio.auditionPreset("warmPad");
     expect(first.disposed).toBe(true);
     expect(mockState.voices.length).toBe(before + 7);
