@@ -416,6 +416,18 @@ with sync_playwright() as p:
  assert restored_adaptive['harmonicFit']==90
  record('Adaptive harmony is undoable and persistent across browser reload')
  adaptive.screenshot(path=str(OUTPUT/'melody-follow.png'))
+ with adaptive.expect_download() as adaptive_download:
+  adaptive.get_by_role('button',name='Export MIDI',exact=True).click()
+ adaptive_file=OUTPUT/'adaptive.mid'
+ adaptive_download.value.save_as(str(adaptive_file))
+ assert adaptive_file.read_bytes().startswith(b'MThd')
+ adaptive.locator('input[type=file]').first.set_input_files(str(adaptive_file))
+ adaptive.wait_for_timeout(650)
+ adaptive_roundtrip=snap(adaptive)['progression']
+ assert len(adaptive_roundtrip['notes'])==len(first['progression']['notes'])
+ assert [t['name'] for t in adaptive_roundtrip['tracks']]==[
+  'Keys','Bass','Empty pad','Generated Bass','Generated Harmony']
+ record('Melody-aware layers export and re-import as standard multi-track MIDI')
  adaptive.close()
  assert not errors,errors
  record('No browser page errors during the complete suite')
