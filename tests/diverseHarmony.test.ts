@@ -85,6 +85,8 @@ describe("quality-bounded diverse global chord search", () => {
     const owned = new Set(previous.generatedTrackIndices);
     const untouched = previous.progression.notes.filter(n =>
       owned.has(trackIndexOf(n)) && n.timeStart < 4);
+    const outsideChords = previous.progression.chords.filter(chord =>
+      chord.timeStart < 4 || chord.timeStart >= 8);
     const updated = succeed(previous.progression, {
       ...basic, harmonyExploration: 92, sourceScope: "selected",
       sourceNoteIndices: [4, 5, 6],
@@ -92,6 +94,8 @@ describe("quality-bounded diverse global chord search", () => {
     expect(updated.progression.notes.filter(n =>
       owned.has(trackIndexOf(n)) && n.timeStart < 4)).toEqual(untouched);
     expect(updated.progression.notes.filter(n => trackIndexOf(n) === 0)).toEqual(originals);
+    expect(updated.progression.chords.filter(chord =>
+      chord.timeStart < 4 || chord.timeStart >= 8)).toEqual(outsideChords);
     expect(updated.generatedTrackIndices).toEqual(previous.generatedTrackIndices);
   });
 
