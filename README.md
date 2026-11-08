@@ -68,7 +68,9 @@ around a phrase instead of generating an unrelated progression:
 
 1. **Draw or import a melody.** Use the piano roll, or load a MIDI file; choose
    the source track explicitly if there are several. Imported bass and other
-   tracks are not silently treated as the lead.
+   tracks are not silently treated as the lead. **Source phrase** can use the
+   full track, the exact notes selected with the Select tool (V), or note attacks
+   inside an explicit timeline loop (hold Shift and drag the ruler).
 2. **Tune the harmonic fit.** The higher the fit, the more strongly sustained
    and accented melody tones influence chord selection. Short stepwise passing
    notes receive less weight. **Chord tension** allows sevenths and some
@@ -100,8 +102,9 @@ The **Follow melody → Creative operation** selector now has three actions:
   permits more or less diatonic substitution and contour inversion. The original
   notes and other user tracks are never modified.
 - **Reimagine** creates a recognizable alternative on a separate **Melody
-  Variation** track, preserving the phrase's recognizable opening and ending
-  while adding bounded pitch and rhythmic changes. The new alternative is
+  Variation** track, preserving the phrase's exact opening/ending pitches
+  and onset times while applying bounded changes to interior notes.
+  The new alternative is
   automatically soloed for A/B playback; use Tracks to adjust solo/mute.
 - **Harmonize** can also use the linked continuation as a harmonic guide, so
   bass and chords follow the new passage as well as the original phrase.
@@ -109,6 +112,21 @@ The **Follow melody → Creative operation** selector now has three actions:
 Generate again to replace only the corresponding generated track. Duplicate a
 generated track before regenerating if you want to keep edits. These operations
 are undoable and persist locally with their ownership metadata.
+
+**Phrase targeting:** Selecting notes or a loop changes which *source melody*
+influences each operation—not the original notes themselves. Continue uses that
+phrase as the seed but starts its answer after the **end of the entire original
+melody track**, avoiding collisions with later user notes. Reimagine creates a
+separate alternative from the chosen phrase only. Harmonize changes only the
+bars covered by the chosen phrase (rounded out to full measures), and keeps
+existing generated backing outside those bars intact. A loop uses notes whose
+attacks occur within its range, preserving leading rests when continuing.
+For particularly long phrases, Continue uses up to the final four bars.
+
+Source phrase *mode* and loop range are saved across browser reloads, but an
+individual note selection is not saved; select the notes again after reloading.
+If a selection/loop contains no source-track notes, MIDI Spark reports that
+explicitly rather than silently generating from another track.
 
 The generator runs entirely in-browser, deterministically with a supplied
 random seed (and spontaneously in normal use). No model, account, upload,

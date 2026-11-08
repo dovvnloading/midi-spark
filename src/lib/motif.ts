@@ -5,12 +5,13 @@ import { getScaleChromas, type NoteEvent, type ProgressionData } from "./theory"
 import { addTrack } from "./trackOperations";
 import { trackIndexOf } from "./tracks";
 import { isAdaptiveTrack, type MelodyKeyStrategy } from "./adaptive";
+import { resolveMelodyScope, type MelodyScopeOptions } from "./melodyScope";
 
 /** These operations never alter the source melody or any other user-owned notes. */
 export type MotifOperation = "continue" | "variation";
 export type ContinuationBars = 1 | 2 | 4 | 8;
 
-export interface MotifOptions {
+export interface MotifOptions extends MelodyScopeOptions {
   sourceTrackIndex: number;
   operation: MotifOperation;
   root: string;
@@ -78,16 +79,35 @@ function pitchWithinRange(pitch: number, previous: number, low: number, high: nu
   return clamp(next, low, high);
 }
 
-/** Select a phrase of up to four recent bars with at least two onset groups. */
-function phraseFromTail(lead: readonly NoteEvent[], sourceEndBar: number, desiredBars: number) {
+interface MotifPhrase {
+  start: number;
+  length: number;
+  phrase: NoteEvent[];
+}
+
+/** A deliberate selection or loop overrides the historic "last few bars"
+ * heuristic. The loop start preserves intentional leading rests; selecting
+ * notes instead starts from the first selected attack. Limit to four bars. */
+function phraseFromTail(
+  lead: readonly NoteEvent[], sourceEndBar: number, desiredBars: number,
+  phraseWindow?: { start: number; end: number },
+): MotifPhrase {
+  if (phraseWindow) {
+    const start = Math.max(phraseWindow.start, phraseWindow.end - 16);
+    const phrase = lead.filter(n => n.timeStart >= start && n.timeStart < phraseWindow.end);
+    const length = Math.min(16, Math.max(0.25, phraseWindow.end - start));
+    return { start, length, phrase };
+  }
   const range = Math.min(4, Math.max(1, sourceEndBar), desiredBars);
   for (let bars = range; bars <= Math.min(4, sourceEndBar); bars++) {
     const start = (sourceEndBar - bars) * 4;
     const phrase = lead.filter(n => n.timeStart >= start && n.timeStart < sourceEndBar * 4);
-    if (phrase.length >= 2) return { bars, start, phrase };
+    if (phrase.length >= 2) return { start, length: bars * 4, phrase };
   }
-  return { bars: Math.min(4, sourceEndBar), start: (sourceEndBar - Math.min(4, sourceEndBar)) * 4,
-    phrase: lead.filter(n => n.timeStart >= (sourceEndBar - Math.min(4, sourceEndBar)) * 4) };
+  const bars = Math.min(4, sourceEndBar);
+  const start = (sourceEndBar - bars) * 4;
+  return { start, length: bars * 4,
+    phrase: lead.filter(n => n.timeStart >= start) };
 }
 
 function makeEvent(source: NoteEvent, pitch: number, time: number, duration: number, velocity: number, trackIndex: number): NoteEvent {
@@ -117,12 +137,13 @@ function varyExisting(
       pitch = toScale(original.midi, scale, low, high);
       pitch = scaleShift(pitch, direction * (amount >= 0.8 && random() > 0.8 ? 2 : 1), scale, low, high);
     }
-    // Preserve phrase opening and cadence, especially at low creativity.
-    if (i === lead.length - 1 && amount > 0.85 && random() > 0.8) {
-      pitch = toScale(pitch, scale, low, high);
-    }
+    // Identity anchors are absolute: even at 100% creativity, the initial
+    // and final pitches remain exactly the user's notes, not approximations.
+    // Only interior notes receive leap constraints and substitutions.
     const previous = events.at(-1);
-    if (previous && amount > 0) pitch = pitchWithinRange(pitch, previous.midi, low, high);
+    if (previous && amount > 0 && i < lead.length - 1) {
+      pitch = pitchWithinRange(pitch, previous.midi, low, high);
+    }
     let time = original.timeStart;
     if (i > 0 && i < lead.length - 1 && random() < amount * 0.38) {
       const move = random() < 0.5 ? -0.125 : 0.125;
@@ -144,22 +165,27 @@ function extendPhrase(
   lead: readonly NoteEvent[], sourceEndBar: number, continuationBars: number,
   trackIndex: number, scale: ReadonlySet<number>, tonicPc: number,
   creativity: number, random: RandomSource,
+  phraseWindow?: { start: number; end: number },
 ): NoteEvent[] {
   const amount = clamp(creativity, 0, 100) / 100;
-  const motif = phraseFromTail(lead, sourceEndBar, continuationBars);
+  const motif = phraseFromTail(lead, sourceEndBar, continuationBars, phraseWindow);
   const noteValues = lead.map(n => n.midi);
   const low = clamp(Math.min(...noteValues) - 9, 0, 118);
   const high = clamp(Math.max(...noteValues) + 9, low + 1, 127);
   const duration = continuationBars * 4;
   const start = sourceEndBar * 4;
-  const motifLength = motif.bars * 4;
+  const motifLength = motif.length;
   const result: NoteEvent[] = [];
   let previousPitch = lead[lead.length - 1].midi;
   const anchor = motif.phrase[0].midi;
   if (motif.phrase.length === 0) return result;
 
   for (let offset = 0; offset < duration; offset += motifLength) {
-    const invert = amount >= 0.7 && random() < (amount - 0.65) * 0.55;
+    const repetition = Math.floor(offset / motifLength);
+    // Motif development: start with a recognisable answer, then vary the
+    // next repetition's contour without randomising the underlying rhythm.
+    const answer = repetition > 0 && repetition % 2 === 1;
+    const invert = amount >= 0.7 && random() < (answer ? amount * 0.45 : (amount - 0.65) * 0.4);
     const anchorShift = amount >= 0.25
       ? Math.floor(random() * 3) - 1 : 0; // neighbouring scale degree
     let targetAnchor = toScale(previousPitch, scale, low, high);
@@ -179,6 +205,7 @@ function extendPhrase(
       }
       pitch = pitchWithinRange(pitch, previousPitch, low, high);
       const gap = Math.min(motifLength - relativeTime, start + duration - onset);
+      if (gap <= 1 / 64) continue;
       const noteDuration = Math.max(1 / 64, Math.min(sample.duration, gap - 0.015625));
       result.push(makeEvent(sample, pitch, onset, noteDuration,
         sample.velocity + (random() - 0.5) * amount * 0.13, trackIndex));
@@ -211,13 +238,17 @@ export function generateMotif(
   if (sourceMeta && isAdaptiveTrack(sourceMeta)) {
     return {ok: false, reason: "Choose a user melody track, not another generated part."};
   }
-  const source = input.notes.filter(n => trackIndexOf(n) === idx);
-  if (source.length < 2) return {ok: false, reason: "Draw at least two melody notes to establish a motif."};
-  if (source.length > 4096) return {ok: false, reason: "Select a source with 4,096 notes or fewer."};
-  if (source.some(n => !Number.isInteger(n.midi) || n.midi < 0 || n.midi > 127 ||
+  const resolved = resolveMelodyScope(input, idx, options);
+  if (!resolved.ok) return resolved;
+  const { notes: source, entireTrack } = resolved;
+  if (source.length < 2) return {ok: false, reason: "Draw or select at least two melody notes to establish a motif."};
+  if (source.length > 4096 || entireTrack.length > 4096) {
+    return {ok: false, reason: "Select a source with 4,096 notes or fewer."};
+  }
+  if (entireTrack.some(n => !Number.isInteger(n.midi) || n.midi < 0 || n.midi > 127 ||
       !Number.isFinite(n.timeStart) || n.timeStart < 0 ||
       !Number.isFinite(n.duration) || n.duration <= 0 ||
-      !Number.isFinite(n.velocity))) {
+      !Number.isFinite(n.velocity) || n.velocity < 0 || n.velocity > 1)) {
     return {ok: false, reason: "Melody pitch, time, or velocity is invalid."};
   }
   if (options.operation !== "continue" && options.operation !== "variation") {
@@ -229,7 +260,11 @@ export function generateMotif(
   if (![1, 2, 4, 8].includes(options.continuationBars)) {
     return {ok: false, reason: "Choose 1, 2, 4 or 8 bars for continuation."};
   }
-  const sourceEnd = Math.ceil(source.reduce((end, n) => Math.max(end, n.timeStart + n.duration), 0) / 4);
+  // Continue *after the whole authored track*, even when the motif comes
+  // from earlier bars; never overlay later user-written notes.
+  const sourceEnd = Math.ceil(entireTrack.reduce((end, n) => Math.max(end, n.timeStart + n.duration), 0) / 4);
+  const phraseWindow = resolved.scope === "track" ? undefined :
+    { start: resolved.phraseStart, end: resolved.phraseEnd };
   const targetBars = options.operation === "continue" ? options.continuationBars : 0;
   if (input.totalBars > 64 || sourceEnd + targetBars > 64) {
     return {ok: false, reason: "The melody and continuation must fit within 64 bars."};
@@ -237,8 +272,11 @@ export function generateMotif(
   const lead = leadLine(source);
   if (lead.length < 2) return {ok: false, reason: "Add at least two distinct melodic onsets."};
   if (options.operation === "continue") {
-    const motif = phraseFromTail(lead, sourceEnd, options.continuationBars);
-    const expectedNotes = motif.phrase.length * Math.ceil(options.continuationBars / motif.bars);
+    const motif = phraseFromTail(lead, sourceEnd, options.continuationBars, phraseWindow);
+    if (motif.phrase.length < 2) {
+      return {ok: false, reason: "The chosen phrase needs at least two separate note attacks."};
+    }
+    const expectedNotes = motif.phrase.length * Math.ceil(options.continuationBars * 4 / motif.length);
     if (expectedNotes > 8192) {
       return {ok: false, reason: "Too many motif notes to continue safely; simplify or shorten the phrase."};
     }
@@ -263,7 +301,7 @@ export function generateMotif(
       } : t)};
   }
   const generated = options.operation === "continue"
-    ? extendPhrase(lead, sourceEnd, options.continuationBars, outputTrack, chromas, Note.chroma(root) ?? 0, options.creativity, random)
+    ? extendPhrase(lead, sourceEnd, options.continuationBars, outputTrack, chromas, Note.chroma(root) ?? 0, options.creativity, random, phraseWindow)
     : varyExisting(lead, outputTrack, chromas, options.creativity, random);
   if (generated.length === 0) return {ok: false, reason: "Not enough notes to generate a melodic phrase."};
   return {

@@ -24,6 +24,7 @@ import { exportToMidiBlob, parseMidiFile } from "./lib/midi";
 import { generateFromMelody, isAdaptiveTrack, type AccompanimentDensity, type MelodyKeyStrategy,
   type HarmonicPacing } from "./lib/adaptive";
 import { generateMotif, type ContinuationBars } from "./lib/motif";
+import type { MelodySourceScope } from "./lib/melodyScope";
 import { MAX_BPM, MIN_BPM, clamp } from "./lib/constants";
 import { normalizeLoopRange, sequenceEndQuarters, type LoopRange } from "./lib/timeline";
 import {
@@ -78,6 +79,7 @@ export default function App() {
   const [generationMode, setGenerationMode] = useState<"single" | "layers">(savedSession?.generationMode ?? "single");
   const [melodySourceMode, setMelodySourceMode] = useState<"scratch" | "follow">(savedSession?.melodySourceMode ?? "scratch");
   const [melodySourceTrackIndex, setMelodySourceTrackIndex] = useState<number | null>(savedSession?.melodySourceTrackIndex ?? null);
+  const [melodyPhraseScope, setMelodyPhraseScope] = useState<MelodySourceScope>(savedSession?.melodyPhraseScope ?? "track");
   const [harmonicFit, setHarmonicFit] = useState(savedSession?.harmonicFit ?? 82);
   const [accompanimentDensity, setAccompanimentDensity] = useState<AccompanimentDensity>(savedSession?.accompanimentDensity ?? "balanced");
   const [harmonicPacing, setHarmonicPacing] = useState<HarmonicPacing>(savedSession?.harmonicPacing ?? "adaptive");
@@ -127,6 +129,9 @@ export default function App() {
     ? melodySourceTrackIndex
     : visibleFocusedTrack !== null && melodyTracks.some(track => track.index === visibleFocusedTrack)
       ? visibleFocusedTrack : melodyTracks[0]?.index ?? null;
+  const selectedMelodyNoteCount = [...selectedNoteIndices].filter(index =>
+    progression?.notes[index] &&
+    trackIndexOf(progression.notes[index]) === effectiveMelodySourceTrackIndex).length;
   const trackMix = useMemo(
     () => reconcileTrackMix(progression, trackOverrides, synthType),
     [progression, trackOverrides, synthType],
@@ -249,6 +254,7 @@ export default function App() {
         generationMode,
         melodySourceMode,
         melodySourceTrackIndex,
+        melodyPhraseScope,
         harmonicFit,
         accompanimentDensity,
         harmonicPacing,
@@ -278,6 +284,7 @@ export default function App() {
     generationMode,
     melodySourceMode,
     melodySourceTrackIndex,
+    melodyPhraseScope,
     harmonicFit,
     accompanimentDensity,
     harmonicPacing,
@@ -513,8 +520,23 @@ export default function App() {
         notify("Draw or import a melody, then choose its track.", "error");
         return;
       }
+      const selectionScope = {
+        sourceScope: melodyPhraseScope,
+        sourceNoteIndices: [...selectedNoteIndices],
+        sourceLoopRange: loopRegion,
+      };
+      const preserveSelection = (nextProgression: ProgressionData) => {
+        if (melodyPhraseScope !== "selected") {
+          setSelectedNoteIndices(new Set());
+          return;
+        }
+        const chosen = new Set([...selectedNoteIndices].map(i => progression.notes[i]));
+        setSelectedNoteIndices(new Set(nextProgression.notes.flatMap((note, index) =>
+          chosen.has(note) ? [index] : [])));
+      };
       if (melodyTask === "continue" || melodyTask === "reimagine") {
         const result = generateMotif(progression, {
+          ...selectionScope,
           sourceTrackIndex: effectiveMelodySourceTrackIndex,
           operation: melodyTask === "continue" ? "continue" : "variation",
           root, mode, keyStrategy: melodyKeyStrategy,
@@ -526,7 +548,7 @@ export default function App() {
         }
         handleStop();
         commit(result.progression);
-        setSelectedNoteIndices(new Set());
+        preserveSelection(result.progression);
         // A new variation is auditioned in solo mode so the unchanged original
         // isn't played simultaneously. Its solo state remains user-adjustable.
         const sourcePreset = trackMix[effectiveMelodySourceTrackIndex]?.synthType ?? synthType;
@@ -543,7 +565,7 @@ export default function App() {
           setMode(result.mode);
         }
         setFocusedTrack(null);
-        setLoopRegion(null);
+        if (melodyPhraseScope !== "loop") setLoopRegion(null);
         setCurrentTick(0);
         setFitRequest(k => k + 1);
         setMobileInspectorOpen(false);
@@ -555,6 +577,7 @@ export default function App() {
         return;
       }
       const result = generateFromMelody(progression, {
+        ...selectionScope,
         sourceTrackIndex: effectiveMelodySourceTrackIndex,
         root, mode, tension: dissonance, harmonicFit,
         density: accompanimentDensity, keyStrategy: melodyKeyStrategy, harmonicPacing,
@@ -565,7 +588,7 @@ export default function App() {
       }
       handleStop();
       commit(result.progression);
-      setSelectedNoteIndices(new Set());
+      preserveSelection(result.progression);
       // Never overwrite a user's mixer changes when regenerating existing parts.
       setTrackOverrides(previous => {
         const next = { ...previous };
@@ -611,7 +634,8 @@ export default function App() {
     notify("Generated a " + seq.totalBars + "-bar pattern in " + root + " " + mode + (layered ? " with separate Bass and Harmony tracks." : "."), "success");
   }, [root, mode, bars, dissonance, complexity, generationMode, synthType, commit, notify, handleStop,
     progression, effectiveMelodySourceTrackIndex, melodySourceMode, harmonicFit, accompanimentDensity, melodyKeyStrategy,
-    melodyTask, motifCreativity, continuationBars, trackMix, harmonicPacing]);
+    melodyTask, motifCreativity, continuationBars, trackMix, harmonicPacing,
+    melodyPhraseScope, selectedNoteIndices, loopRegion]);
 
   const handleGenerateVariations = useCallback(() => {
     if (melodySourceMode === "follow") {
@@ -986,6 +1010,8 @@ export default function App() {
             melodySourceMode={melodySourceMode} onMelodySourceModeChange={setMelodySourceMode}
             melodyTracks={melodyTracks} melodyBarCount={progression?.totalBars ?? null}
             melodySourceTrackIndex={effectiveMelodySourceTrackIndex}
+            melodyPhraseScope={melodyPhraseScope} onMelodyPhraseScopeChange={setMelodyPhraseScope}
+            selectedMelodyNoteCount={selectedMelodyNoteCount} hasExplicitLoop={loopRegion !== null}
             onMelodySourceTrackChange={setMelodySourceTrackIndex}
             harmonicFit={harmonicFit} onHarmonicFitChange={setHarmonicFit}
             accompanimentDensity={accompanimentDensity} onAccompanimentDensityChange={setAccompanimentDensity}

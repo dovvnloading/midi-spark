@@ -6,6 +6,7 @@ import { ROOT_NOTES } from "../lib/constants";
 import type { SynthType } from "../lib/audio";
 import type { AccompanimentDensity, MelodyKeyStrategy, HarmonicPacing } from "../lib/adaptive";
 import type { ContinuationBars } from "../lib/motif";
+import type { MelodySourceScope } from "../lib/melodyScope";
 
 export interface SidebarProps {
   root: string; mode: "major" | "minor"; dissonance: number; complexity: number; bars: number; canVary: boolean;
@@ -15,6 +16,10 @@ export interface SidebarProps {
   melodyTracks: { index: number; name: string; noteCount: number }[];
   melodyBarCount: number | null;
   melodySourceTrackIndex: number | null;
+  melodyPhraseScope: MelodySourceScope;
+  onMelodyPhraseScopeChange: (value: MelodySourceScope) => void;
+  selectedMelodyNoteCount: number;
+  hasExplicitLoop: boolean;
   harmonicFit: number;
   accompanimentDensity: AccompanimentDensity;
   harmonicPacing: HarmonicPacing;
@@ -95,6 +100,26 @@ export function Sidebar(p: SidebarProps) {
             </label> : <p className="generation-hint" role="status">
               Draw notes in the piano roll, or import a MIDI file, to choose a melody.
             </p>}
+            <div className="field-heading"><h4>Source phrase</h4></div>
+            <div className="generation-mode melody-task" role="group" aria-label="Melody source phrase">
+              <button type="button" aria-pressed={p.melodyPhraseScope === "track"}
+                onClick={() => p.onMelodyPhraseScopeChange("track")}>Full track</button>
+              <button type="button" aria-pressed={p.melodyPhraseScope === "selected"}
+                onClick={() => p.onMelodyPhraseScopeChange("selected")}>Selected</button>
+              <button type="button" aria-pressed={p.melodyPhraseScope === "loop"}
+                onClick={() => p.onMelodyPhraseScopeChange("loop")}>Loop range</button>
+            </div>
+            <p className="generation-hint" role="status">
+              {p.melodyPhraseScope === "track"
+                ? "Use every note on the source track, including linked continuation when harmonizing."
+                : p.melodyPhraseScope === "selected"
+                  ? p.selectedMelodyNoteCount > 0
+                    ? p.selectedMelodyNoteCount + " source notes selected · switch to Select tool (V) to edit the phrase."
+                    : "Select melody notes with the Select tool (V) on the chosen track first."
+                  : p.hasExplicitLoop
+                    ? "Use melody attacks within your highlighted timeline loop."
+                    : "Hold Shift and drag the timeline ruler to define a loop range first."}
+            </p>
             <div className="field-heading"><h4>Creative operation</h4></div>
             <div className="generation-mode melody-task" role="group" aria-label="Melody operation">
               <button type="button" aria-pressed={p.melodyTask === "harmonize"}
@@ -146,8 +171,9 @@ export function Sidebar(p: SidebarProps) {
                   <button key={count} type="button" aria-pressed={p.continuationBars === count}
                     onClick={() => p.onContinuationBarsChange(count)}>{count}</button>)}
               </div>
-              <p className="generation-hint">MIDI Spark learns a recent melodic motif and continues
-                the phrase after its last note, leaving the original exactly as drawn.</p>
+              <p className="generation-hint">MIDI Spark uses the chosen phrase as a motif, then
+                places the answer after the end of your original melody track—never on top of later notes.
+                Source notes remain exactly as drawn.</p>
             </>}
             {p.melodyTask === "reimagine" && <p className="generation-hint">
               Create an alternate lead on a separate track. Its first and final notes
@@ -160,9 +186,10 @@ export function Sidebar(p: SidebarProps) {
               <button type="button" aria-pressed={p.melodyKeyStrategy === "detect"}
                 onClick={() => p.onMelodyKeyStrategyChange("detect")}>Detect melody</button>
             </div>
-            <p className="generation-hint">Source notes are never rewritten. Each generated part
-              remains editable; duplicate it before regenerating to preserve your edits.
-              Uncertain keys use your Compose selection.</p>
+            <p className="generation-hint">In Selected or Loop mode, Harmonize updates only the
+              covered bars (rounded to bar boundaries); other generated backing stays intact.
+              Original notes are never rewritten. Duplicate a generated part before regenerating
+              to retain your edits.</p>
           </div>}
         </section>
 

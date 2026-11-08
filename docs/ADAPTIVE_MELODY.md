@@ -121,9 +121,11 @@ melody; source MIDI events are not edited in either operation.
 - **Reimagine** retains the source phrase's onset and duration structure
   with limited controlled off-grid rhythmic adjustments, scale-neighbor
   substitutions, and velocity changes. Its source opening is kept and its
-  final pitch remains recognizable. A generated alternative is stored on its
-  own track, soloed on first generation so the unmodified source can be
-  compared by changing solo/mute in Tracks.
+  final pitch remains recognizable. The source phrase's first and
+  final pitches/onset times remain exact at every creative distance; only
+  interior notes receive pitch and onset changes. A generated alternative is
+  stored on its own track, soloed on first generation so the unmodified source
+  can be compared by changing solo/mute in Tracks.
 - The key/mode comes from Compose, or from *unambiguous* key analysis.
   When analysis is uncertain, Compose remains authoritative.
 - A linked continuation becomes extra *harmonic evidence* in the harmonizer;
@@ -149,6 +151,47 @@ channels before any changed data can be committed.
 Duplicating a generated track explicitly strips ownership so that user edits
 to the copy cannot be overwritten by later regeneration. Using Undo rolls
 back the entire generated progression in one step.
+
+## Phrase-source selection
+
+The source scope is explicit and validated by `src/lib/melodyScope.ts`:
+
+- **Full track** (default/backwards compatible): all notes on the chosen
+  user-authored track. Linked continuation notes also guide full-track harmony.
+- **Selected notes**: global piano-roll note indices, checked against the chosen
+  source track. Duplicate, stale or cross-track indices are rejected rather than
+  guessing which phrase the user meant. The selection remains available after
+  regeneration when the underlying user note objects are preserved.
+- **Loop range**: only note attacks inside the explicitly Shift-dragged timeline
+  range. A null/full-default loop is *not* treated as a selected phrase. The
+  exact loop start preserves intended lead-in rests in generated answers.
+
+For **Continue**, a selected early phrase is used as the actual motif, but the
+answer begins at the next bar following the *entire* original melody track.
+This prevents accidental collisions with subsequent user-authored notes.
+Long spans use the latest four bars of the chosen phrase. The response
+inherits the timing/interval motif, with controlled scale-neighbor movement
+and alternate-repetition melodic development.
+
+For **Reimagine**, only selected original lead notes become a new alternative
+track. Other source notes, other user tracks and the original MIDI are untouched.
+
+For **Harmonize**, the chosen span is rounded outward to four-beat bar
+boundaries (one- or half-bar chords according to the pacing controls). Existing
+generated Bass/Harmony notes and chord labels outside the target bars are
+left intact rather than recreating the entire arrangement. Source notes
+inside and outside the target remain untouched. Explicit source phrase mode
+is saved as an optional v1 session field, but selected note indices are
+intentionally ephemeral; they must be selected again after browser reload.
+All three operations share the same strict source-scope validation.
+
+### Design limits
+
+The current engine is quarter-beat/4/4 only. Source selection is onset-based:
+notes starting before a loop do not enter its motif even if sustained into it.
+Harmonization rounds selected loop boundaries to full bars so accompaniment
+cannot begin at arbitrary unsupported chord subdivision points. The generator
+uses symbolic notes, not raw audio samples or automatic voice transcription.
 
 ## Correctness and acceptance testing
 
