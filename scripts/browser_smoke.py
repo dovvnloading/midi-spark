@@ -19,8 +19,14 @@ def record(name): results.append(name); print('PASS',name,flush=True)
 def snap(page):
  page.wait_for_timeout(500)
  return page.evaluate('(key)=>JSON.parse(localStorage.getItem(key))',KEY)
+def confirm_replacement_if_present(page):
+ dialog=page.locator('dialog.replace-project-dialog')
+ if dialog.count() and dialog.is_visible():
+  dialog.locator('.replace-project-actions .danger-action').click()
+  expect(dialog).not_to_be_visible()
 def import_fixture(page):
  page.locator('input[type=file]').first.set_input_files(str(fixture));page.wait_for_timeout(650)
+ confirm_replacement_if_present(page)
  if page.get_by_role('button',name='Dismiss notification').count(): page.get_by_role('button',name='Dismiss notification').click()
 def grid_point(page,midi,quarter):
  grid=page.get_by_test_id('piano-grid').bounding_box(); zoom=snap(page)['zoomX'];height=grid['height']/128
@@ -173,6 +179,16 @@ with sync_playwright() as p:
  after_scroll=page.get_by_role('region',name='Piano roll canvas').evaluate('el=>el.scrollTop')
  assert after_scroll>before_scroll
  record('Hand tool pans without editing notes')
+ # Occupied project imports must not silently replace the note work or
+ # mixer state. Cancel must preserve the entire current session.
+ old_project=snap(page)
+ page.locator('input[type=file]').first.set_input_files(str(fixture))
+ expect(page.get_by_role('dialog',name='Replace current composition?')).to_be_visible()
+ assert snap(page)['progression']==old_project['progression']
+ assert snap(page)['trackMix']==old_project['trackMix']
+ page.get_by_role('button',name='Keep current work',exact=True).click()
+ assert snap(page)['progression']==old_project['progression']
+ record('Import replacement confirmation cancels safely without altering an existing composition')
  import_fixture(page);original=snap(page)['progression']['notes'];assert len(original)==5
  page.get_by_role('combobox',name='Edit track',exact=True).select_option('1')
  assert 'Edit: Bass' in page.locator('.edit-target-indicator').inner_text()
@@ -198,6 +214,9 @@ with sync_playwright() as p:
  page.locator('.sound-library-select').filter(has_text='Digital Bass').click()
  page.wait_for_timeout(550)
  assert snap(page)['trackMix']['1']['synthType']=='fmBass'
+ expect(page.get_by_text('Browser sound only',exact=False).first).to_be_visible()
+ expect(page.get_by_text('GM program 34',exact=False).first).to_be_visible()
+ record('Track picker discloses browser-only sound and exported GM instrument program')
  record('Track mixer chooses independent expanded presets with audition')
  page.get_by_role('button',name='Mute Bass',exact=True).click();assert snap(page)['trackMix']['1']['muted']
  page.get_by_role('button',name='Solo Keys',exact=True).click();assert snap(page)['trackMix']['0']['solo']
@@ -236,6 +255,7 @@ with sync_playwright() as p:
  download_info.value.save_as(str(exported))
  assert exported.read_bytes().startswith(b'MThd')
  page.locator('input[type=file]').first.set_input_files(str(exported));page.wait_for_timeout(650)
+ confirm_replacement_if_present(page)
  roundtrip=snap(page)['progression']
  assert len(roundtrip['notes'])==len(saved['progression']['notes'])
  assert [t['name'] for t in roundtrip['tracks']]==['Keys','Bass','Empty pad']
@@ -247,8 +267,19 @@ with sync_playwright() as p:
  page.get_by_role('slider',name='Chord tension',exact=True).fill('48')
  page.get_by_role('slider',name='Rhythmic detail',exact=True).fill('55')
  page.get_by_role('button',name='Generate pattern',exact=False).click()
+ confirm_replacement_if_present(page)
  page.wait_for_timeout(600)
  if page.get_by_role('button',name='Dismiss notification').count(): page.get_by_role('button',name='Dismiss notification').click()
+ # Scratch generation also asks permission before overwriting a scored
+ # arrangement, rather than hiding destructive replacement behind Undo.
+ page.get_by_role('tab',name='Compose',exact=True).click()
+ old_for_generation=snap(page)
+ page.get_by_role('button',name='Generate pattern',exact=False).click()
+ expect(page.get_by_role('dialog',name='Start a new pattern?')).to_be_visible()
+ assert snap(page)['progression']==old_for_generation['progression']
+ page.get_by_role('button',name='Keep current work',exact=True).click()
+ assert snap(page)['progression']==old_for_generation['progression']
+ record('Scratch generation requires explicit consent and Cancel preserves existing MIDI')
  # Select bars 2–3 by Shift-dragging the ruler. The loop range is session-local.
  timeline=page.locator('.piano-timeline').last
  ruler=timeline.bounding_box();zoom=snap(page)['zoomX']
@@ -290,6 +321,7 @@ with sync_playwright() as p:
  expect(page.get_by_role('button',name='Single track',exact=True)).to_have_attribute('aria-pressed','true')
  page.get_by_role('button',name='Bass + Harmony',exact=True).click()
  page.get_by_role('button',name='Generate pattern',exact=False).click()
+ confirm_replacement_if_present(page)
  generated=snap(page)
  assert generated['generationMode']=='layers'
  assert [t['name'] for t in generated['progression']['tracks']]==['Bass','Harmony']
@@ -343,6 +375,7 @@ with sync_playwright() as p:
  layered_file=OUTPUT/'layered.mid'
  layers_download.value.save_as(str(layered_file))
  page.locator('input[type=file]').first.set_input_files(str(layered_file));page.wait_for_timeout(650)
+ confirm_replacement_if_present(page)
  imported_layers=snap(page)['progression']
  assert [t['name'] for t in imported_layers['tracks']]==['Bass','Harmony','Melody','Melody copy']
  assert len(imported_layers['notes'])==len(persisted['progression']['notes'])
@@ -361,6 +394,7 @@ with sync_playwright() as p:
  page.get_by_role('tab',name='Compose',exact=True).click()
  page.get_by_role('button',name='Single track',exact=True).click()
  page.get_by_role('button',name='Generate pattern',exact=False).click()
+ confirm_replacement_if_present(page)
  single=snap(page)
  assert single['generationMode']=='single'
  assert single['progression'].get('tracks') is None
@@ -524,6 +558,7 @@ with sync_playwright() as p:
  assert adaptive_file.read_bytes().startswith(b'MThd')
  adaptive.locator('input[type=file]').first.set_input_files(str(adaptive_file))
  adaptive.wait_for_timeout(650)
+ confirm_replacement_if_present(adaptive)
  adaptive_roundtrip=snap(adaptive)['progression']
  assert len(adaptive_roundtrip['notes'])==len(paced['progression']['notes'])
  assert [t['name'] for t in adaptive_roundtrip['tracks']]==[
@@ -600,6 +635,7 @@ with sync_playwright() as p:
  assert motif_file.read_bytes().startswith(b'MThd')
  motif_page.locator('input[type=file]').first.set_input_files(str(motif_file))
  motif_page.wait_for_timeout(650)
+ confirm_replacement_if_present(motif_page)
  motif_roundtrip=snap(motif_page)['progression']
  assert len(motif_roundtrip['notes'])==len(variation['progression']['notes'])
  assert len(motif_roundtrip['tracks'])==len(variation['progression']['tracks'])
