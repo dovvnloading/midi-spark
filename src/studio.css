@@ -453,3 +453,8 @@ button:disabled { opacity: .42; }
 .melody-key-heading { margin-bottom: -8px; }
 .melody-source-section .generation-hint { margin-top: 0; }
 .generate-button:disabled { opacity: .48; cursor: not-allowed; }
+
+/* Melody action triad and bar-length selector, including narrow mobile sheets. */
+.melody-adaptive-controls .melody-task { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.melody-adaptive-controls .melody-bar-count { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.melody-adaptive-controls .melody-task button { font-size: 10px; letter-spacing: -0.12px; }
