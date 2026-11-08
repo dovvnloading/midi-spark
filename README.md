@@ -61,6 +61,47 @@ Generate chord progressions from musical parameters:
   The same note pitches, timing, velocities, and chord labels are preserved
   when switching generation mode.
 
+### Melody-conditioned harmonization
+
+Switch **Compose → Starting point → Follow melody** to build accompaniment
+around a phrase instead of generating an unrelated progression:
+
+1. **Draw or import a melody.** Use the piano roll, or load a MIDI file; choose
+   the source track explicitly if there are several. Imported bass and other
+   tracks are not silently treated as the lead.
+2. **Tune the harmonic fit.** The higher the fit, the more strongly sustained
+   and accented melody tones influence chord selection. Short stepwise passing
+   notes receive less weight. **Chord tension** allows sevenths and some
+   chromatic/modal options; **Accompaniment motion** sets the density of the
+   generated backing.
+3. **Choose the key strategy.** Use the root and mode from Compose, or select
+   **Detect melody**. When key detection is uncertain, the app keeps the Compose
+   key rather than presenting a guess as certain.
+4. **Harmonize melody.** The generator uses a sequence-level dynamic-programming
+   search to find a compatible chord path, then produces a register-aware
+   **Generated Bass** and **Generated Harmony** track. Source notes keep their
+   exact pitches, positions, durations, velocities, and track assignment.
+5. **Try another harmonization.** Only the generated tracks for that source are
+   replaced. Their IDs, channels, and mixer selections are retained, and Undo
+   restores the previous result. Other user-owned tracks remain untouched.
+   **Duplicate a generated track in Tracks** before regenerating if you want
+   to preserve your own edits to that part.
+
+The harmonizer runs entirely in-browser, deterministically with a supplied
+random seed (and spontaneously in normal use). No model, account, upload,
+server, or sampled audio is required. Existing **From scratch** generation is
+unchanged.
+
+**Current scope:** 4/4 quarter-note timing, up to 64 bars and 4,096 source
+notes, with two free melodic MIDI channels required for the first harmonization.
+This is *MIDI melody conditioning*, not audio pitch transcription or a
+large-model composition system. Generated-track ownership is preserved in
+browser autosave, but ordinary MIDI export does not carry this app-specific
+ownership tag; after re-import, tracks can be selected and edited normally.
+The optional key detector is heuristic and may be uncertain on short or
+chromatic phrases. See [adaptive engine notes](docs/ADAPTIVE_MELODY.md)
+for scoring, limitations, and future evaluation.
+
 ### Interactive Piano Roll
 
 * **Draw** notes with click or click-drag (drag sets the length)
