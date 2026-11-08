@@ -496,3 +496,20 @@ button:disabled { opacity: .42; }
   .compose-actions { padding-bottom: max(13px, env(safe-area-inset-bottom)); }
   .editor-footnote, .app-status { font-size: 10px; }
 }
+
+/* Make edit ownership visible beside the track selector, without introducing
+ * a second toolbar. "All tracks" is a view; drawing still targets one track. */
+.edit-target-indicator {
+  display: inline-block; flex: 0 1 auto; max-width: 125px;
+  padding: 5px 8px; border: 1px solid #516b58; border-radius: 7px;
+  background: #283b30; color: #d7ecbf; font-size: 11px; font-weight: 650;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+@media (max-width: 760px) {
+  .edit-target-indicator { max-width: 80px; font-size: 10px; padding-inline: 5px; }
+  .time-signature { font-size: 9px; padding: 4px 5px; }
+}
+@media (max-width: 430px) {
+  .editor-context-right { gap: 5px; }
+  .edit-target-indicator { max-width: 66px; }
+}
