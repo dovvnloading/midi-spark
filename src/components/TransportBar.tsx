@@ -67,7 +67,7 @@ export function TransportBar(p: TransportBarProps) {
         <button className="icon-button" onClick={p.onRedo} disabled={!p.canRedo} aria-label="Redo" title="Redo (Ctrl/⌘ Shift Z)"><Redo2 size={17} /></button></div>
       <span className="control-divider history-divider" />
       <button className="secondary-button import-button" onClick={() => fileRef.current?.click()} aria-label="Import MIDI"><Upload size={15} /><span>Import</span></button>
-      <button className="primary-button export-button" onClick={p.onExport} disabled={!p.canPlay} aria-label="Export MIDI"><Download size={15} /><span>Export MIDI</span></button>
+      <button className="primary-button export-button" onClick={p.onExport} disabled={!p.canPlay} aria-label="Export MIDI" title="Export editable MIDI notes and General MIDI programs; browser synth sounds are not embedded"><Download size={15} /><span>Export MIDI</span></button>
       <details className="project-menu" ref={moreRef} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}>
         <summary className="icon-button" aria-label="More actions"><MoreHorizontal size={18} /></summary>
         <div className="project-menu-content">
