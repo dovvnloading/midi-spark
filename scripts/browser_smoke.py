@@ -388,7 +388,7 @@ with sync_playwright() as p:
  adaptive.get_by_role('combobox',name='Source melody track',exact=True).select_option('0')
  adaptive.get_by_role('slider',name='Harmonic fit to melody',exact=True).fill('90')
  adaptive.get_by_role('button',name='Balanced',exact=True).click()
- adaptive.get_by_role('button',name='Harmonize melody',exact=True).click()
+ adaptive.get_by_role('button',name='Harmonize melody',exact=False).click()
  adaptive.wait_for_timeout(600)
  first=snap(adaptive)
  assert first['melodySourceMode']=='follow'
