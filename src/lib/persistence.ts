@@ -76,7 +76,7 @@ function isTrackMetadata(v: unknown): v is TrackMetadata {
     typeof t.name === "string" &&
     (t.program === undefined || (Number.isInteger(t.program) && (t.program as number) >= 0 && (t.program as number) <= 127)) &&
     (t.channel === undefined || (Number.isInteger(t.channel) && (t.channel as number) >= 0 && (t.channel as number) <= 15)) &&
-    (t.generatedRole === undefined || t.generatedRole === "bass" || t.generatedRole === "harmony") &&
+    (t.generatedRole === undefined || ["bass", "harmony", "continuation", "variation"].includes(t.generatedRole)) &&
     (t.sourceTrackIndex === undefined || (Number.isInteger(t.sourceTrackIndex) && (t.sourceTrackIndex as number) >= 0)) &&
     (t.generatedRole === undefined || t.sourceTrackIndex !== undefined)
   );
