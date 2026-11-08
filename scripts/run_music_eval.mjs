@@ -32,8 +32,9 @@ if (run.error || run.status !== 0) {
     const markdown = content("MARKDOWN");
     const json = content("JSON");
     const parsed = JSON.parse(json);
-    if (parsed.benchmark !== "midi-spark-symbolic-quality-v2" ||
-      !Array.isArray(parsed.results) || parsed.results.length !== 10) {
+    if (parsed.benchmark !== "midi-spark-symbolic-quality-v3" ||
+      !Array.isArray(parsed.results) || parsed.results.length !== 10 ||
+      !Array.isArray(parsed.samples) || parsed.samples.length !== 120) {
       throw new Error("Evaluation output schema failed basic validation");
     }
     const path = process.env.MIDI_SPARK_EVAL_OUTPUT || "music-evaluation";
