@@ -171,6 +171,7 @@ function transition(previous: ChordCandidate, next: ChordCandidate, hasMelody: b
 function chooseHarmony(
   candidates: readonly ChordCandidate[], windows: readonly WeightedNote[][],
   fit: number, tension: number, random: RandomSource,
+  previousChords: readonly string[] = [],
 ): ChordCandidate[] {
   const rows: {score: number; prev: number}[][] = [];
   const freedom = (1 - clamp(fit, 0, 100) / 100) * 0.46 + 0.035;
@@ -180,16 +181,18 @@ function chooseHarmony(
       const chord = candidates[j];
       const evidence = chordFit(chord, windows[bar], fit, tension);
       const explore = (random() - 0.5) * freedom;
+      // A new pass should explore another near-best chord path when available.
+      const repeatPenalty = previousChords[bar] === chord.name ? 0.24 : 0;
       const cadence = bar === windows.length - 1 && chord.degree === 0 ? 0.24 : 0;
       if (bar === 0) {
-        row.push({score: evidence + explore + (chord.degree === 0 ? 0.28 : 0), prev: -1});
+        row.push({score: evidence + explore - repeatPenalty + (chord.degree === 0 ? 0.28 : 0), prev: -1});
       } else {
         let bestScore = -Infinity, previous = 0;
         for (let k = 0; k < candidates.length; k++) {
           const trial = rows[bar - 1][k].score + transition(candidates[k], chord, windows[bar].length > 0);
           if (trial > bestScore) { bestScore = trial; previous = k; }
         }
-        row.push({score: bestScore + evidence + cadence + explore, prev: previous});
+        row.push({score: bestScore + evidence + cadence + explore - repeatPenalty, prev: previous});
       }
     }
     rows.push(row);
@@ -260,8 +263,12 @@ function makeAccompaniment(
   source: readonly NoteEvent[],
   chords: readonly ChordCandidate[],
   bassIndex: number, harmonyIndex: number, density: AccompanimentDensity,
+  random: RandomSource,
 ): NoteEvent[] {
   const out: NoteEvent[] = [];
+  // Select one groove per generation, not a new unrelated pattern per bar.
+  const pushedGroove = random() > 0.5;
+  const descendingArp = random() > 0.5;
   const globalCenter = median(source.map(n => n.midi));
   let previousVoicing: number[] = [];
   for (let bar = 0; bar < chords.length; bar++) {
@@ -282,7 +289,8 @@ function makeAccompaniment(
     const effectiveDensity = busyMelody && density === "active" ? "balanced"
       : busyMelody && density === "balanced" ? "sparse" : density;
     const bassHits = effectiveDensity === "sparse" ? [0]
-      : effectiveDensity === "balanced" ? [0, 2] : [0, 1.5, 2.5];
+      : effectiveDensity === "balanced" ? [0, pushedGroove ? 2.5 : 2]
+        : pushedGroove ? [0, 1.5, 2.5] : [0, 2, 3.5];
     for (let i = 0; i < bassHits.length; i++) {
       const onset = bassHits[i];
       const maxDuration = (bassHits[i + 1] ?? 4) - onset;
@@ -293,15 +301,16 @@ function makeAccompaniment(
     if (effectiveDensity === "sparse") {
       for (const pitch of voicing) out.push(makeNote(pitch, start, 3.8, 0.48, harmonyIndex));
     } else if (effectiveDensity === "balanced") {
-      for (const onset of [0, 2]) {
-        for (const pitch of voicing) out.push(makeNote(pitch, start + onset, 1.7,
-          onset === 0 ? 0.54 : 0.43, harmonyIndex));
+      for (const onset of [0, pushedGroove ? 2.5 : 2]) {
+        for (const pitch of voicing) out.push(makeNote(pitch, start + onset,
+          Math.min(1.7, 3.9 - onset), onset === 0 ? 0.54 : 0.43, harmonyIndex));
       }
     } else {
       // Coherent arpeggio across the bar; the melody remains the foreground.
       const offsets = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5];
       for (let i = 0; i < offsets.length; i++) {
-        out.push(makeNote(voicing[i % voicing.length], start + offsets[i], 0.43,
+        const melodicIndex = descendingArp ? voicing.length - 1 - (i % voicing.length) : i % voicing.length;
+        out.push(makeNote(voicing[melodicIndex], start + offsets[i], 0.43,
           i % 4 === 0 ? 0.55 : 0.40, harmonyIndex));
       }
     }
@@ -349,7 +358,10 @@ export function generateFromMelody(
   const candidates = chordCandidates(root, mode, options.tension);
   if (candidates.length === 0) return {ok: false, reason: "Select a valid key and scale in Compose."};
   const windows = melodyWindows(source, bars);
-  const harmony = chooseHarmony(candidates, windows, options.harmonicFit, options.tension, random);
+  const previousChords = input.chords
+    .filter(chord => chord.generatedSourceTrackIndex === trackIndex)
+    .sort((a, b) => a.timeStart - b.timeStart).map(chord => chord.name);
+  const harmony = chooseHarmony(candidates, windows, options.harmonicFit, options.tension, random, previousChords);
 
   let working = input;
   const selectedTracks: number[] = [];
@@ -368,7 +380,7 @@ export function generateFromMelody(
   }
   const [bassIndex, harmonyIndex] = selectedTracks;
   const generated = new Set(selectedTracks);
-  const accompaniment = makeAccompaniment(source, harmony, bassIndex, harmonyIndex, options.density);
+  const accompaniment = makeAccompaniment(source, harmony, bassIndex, harmonyIndex, options.density, random);
   const chords = harmony.map((chord, bar) => ({
     name: chord.name, timeStart: bar * 4, duration: 4, generatedSourceTrackIndex: trackIndex,
   }));
