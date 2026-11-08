@@ -65,7 +65,7 @@ function chordCandidates(root: string, mode: "major" | "minor", tension: number)
     if (pitchClasses.length < 3) return;
     seen.add(chord.symbol);
     candidates.push({
-      name: chord.symbol || name, rootPc: pc(Note.chroma(chord.tonic) ?? 0),
+      name: chord.symbol || name, rootPc: pc(chord.tonic ? (Note.chroma(chord.tonic) ?? 0) : 0),
       pitchClasses, degree, borrowed, seventh,
     });
   };
