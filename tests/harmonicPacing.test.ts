@@ -191,4 +191,23 @@ describe("melody-aware harmonic pacing", () => {
     expect(down[0].midi).toBeLessThan(down[1].midi);
   });
 
+  it("rejects malformed numeric settings and source velocities before searching chords", () => {
+    const source = contrasting();
+    for (const changes of [
+      {harmonicFit: Number.NaN},
+      {harmonicFit: 150},
+      {tension: Number.POSITIVE_INFINITY},
+      {tension: -2},
+      {keyStrategy: "unknown" as "manual"},
+    ]) {
+      expect(generateFromMelody(source, {...prefs, ...changes}).ok).toBe(false);
+    }
+    const invalidVelocity: ProgressionData = {
+      ...source, notes: source.notes.map((note, i) =>
+        i === 0 ? {...note, velocity: Number.NaN} : note),
+    };
+    expect(generateFromMelody(invalidVelocity, prefs).ok).toBe(false);
+    expect(generateFromMelody({...source, totalBars: Number.NaN}, prefs).ok).toBe(false);
+  });
+
 });
