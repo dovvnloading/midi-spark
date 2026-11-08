@@ -657,7 +657,7 @@ export default function App() {
       return;
     }
     generateScratch();
-  }, [root, mode, bars, dissonance, complexity, generationMode, synthType, commit, notify, handleStop,
+  }, [root, mode, dissonance, synthType, commit, notify, handleStop,
     progression, effectiveMelodySourceTrackIndex, melodySourceMode, harmonicFit, accompanimentDensity, melodyKeyStrategy,
     melodyTask, motifCreativity, continuationBars, trackMix, harmonicPacing,
     harmonyExploration, melodyPhraseScope, selectedNoteIndices, loopRegion, generateScratch]);
