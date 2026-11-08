@@ -73,6 +73,19 @@ describe("adaptive melody harmonization", () => {
     expect(a.progression.notes).not.toBe(source.notes);
   });
 
+  it("can explore distinct accompaniment variants with the same immutable melody", () => {
+    const source = melody();
+    const generated = Array.from({length: 12}, (_, i) => succeed(source,
+      {...options, density: "active", harmonicFit: 85}, i + 1));
+    const arrangements = new Set(generated.map(result =>
+      result.progression.notes.filter(n => n.trackIndex !== 0)
+        .map(n => [n.midi, n.timeStart, n.duration]).join(";")));
+    expect(arrangements.size).toBeGreaterThan(1);
+    for (const result of generated) {
+      expect(result.progression.notes.filter(n => n.trackIndex === 0)).toEqual(source.notes);
+    }
+  });
+
   it("preserves unrelated imported tracks and their program, channel and notes", () => {
     const source = melody();
     const extra = note(48, 0.5, 3.5, 4);
