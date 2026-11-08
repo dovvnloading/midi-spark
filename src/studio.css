@@ -458,3 +458,51 @@ button:disabled { opacity: .42; }
 .melody-adaptive-controls .melody-task { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .melody-adaptive-controls .melody-bar-count { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .melody-adaptive-controls .melody-task button { font-size: 10px; letter-spacing: -0.12px; }
+
+/* UX audit: the source-loop editor is operable without a keyboard Shift key. */
+.source-loop-editor {
+  display: grid; gap: 9px; padding: 12px; border-radius: 9px;
+  background: #1d2d2b; border: 1px solid #4b6558;
+}
+.source-loop-editor .field-pair { margin: 0; }
+.source-loop-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.source-loop-actions .text-button { min-height: 35px; font-size: 11px; padding: 7px 9px; }
+.source-loop-editor .generation-hint { margin: 0; font-size: 11px; line-height: 1.5; }
+
+/* UX audit: restore readable supporting text. Avoid scaling the MIDI grid:
+   its density has independent zoom/precision semantics. */
+.eyebrow, .inspector-overline, .composition-summary-copy small,
+.section-index, .quick-directions-heading span:first-child { font-size: 10px; }
+.compose-intro p { font-size: 12px; }
+.range-captions, .generation-hint, .inspector-note { font-size: 11px; line-height: 1.55; }
+.compose-action-note { font-size: 11px; white-space: normal; line-height: 1.4; text-align: center; }
+.compose-action-topline > span { font-size: 10px; letter-spacing: .5px; }
+.position-display small { font-size: 9px; }
+.editor-footnote, .app-status { font-size: 11px; }
+.track-audibility, .track-name-button small { font-size: 10px; }
+.editor-active-tool { font-size: 11px; font-weight: 650; color: #d6e8c6; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-footnote > span:last-child { min-width: 0; white-space: nowrap; }
+
+@media (max-width: 760px) {
+  .track-toggles button { min-width: 40px; height: 40px; font-size: 12px; }
+  .track-management button { min-height: 40px; }
+  .compose-actions { padding-bottom: max(13px, env(safe-area-inset-bottom)); }
+  .editor-footnote, .app-status { font-size: 10px; }
+}
+
+/* Make edit ownership visible beside the track selector, without introducing
+ * a second toolbar. "All tracks" is a view; drawing still targets one track. */
+.edit-target-indicator {
+  display: inline-block; flex: 0 1 auto; max-width: 125px;
+  padding: 5px 8px; border: 1px solid #516b58; border-radius: 7px;
+  background: #283b30; color: #d7ecbf; font-size: 11px; font-weight: 650;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+@media (max-width: 760px) {
+  .edit-target-indicator { max-width: 80px; font-size: 10px; padding-inline: 5px; }
+  .time-signature { font-size: 9px; padding: 4px 5px; }
+}
+@media (max-width: 430px) {
+  .editor-context-right { gap: 5px; }
+  .edit-target-indicator { max-width: 66px; }
+}

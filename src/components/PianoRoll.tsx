@@ -11,7 +11,7 @@ import { Sparkles, Pencil } from "lucide-react";
 import { ensureBarsCoverNotes } from "../lib/transforms";
 import { ProgressionData, NoteEvent, getScaleChromas } from "../lib/theory";
 import { initAudio, playNote } from "../lib/audio";
-import { trackIndexOf } from "../lib/tracks";
+import { trackIndexOf, listTracks } from "../lib/tracks";
 import { normalizeLoopRange, sequenceEndQuarters, type LoopRange } from "../lib/timeline";
 import {
   CHORD_STAMPS,
@@ -62,6 +62,7 @@ export interface PianoRollProps {
   onScrub: (tick: number) => void;
   onScrubStateChange: (isScrubbing: boolean) => void;
   onLivePreview: (preview: ProgressionData | null) => void;
+  onAudioPreviewError?: (message: string) => void;
 }
 
 interface LoopDrag {
@@ -113,11 +114,11 @@ interface BoxState {
 
 const BLACK_KEY_CLASSES = [1, 3, 6, 8, 10];
 const TOOL_HINTS: Record<ToolMode, string> = {
-  draw: "Click to draw · drag for length",
-  select: "Drag to lasso · Shift to add",
-  stamp: "Click to place a chord or scale",
-  cut: "Drag across notes to split",
-  pan: "Drag to move the canvas · F to fit pattern",
+  draw: "Draw · Tap grid to add; drag for length",
+  select: "Select · Tap a note; drag to move or lasso",
+  stamp: "Stamp · Tap grid to place chord/scale",
+  cut: "Slice · Drag across notes to split",
+  pan: "Hand · Drag canvas to navigate",
 };
 
 export function PianoRoll({
@@ -149,6 +150,7 @@ export function PianoRoll({
   onScrub,
   onScrubStateChange,
   onLivePreview,
+  onAudioPreviewError,
 }: PianoRollProps) {
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dragDrawState, setDragDrawState] = useState<DragDrawState | null>(null);
@@ -159,6 +161,11 @@ export function PianoRoll({
   const [loopPreview, setLoopPreview] = useState<LoopRange | null>(null);
   const [containerWidth, setContainerWidth] = useState(1200);
   const [rowHeight, setRowHeight] = useState(NOTE_HEIGHT);
+  // The "All tracks" view does not mean new notes belong to an invisible
+  // track zero. Choose the first real track when none is explicitly focused.
+  const drawTrackIndex = useMemo(() => focusedTrack ??
+    (progression ? listTracks(progression)[0]?.index : undefined) ?? 0,
+  [focusedTrack, progression]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const emptyImportRef = useRef<HTMLInputElement>(null);
@@ -496,24 +503,26 @@ export function PianoRoll({
             timeStart: tick,
             duration: isScale ? FREE_SNAP : noteLength, // scales place tiny guides
             velocity: isScale ? 0.1 : 0.8, // low velocity so guides render faint
-            trackIndex: focusedTrack ?? 0,
+            trackIndex: drawTrackIndex,
           };
         });
       commit((prev) => prev ? ensureBarsCoverNotes({ ...prev, notes: [...prev.notes, ...newNotes] }) : prev);
-      if (!isScale) void initAudio().then(() => newNotes.forEach(n => playNote(n.name, 0.5, n.velocity, focusedTrack ?? 0))).catch(() => {});
+      if (!isScale) void initAudio().then(() => newNotes.forEach(n => playNote(n.name, 0.5, n.velocity, drawTrackIndex)))
+        .catch(() => onAudioPreviewError?.("Audio preview could not start. Notes are still editable; use Play to retry after enabling audio."));
       return;
     }
 
     // Default: draw a single note.
     const name = Note.fromMidi(midi) || "C4";
-    void initAudio().then(() => playNote(name, 0.25, 0.8, focusedTrack ?? 0)).catch(() => {});
+    void initAudio().then(() => playNote(name, 0.25, 0.8, drawTrackIndex))
+      .catch(() => onAudioPreviewError?.("Audio preview could not start. Notes are still editable; use Play to retry after enabling audio."));
     setDragDrawState({
       startTick: tick,
       startMidi: midi,
       startX: e.clientX,
       currentX: e.clientX,
       startDuration: noteLength,
-      trackIndex: focusedTrack ?? 0,
+      trackIndex: drawTrackIndex,
     });
   };
 
@@ -931,6 +940,7 @@ export function PianoRoll({
                           try {
                             await initAudio();
                           } catch {
+                            onAudioPreviewError?.("Audio preview could not start. Notes are still editable; use Play to retry after enabling audio.");
                             return; // Still allow editing when audio is unavailable.
                           }
                           const name = Note.fromMidi(midi);
@@ -1236,7 +1246,7 @@ export function PianoRoll({
             </div>
           )}
         </div>
-        <footer className="editor-footnote"><span>{TOOL_HINTS[toolMode]}</span><span>{selectedIndices.size > 0 ? <strong>{selectedIndices.size} selected</strong> : progression ? progression.notes.length + " notes" : "No notes yet"} · {statusLabel}</span></footer>
+        <footer className="editor-footnote"><span className="editor-active-tool" role="status" aria-live="polite">{TOOL_HINTS[toolMode]}</span><span>{selectedIndices.size > 0 ? <strong>{selectedIndices.size} selected</strong> : progression ? progression.notes.length + " notes" : "No notes yet"} · {statusLabel}</span></footer>
     </section>
   );
 }

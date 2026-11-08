@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AudioLines, Download, Play, Pause, Square, Repeat2, Undo2, Redo2, Upload, Keyboard, Trash2, MoreHorizontal, SlidersHorizontal } from "lucide-react";
 import { MIN_BPM, MAX_BPM } from "../lib/constants";
 export interface TransportBarProps {
@@ -10,6 +10,14 @@ export interface TransportBarProps {
 export function TransportBar(p: TransportBarProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const moreRef = useRef<HTMLDetailsElement>(null);
+  const [tempoDraft, setTempoDraft] = useState<string | null>(null);
+  const commitTempo = (raw: string) => {
+    const next = Number(raw);
+    if (raw.trim() !== "" && Number.isFinite(next)) {
+      p.onBpmChange(Math.max(MIN_BPM, Math.min(MAX_BPM, Math.round(next))));
+    }
+    setTempoDraft(null);
+  };
   useEffect(() => {
     const closeOutside = (event: PointerEvent) => {
       const menu = moreRef.current;
@@ -30,9 +38,27 @@ export function TransportBar(p: TransportBarProps) {
         aria-label="Stop playback" title="Stop and return to bar 1"><Square size={14} fill="currentColor" /></button>
       <button className="icon-button loop-button" aria-pressed={p.isLooping} onClick={p.onToggleLoop} aria-label="Loop playback" title="Loop playback"><Repeat2 size={17} /></button>
       <span className="control-divider" />
-      <label className="tempo-field"><input type="number" aria-label="Tempo" min={MIN_BPM} max={MAX_BPM} step={1}
-        value={p.bpm} onChange={event => { const next = event.target.valueAsNumber; if (Number.isFinite(next)) p.onBpmChange(Math.max(MIN_BPM, Math.min(MAX_BPM, next))); }} />
+      <label className="tempo-field"><input type="number" aria-label="Tempo" aria-describedby="tempo-input-help"
+        min={MIN_BPM} max={MAX_BPM} step={1}
+        value={tempoDraft ?? String(p.bpm)}
+        onFocus={event => { setTempoDraft(String(p.bpm)); event.currentTarget.select(); }}
+        onChange={event => setTempoDraft(event.target.value)}
+        onBlur={event => commitTempo(event.currentTarget.value)}
+        onKeyDown={event => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            commitTempo(event.currentTarget.value);
+            event.currentTarget.blur();
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.value = String(p.bpm);
+            setTempoDraft(null);
+            event.currentTarget.blur();
+          }
+        }} />
         <span>BPM</span></label>
+      <span className="sr-only" id="tempo-input-help">Type a tempo from {MIN_BPM} to {MAX_BPM} BPM. Press Enter or leave the field to apply. Escape cancels.</span>
       <span className="control-divider position-divider" />
       <div className="position-display" aria-label={"Bar " + bar + ", beat " + beat}><span>{String(bar).padStart(2, "0")}</span><i>:</i><span>{String(beat).padStart(2, "0")}</span><small>BAR / BEAT</small></div>
     </div>

@@ -183,14 +183,16 @@ export default function App() {
   const noticeSequence = useRef(0);
 
   const notify = useCallback((message: string, kind: NoticeKind = "info") => {
-    setNotice({ id: ++noticeSequence.current, message, kind });
+    setNotice(previous => previous?.kind === "error" && kind === "error" &&
+      previous.message === message
+      ? previous : { id: ++noticeSequence.current, message, kind });
   }, []);
 
   useEffect(() => {
-    if (!notice) return;
+    if (!notice || notice.kind === "error") return;
     const timeout = setTimeout(() => {
       setNotice((current) => current?.id === notice.id ? null : current);
-    }, notice.kind === "error" ? 6500 : 4200);
+    }, 4200);
     return () => clearTimeout(timeout);
   }, [notice]);
 
@@ -1017,6 +1019,7 @@ export default function App() {
             melodySourceTrackIndex={effectiveMelodySourceTrackIndex}
             melodyPhraseScope={melodyPhraseScope} onMelodyPhraseScopeChange={setMelodyPhraseScope}
             selectedMelodyNoteCount={selectedMelodyNoteCount} hasExplicitLoop={loopRegion !== null}
+            sourceLoopRange={loopRegion} onSourceLoopRangeChange={setLoopRegion}
             onMelodySourceTrackChange={setMelodySourceTrackIndex}
             harmonicFit={harmonicFit} onHarmonicFitChange={setHarmonicFit}
             harmonyExploration={harmonyExploration} onHarmonyExplorationChange={setHarmonyExploration}
@@ -1044,8 +1047,16 @@ export default function App() {
             <div className="editor-context-right">{progression && <><span className="pattern-length">{progression.totalBars} bars</span>
               <select aria-label="Edit track" value={visibleFocusedTrack ?? "all"} onChange={event => handleFocusTrack(event.target.value === "all" ? null : Number(event.target.value))}>
                 <option value="all">All tracks</option>{tracks.map(t => <option key={t.index} value={t.index}>{t.name}</option>)}
-              </select></>}
-              <span className="time-signature">4/4</span>
+              </select>
+              <strong className="edit-target-indicator" aria-live="polite" title={
+                visibleFocusedTrack === null
+                  ? "Viewing all tracks. New notes go to " + (tracks[0]?.name ?? "Track 1")
+                  : "Editing only " + (tracks.find(t => t.index === visibleFocusedTrack)?.name ?? "selected track")}>
+                {visibleFocusedTrack === null
+                  ? "New → " + (tracks[0]?.name ?? "Track 1")
+                  : "Edit: " + (tracks.find(t => t.index === visibleFocusedTrack)?.name ?? "Track")}
+              </strong></>}
+              <span className="time-signature" title="4/4 editor grid; imported meter may differ">4/4 grid</span>
             </div>
           </div>
           <EditToolbar toolMode={toolMode} stampType={stampType} noteLength={noteLength} snapResolution={snapResolution} zoomX={zoomX}
@@ -1058,7 +1069,8 @@ export default function App() {
             fitRequest={fitRequest} isPlaying={isPlaying} currentTick={currentTick} followPlayback={followPlayback}
             isLooping={isLooping} loopRegion={loopRegion} onLoopRegionChange={handleLoopRegionChange}
             scrollAnchorKey={scrollAnchorKey} onSelectionChange={setSelectedNoteIndices} commit={commit} onZoomChange={setZoomX}
-            onScrub={handleScrub} onScrubStateChange={handleScrubStateChange} onLivePreview={setLivePreview} />
+            onScrub={handleScrub} onScrubStateChange={handleScrubStateChange} onLivePreview={setLivePreview}
+            onAudioPreviewError={message => notify(message, "error")} />
         </main>
       </div>
       <footer className="app-status"><span className="save-status">{saveState === "saved" ? <Check size={12} /> : <HardDrive size={12} />}
