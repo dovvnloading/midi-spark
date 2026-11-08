@@ -1,6 +1,6 @@
 import * as Tone from "tone";
 import { ProgressionData } from "./theory";
-import { PRESET_BY_ID, type EffectFamily, type Modulation, type PresetPatch, type SynthType } from "./presets";
+import { PRESET_BY_ID, type EffectFamily, type Modulation, type PresetPatch, type PresetDefinition, type SynthType, type Wave } from "./presets";
 import type { TrackMix } from "./tracks";
 import {
   normalizeLoopRange,
@@ -30,8 +30,9 @@ let requestedSynthType: SynthType = "classic";
  * same MIDI note API for distinct voices and caps expensive unison/duo patches.
  * No external samples, network or new runtime dependencies are needed. */
 export function createTrackSynth(type: SynthType): Tone.PolySynth {
-  const patch: PresetPatch = PRESET_BY_ID[type].patch;
-  const oscillator = (wave: string, unison?: {count: number; spread: number}) =>
+  const definition: PresetDefinition = PRESET_BY_ID[type];
+  const patch: PresetPatch = definition.patch;
+  const oscillator = (wave: Wave, unison?: {count: number; spread: number}) =>
     unison ? {type: wave, count: unison.count, spread: unison.spread} : {type: wave};
   let synth: Tone.PolySynth;
   switch (patch.engine) {
@@ -83,14 +84,14 @@ export function createTrackSynth(type: SynthType): Tone.PolySynth {
         vibratoRate: patch.vibratoRate,
         vibratoAmount: patch.vibratoAmount,
         voice0: {
-          volume: -10, oscillator: {type: patch.wave},
+          oscillator: {type: patch.wave},
           envelope: patch.envelope,
         },
         voice1: {
-          volume: -12, oscillator: {type: patch.secondWave},
+          oscillator: {type: patch.secondWave},
           envelope: patch.secondEnvelope,
         },
-      });
+      }) as unknown as Tone.PolySynth;
       break;
     case "membrane":
       synth = new Tone.PolySynth(Tone.MembraneSynth, {
@@ -102,7 +103,7 @@ export function createTrackSynth(type: SynthType): Tone.PolySynth {
       });
       break;
   }
-  synth.maxPolyphony = PRESET_BY_ID[type].polyphony ??
+  synth.maxPolyphony = definition.polyphony ??
     (patch.engine === "duo" ? 8 : patch.engine === "membrane" ? 12 : 16);
   return synth;
 }
@@ -171,7 +172,7 @@ function createModulation(profile: Modulation): Tone.ToneAudioNode {
  * -> shared family room/echo (or dry) -> master peak limiter.
  * A track gain remains outside preset modulation so mute/solo works live. */
 function connectPreset(synth: Tone.PolySynth, type: SynthType, gain?: Tone.Gain): void {
-  const preset = PRESET_BY_ID[type];
+  const preset: PresetDefinition = PRESET_BY_ID[type];
   const processors: Tone.ToneAudioNode[] = [];
   let source: Tone.ToneAudioNode = synth;
   try {
