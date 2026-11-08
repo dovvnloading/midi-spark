@@ -1,5 +1,6 @@
 import type { NoteEvent, ProgressionData } from "./theory";
 import { trackIndexOf } from "./tracks";
+import { sequenceEndQuarters } from "./timeline";
 
 /** Scope controls which user notes guide the generator, never what it may edit. */
 export type MelodySourceScope = "track" | "selected" | "loop";
@@ -26,6 +27,9 @@ export function resolveMelodyScope(
   }
   const entireTrack = data.notes.filter(note => trackIndexOf(note) === trackIndex);
   if (!entireTrack.length) return { ok: false, reason: "Draw or import notes on the source track first." };
+  if (entireTrack.length > 4096) {
+    return { ok: false, reason: "Choose a source melody with 4,096 notes or fewer." };
+  }
   const scope = opts.sourceScope ?? "track";
   if (!["track", "selected", "loop"].includes(scope)) {
     return { ok: false, reason: "Choose a valid source phrase scope." };
@@ -53,7 +57,7 @@ export function resolveMelodyScope(
     const range = opts.sourceLoopRange;
     if (!range || !Number.isFinite(range.start) || !Number.isFinite(range.end) ||
       range.start < 0 || range.end <= range.start ||
-      range.end > Math.max(4, data.totalBars * 4) + 1 / 64) {
+      range.end > Math.max(4, sequenceEndQuarters(data)) + 1 / 64) {
       return { ok: false, reason: "Set a valid loop range on the timeline (Shift-drag the ruler) first." };
     }
     phraseStart = range.start;
