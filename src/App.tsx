@@ -81,6 +81,7 @@ export default function App() {
   const [melodySourceTrackIndex, setMelodySourceTrackIndex] = useState<number | null>(savedSession?.melodySourceTrackIndex ?? null);
   const [melodyPhraseScope, setMelodyPhraseScope] = useState<MelodySourceScope>(savedSession?.melodyPhraseScope ?? "track");
   const [harmonicFit, setHarmonicFit] = useState(savedSession?.harmonicFit ?? 82);
+  const [harmonyExploration, setHarmonyExploration] = useState(savedSession?.harmonyExploration ?? 62);
   const [accompanimentDensity, setAccompanimentDensity] = useState<AccompanimentDensity>(savedSession?.accompanimentDensity ?? "balanced");
   const [harmonicPacing, setHarmonicPacing] = useState<HarmonicPacing>(savedSession?.harmonicPacing ?? "adaptive");
   const [melodyKeyStrategy, setMelodyKeyStrategy] = useState<MelodyKeyStrategy>(savedSession?.melodyKeyStrategy ?? "manual");
@@ -256,6 +257,7 @@ export default function App() {
         melodySourceTrackIndex,
         melodyPhraseScope,
         harmonicFit,
+        harmonyExploration,
         accompanimentDensity,
         harmonicPacing,
         melodyKeyStrategy,
@@ -286,6 +288,7 @@ export default function App() {
     melodySourceTrackIndex,
     melodyPhraseScope,
     harmonicFit,
+    harmonyExploration,
     accompanimentDensity,
     harmonicPacing,
     melodyKeyStrategy,
@@ -579,7 +582,7 @@ export default function App() {
       const result = generateFromMelody(progression, {
         ...selectionScope,
         sourceTrackIndex: effectiveMelodySourceTrackIndex,
-        root, mode, tension: dissonance, harmonicFit,
+        root, mode, tension: dissonance, harmonicFit, harmonyExploration,
         density: accompanimentDensity, keyStrategy: melodyKeyStrategy, harmonicPacing,
       });
       if (!result.ok) {
@@ -611,6 +614,8 @@ export default function App() {
       setMobileInspectorOpen(false);
       notify("Generated melody-aware Bass + Harmony in " + result.root + " " + result.mode +
         (melodyKeyStrategy === "detect" && result.keyWasAmbiguous ? " (key uncertain; using Compose key)." : ".") +
+        (result.alternativesConsidered !== undefined
+          ? " Explored " + result.alternativesConsidered + " credible chord paths." : "") +
         " Original melody preserved.", "success");
       return;
     }
@@ -635,7 +640,7 @@ export default function App() {
   }, [root, mode, bars, dissonance, complexity, generationMode, synthType, commit, notify, handleStop,
     progression, effectiveMelodySourceTrackIndex, melodySourceMode, harmonicFit, accompanimentDensity, melodyKeyStrategy,
     melodyTask, motifCreativity, continuationBars, trackMix, harmonicPacing,
-    melodyPhraseScope, selectedNoteIndices, loopRegion]);
+    harmonyExploration, melodyPhraseScope, selectedNoteIndices, loopRegion]);
 
   const handleGenerateVariations = useCallback(() => {
     if (melodySourceMode === "follow") {
@@ -1014,6 +1019,7 @@ export default function App() {
             selectedMelodyNoteCount={selectedMelodyNoteCount} hasExplicitLoop={loopRegion !== null}
             onMelodySourceTrackChange={setMelodySourceTrackIndex}
             harmonicFit={harmonicFit} onHarmonicFitChange={setHarmonicFit}
+            harmonyExploration={harmonyExploration} onHarmonyExplorationChange={setHarmonyExploration}
             accompanimentDensity={accompanimentDensity} onAccompanimentDensityChange={setAccompanimentDensity}
             harmonicPacing={harmonicPacing} onHarmonicPacingChange={setHarmonicPacing}
             melodyKeyStrategy={melodyKeyStrategy} onMelodyKeyStrategyChange={setMelodyKeyStrategy}

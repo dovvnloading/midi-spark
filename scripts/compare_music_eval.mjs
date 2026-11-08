@@ -8,7 +8,7 @@ if (!beforePath || !afterPath) {
 
 function readReport(path) {
   const report = JSON.parse(readFileSync(path, "utf8"));
-  if (report.benchmark !== "midi-spark-symbolic-quality-v3" ||
+  if (report.benchmark !== "midi-spark-symbolic-quality-v4" ||
     !Array.isArray(report.results) || typeof report.seedsPerFixture !== "number") {
     throw new Error("Unsupported or malformed evaluation report: " + path);
   }
@@ -33,6 +33,12 @@ const descriptors = [
   ["greedyCoverage", "Greedy triad coverage", "pct"],
   ["barCoverage", "Bar harmony coverage", "pct"],
   ["adaptiveCoverage", "Adaptive harmony coverage", "pct"],
+  ["exploredCoverage", "K-best harmony coverage", "pct"],
+  ["exploredNearLeadCollision", "K-best near-lead collision", "pct"],
+  ["exploredTailSpill", "K-best chord-window violations", "pct"],
+  ["exploredChordPathUniqueRate", "K-best chord-path diversity", "pct"],
+  ["exploredBackingStructuralDiversity", "K-best backing structural diversity", "pct"],
+  ["exploredMeanCandidates", "K-best candidate paths", "scalar"],
   ["adaptiveChangesPerBar", "Adaptive changes/bar", "scalar"],
   ["harmonyCollision", "Near-lead masking", "pct"],
   ["tailSpill", "Chord-boundary violations", "pct"],

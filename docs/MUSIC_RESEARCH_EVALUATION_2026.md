@@ -134,6 +134,42 @@ The *v3* benchmark version adds per-seed chord-path records, structural and chor
 
 **Next testable hypothesis:** introduce an explicit near-best **k-best/diversity-aware chord-path sampler**, with a minimum meaningful structural difference between alternatives, while keeping hard preservation invariants and bounded harmonic dissonance. Compare before/after using paired v3 records, check for coverage/collision/chord-change regressions, and then run a rights-cleared blinded listening test. Do not optimize exclusively for diversity: random chord changes could improve novelty while making the harmony worse.
 
+### Follow-up intervention — diverse k-best search, 8 November 2026
+
+We reran the original v3 fixture corpus on a dedicated v4 paired benchmark,
+comparing the **existing Viterbi search (exploration=0)** against **bounded
+k-best global path sampling (exploration=62/100)** with identical source
+melodies, chord candidates, chord-fit parameters, harmonic pacing and twelve
+fixed seeds per fixture. The algorithms consume random draws differently,
+so this is a controlled input/parameter pairing, not an identical stochastic
+trajectory. **[CI run 42489557412](https://github.com/dovvnloading/midi-spark/actions/runs/42489557412)**
+is the first successful paired report.
+
+| Measured metric | Existing Viterbi | New constrained k-best |
+|---|---:|---:|
+| Unique chord paths across twelve seeds | **20.0%** | **55.0%** |
+| Unique accompaniment structures, ignoring velocities | **22.5%** | **61.7%** |
+| Literal chord-tone coverage | **97.3%** | **97.5%** |
+| Near-lead register overlap | **1.2%** | **1.3%** |
+| Notes crossing chord windows | **0.0%** | **0.0%** |
+| Credible chord paths considered / phrase | legacy single path | **11.1** |
+
+The intervention substantially improves the **measured structural variety**
+without sacrificing average *literal chord-tone membership* on this small
+synthetic corpus. It is **not** proof that listeners prefer the novel paths:
+some additional options could still be stylistically less coherent.
+Conversely, a simple repeated four-note motif stayed at **8.3% unique chord
+paths** in both conditions, a useful negative case: the constraints can leave
+very little room for safe alternatives. High chord-tone coverage alone can
+also overfavor frequent changes, so future research should check harmonic
+phrase coherence and human ratings.
+
+The v4 benchmark introduces a fifth real engine call per seed (600 calls
+total) and separate per-seed records of both legacy and k-best paths.
+Incompatible benchmark schema versions must be re-run before direct
+report comparison. The goal of this experiment is a **credible choice set**,
+not maximization of randomness.
+
 ### Baseline fairness and what has *not* been run
 
 The benchmark's tonic and greedy systems are transparent **simple controls**. They lack the same chord vocabulary and full arrangement generation as MIDI Spark. Consequently, it is not a controlled algorithm-ablation study and cannot prove the sequence optimizer beats a same-vocabulary local optimizer. A future study should compare against a same-candidate greedy scorer and a sequence search with cadence/transition costs ablated.
@@ -150,7 +186,7 @@ Run **npm run eval:music** after npm ci. The command executes the real generator
 - scripts/run_music_eval.mjs — no-dependency Node report writer
 - .github/workflows/ci.yml — execution and artifact retention
 
-The benchmark currently reports `midi-spark-symbolic-quality-v3` with 120 per-seed records. Future changes to the metric or fixture definitions must increment this benchmark identifier and document that their values are **not directly comparable** with the older version. Use `npm run eval:compare -- old.json new.json` only for compatible v3 reports; the tool checks paired fixture/seed identities and workloads before showing deltas.
+The paired benchmark currently reports `midi-spark-symbolic-quality-v4` with 120 per-seed records and 600 actual generator calls. Future changes to the metric or fixture definitions must increment this benchmark identifier and document that their values are **not directly comparable** with the older version. Use `npm run eval:compare -- old.json new.json` only for compatible v4 reports; the tool checks paired fixture/seed identities and workloads before showing deltas.
 
 ## 4. Listening-study protocol (not yet conducted)
 

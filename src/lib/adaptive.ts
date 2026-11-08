@@ -22,11 +22,15 @@ export interface MelodyGenerationOptions extends MelodyScopeOptions {
   keyStrategy: MelodyKeyStrategy;
   /** Optional for backwards compatibility with existing callers. */
   harmonicPacing?: HarmonicPacing;
+  /** 0 uses the original deterministic Viterbi search; higher values explore
+   * diverse near-best global paths within a bounded chord-fit loss. */
+  harmonyExploration?: number;
 }
 
 export type MelodyGenerationResult =
   | { ok: true; progression: ProgressionData; root: string; mode: "major" | "minor";
-      keyWasAmbiguous: boolean; usedDetectedKey: boolean; generatedTrackIndices: number[] }
+      keyWasAmbiguous: boolean; usedDetectedKey: boolean; generatedTrackIndices: number[];
+      alternativesConsidered?: number; chordFitRetained?: number; changedChordRegions?: number }
   | { ok: false; reason: string };
 
 interface ChordCandidate {
@@ -273,6 +277,175 @@ function chooseHarmony(
   return result.reverse();
 }
 
+interface HarmonyPathNode {
+  index: number;
+  score: number;
+  previous: HarmonyPathNode | null;
+}
+interface HarmonyPathChoice {
+  indices: number[];
+  score: number;
+  coverage: number;
+}
+
+/** A note-weighted chord-tone fraction for a proposed path. It uses exactly
+ * the same segmented source evidence as the optimizer, including overlapping
+ * sustained notes. This is a compatibility guard, not a music quality score. */
+function pathCoverage(
+  indices: readonly number[], candidates: readonly ChordCandidate[],
+  regions: readonly HarmonicRegion[],
+): number {
+  let total = 0, matching = 0;
+  for (let i = 0; i < indices.length; i++) {
+    const chord = candidates[indices[i]];
+    for (const note of regions[i].notes) {
+      total += note.weight;
+      if (chord.pitchClasses.includes(pc(note.midi))) matching += note.weight;
+    }
+  }
+  return total > 0 ? matching / total : 0;
+}
+
+/** Difference between two chord paths, normalized to [0, 1].
+ * Changing the harmonic root is more significant than switching triad/7th. */
+function pathDistance(
+  a: readonly number[], b: readonly number[], candidates: readonly ChordCandidate[],
+): number {
+  if (a.length !== b.length || a.length === 0) return 1;
+  let difference = 0;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] === b[i]) continue;
+    difference += candidates[a[i]].rootPc === candidates[b[i]].rootPc ? 0.55 : 1;
+  }
+  return difference / a.length;
+}
+
+/** A bounded k-best global search followed by diversity-aware candidate
+ * selection. The best path is always present; exploration never admits a
+ * path whose literal melody/chord compatibility is too far from that best.
+ * This is a predictable symbolic alternative to unconstrained randomness. */
+function chooseDiverseHarmony(
+  candidates: readonly ChordCandidate[], regions: readonly HarmonicRegion[],
+  fit: number, tension: number, random: RandomSource,
+  exploration: number, previousChords: readonly { name: string; timeStart: number; duration?: number }[],
+  leftContext: ChordCandidate | null = null, rightContext: ChordCandidate | null = null,
+): { harmony: ChordCandidate[]; alternativesConsidered: number;
+     chordFitRetained: number; changedChordRegions: number } {
+  const beamWidth = 12;
+  const selectionCount = 14;
+  const explore = clamp(exploration, 0, 100) / 100;
+  let previous: HarmonyPathNode[][] = [];
+  for (let segment = 0; segment < regions.length; segment++) {
+    const region = regions[segment];
+    const row: HarmonyPathNode[][] = [];
+    for (let j = 0; j < candidates.length; j++) {
+      const chord = candidates[j];
+      const evidence = chordFit(chord, region.notes, fit, tension) * (region.duration === 2 ? 0.82 : 1);
+      const cadence = segment !== regions.length - 1 ? 0 :
+        rightContext ? 0.70 * transition(chord, rightContext, true) :
+        chord.degree === 0 ? 0.24 : 0;
+      if (segment === 0) {
+        const opening = leftContext ? 0.70 * transition(leftContext, chord, true) :
+          chord.degree === 0 ? 0.28 : 0;
+        row.push([{ index: j, score: evidence + cadence + opening, previous: null }]);
+        continue;
+      }
+      const options: HarmonyPathNode[] = [];
+      for (let k = 0; k < candidates.length; k++) {
+        const changingOnHalfBar = region.timeStart % 4 === 2 && k !== j;
+        const transitionScore = transition(candidates[k], chord, region.notes.length > 0) -
+          (changingOnHalfBar ? 0.28 : 0);
+        for (const earlier of previous[k]) {
+          options.push({
+            index: j, score: earlier.score + evidence + cadence + transitionScore,
+            previous: earlier,
+          });
+        }
+      }
+      options.sort((a, b) => b.score - a.score);
+      row.push(options.slice(0, beamWidth));
+    }
+    previous = row;
+  }
+
+  const nodes = previous.flat().sort((a, b) => b.score - a.score);
+  const choices: HarmonyPathChoice[] = [];
+  const unique = new Set<string>();
+  const trace = (node: HarmonyPathNode): number[] => {
+    const indices: number[] = [];
+    let current: HarmonyPathNode | null = node;
+    while (current !== null) { indices.push(current.index); current = current.previous; }
+    return indices.reverse();
+  };
+  // The search retains enough per-chord paths that varying an interior chord
+  // does not require changing the final cadence.
+  for (const node of nodes) {
+    const indices = trace(node), key = indices.join(":");
+    if (unique.has(key)) continue;
+    unique.add(key);
+    choices.push({indices, score: node.score, coverage: pathCoverage(indices, candidates, regions)});
+  }
+  const best = choices[0];
+  const scoreBudget = regions.length * (0.08 + 0.30 * explore);
+  const coverageBudget = 0.012 + 0.045 * explore;
+  const credible = choices.filter(choice =>
+    best.score - choice.score <= scoreBudget + 1e-8 &&
+    choice.coverage >= best.coverage - coverageBudget - 1e-8);
+  const diversified: HarmonyPathChoice[] = [best];
+  const remaining = credible.filter(choice => choice !== best);
+  // Farthest-first prevents a near-identical set of trivial inversions from
+  // hiding musically distinct near-optimal harmonic options.
+  while (diversified.length < selectionCount && remaining.length > 0) {
+    let candidateIndex = -1, candidateValue = -Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const choice = remaining[i];
+      const minimumDistance = Math.min(...diversified.map(p =>
+        pathDistance(choice.indices, p.indices, candidates)));
+      const scoreGap = (best.score - choice.score) / Math.max(scoreBudget, 0.01);
+      const value = 2 * minimumDistance - 0.22 * scoreGap;
+      if (minimumDistance > 0.015 && value > candidateValue) {
+        candidateIndex = i; candidateValue = value;
+      }
+    }
+    if (candidateIndex < 0) break;
+    diversified.push(remaining.splice(candidateIndex, 1)[0]);
+  }
+
+  const priorLabels = regions.map(region => previousChords.find(chord =>
+    region.timeStart >= chord.timeStart - 1e-8 &&
+    region.timeStart < chord.timeStart + (chord.duration ?? 4) - 1e-8)?.name);
+  const previousIsMeaningful = priorLabels.some(Boolean);
+  const changesFromPrevious = (choice: HarmonyPathChoice) =>
+    choice.indices.reduce((sum, index, i) =>
+      sum + (priorLabels[i] && priorLabels[i] !== candidates[index].name ? 1 : 0), 0);
+  const candidatesToPick = previousIsMeaningful &&
+    diversified.some(choice => changesFromPrevious(choice) > 0)
+    ? diversified.filter(choice => changesFromPrevious(choice) > 0) : diversified;
+
+  const temperature = 0.22 + 0.55 * explore;
+  const weights = candidatesToPick.map(choice => {
+    const quality = Math.exp((choice.score - best.score) / temperature);
+    const novelty = previousIsMeaningful
+      ? 0.5 + 1.8 * changesFromPrevious(choice) / regions.length
+      : 1;
+    return quality * novelty;
+  });
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  let draw = random() * total, selected = candidatesToPick[0];
+  for (let i = 0; i < candidatesToPick.length; i++) {
+    draw -= weights[i];
+    if (draw <= 0 || i === candidatesToPick.length - 1) {
+      selected = candidatesToPick[i]; break;
+    }
+  }
+  return {
+    harmony: selected.indices.map(index => candidates[index]),
+    alternativesConsidered: diversified.length,
+    chordFitRetained: selected.coverage,
+    changedChordRegions: changesFromPrevious(selected),
+  };
+}
+
 /** A split proposed from local evidence may still resolve to one sustained
  * harmony after the global progression is optimized. Avoid needless chord
  * restrikes when both halves end up using exactly the same chord. */
@@ -502,6 +675,10 @@ export function generateFromMelody(
   if (!["bar", "adaptive", "half-bar"].includes(pacing)) {
     return {ok: false, reason: "Choose a valid harmonic pacing."};
   }
+  const exploration = options.harmonyExploration ?? 0;
+  if (!Number.isFinite(exploration) || exploration < 0 || exploration > 100) {
+    return {ok: false, reason: "Harmony exploration must be between 0 and 100."};
+  }
   if (!["sparse", "balanced", "active"].includes(options.density)) {
     return {ok: false, reason: "Choose a valid accompaniment density."};
   }
@@ -532,7 +709,33 @@ export function generateFromMelody(
     (start >= target.start && start < target.end);
   const previousChords = input.chords.filter(chord =>
     chord.generatedSourceTrackIndex === trackIndex && insideTarget(chord.timeStart));
-  const selectedHarmony = chooseHarmony(candidates, regions, options.harmonicFit, options.tension, random, previousChords);
+  // A selected/looped middle phrase must connect to existing backing before
+  // and after the selected region. Don't treat its first bar as a new tonic
+  // or its final bar as the end of the complete song.
+  const ownedOutside = input.chords.filter(chord =>
+    chord.generatedSourceTrackIndex === trackIndex && !insideTarget(chord.timeStart));
+  const beforeRegion = ownedOutside.filter(chord =>
+    chord.timeStart + chord.duration <= regions[0].timeStart + 1e-8)
+    .sort((a, b) => b.timeStart + b.duration - a.timeStart - a.duration)[0];
+  const afterRegion = ownedOutside.filter(chord =>
+    chord.timeStart >= regions[regions.length - 1].timeStart +
+      regions[regions.length - 1].duration - 1e-8)
+    .sort((a, b) => a.timeStart - b.timeStart)[0];
+  const matchContext = (name?: string): ChordCandidate | null => {
+    if (!name) return null;
+    const exact = candidates.find(candidate => candidate.name === name);
+    if (exact) return exact;
+    const tonal = Chord.get(name);
+    const chroma = tonal.tonic ? Note.chroma(tonal.tonic) : null;
+    return chroma === null ? null :
+      candidates.find(candidate => candidate.rootPc === chroma) ?? null;
+  };
+  const explored = exploration > 0
+    ? chooseDiverseHarmony(candidates, regions, options.harmonicFit, options.tension, random,
+      exploration, previousChords, matchContext(beforeRegion?.name), matchContext(afterRegion?.name))
+    : null;
+  const selectedHarmony = explored?.harmony ??
+    chooseHarmony(candidates, regions, options.harmonicFit, options.tension, random, previousChords);
   const refined = mergeRedundantHalfBars(regions, selectedHarmony, pacing);
 
   let working = input;
@@ -571,5 +774,10 @@ export function generateFromMelody(
     },
     root, mode, keyWasAmbiguous: analysis.ambiguous, usedDetectedKey: detected,
     generatedTrackIndices: selectedTracks,
+    ...(explored ? {
+      alternativesConsidered: explored.alternativesConsidered,
+      chordFitRetained: explored.chordFitRetained,
+      changedChordRegions: explored.changedChordRegions,
+    } : {}),
   };
 }

@@ -18,6 +18,13 @@ interface CaseResult {
   barCoverage: number;
   adaptiveCoverage: number;
   adaptiveChangesPerBar: number;
+  exploredCoverage: number;
+  exploredChangesPerBar: number;
+  exploredNearLeadCollision: number;
+  exploredTailSpill: number;
+  exploredBackingStructuralDiversity: number;
+  exploredChordPathUniqueRate: number;
+  exploredMeanCandidates: number;
   harmonyCollision: number;
   tailSpill: number;
   backingPitchEntropy: number;
@@ -39,6 +46,12 @@ interface SeedSample {
   barCoverage: number;
   adaptiveCoverage: number;
   adaptiveChangesPerBar: number;
+  exploredCoverage: number;
+  exploredChangesPerBar: number;
+  exploredNearLeadCollision: number;
+  exploredTailSpill: number;
+  exploredAlternativesConsidered: number;
+  exploredChordPath: Array<{name:string;timeStart:number;duration:number}>;
   nearLeadCollision: number;
   chordTailSpill: number;
   generatedBackingNotes: number;
@@ -86,6 +99,13 @@ function runEvaluation(): QualityReport {
     const barCoverage: number[] = [];
     const adaptiveCoverage: number[] = [];
     const adaptiveChangesPerBar: number[] = [];
+    const exploredCoverages: number[] = [];
+    const exploredChanges: number[] = [];
+    const exploredCollisions: number[] = [];
+    const exploredSpills: number[] = [];
+    const exploredCandidates: number[] = [];
+    const exploredTakes: Array<typeof melody> = [];
+    const exploredChordTakes: ChordPath[] = [];
     const collisions: number[] = [];
     const spills: number[] = [];
     const entropies: number[] = [];
@@ -139,6 +159,31 @@ function runEvaluation(): QualityReport {
       backingTakes.push(generated);
       chordTakes.push(adapted.progression.chords);
 
+      // Paired counterfactual: same source, same seed and chord vocabulary,
+      // with only the new quality-bounded harmonic search enabled.
+      const exploreStart = performance.now();
+      const explored = generateFromMelody(source, {
+        ...baseOptions, harmonicPacing: "adaptive", harmonyExploration: 62,
+      }, seededRandom(seed));
+      timings.push(performance.now() - exploreStart);
+      runs++;
+      expect(explored.ok, fixture.id + ": k-best harmony").toBe(true);
+      if (!explored.ok) continue;
+      expect(fullIdentityPreserved(source, explored.progression)).toBe(true);
+      const newBacking = explored.progression.notes.filter(note => note.trackIndex !== 0);
+      const newHarmony = newBacking.filter(note =>
+        note.trackIndex === explored.generatedTrackIndices[1]);
+      const newSpill = chordTailSpill(newBacking, explored.progression.chords);
+      expect(newSpill, fixture.id + ": explored chord boundary").toBe(0);
+      const covered = chordToneCoverage(melody, explored.progression.chords);
+      exploredCoverages.push(covered);
+      exploredChanges.push(chordChangeRate(explored.progression.chords, fixture.bars));
+      exploredCollisions.push(nearLeadCollision(melody, newHarmony));
+      exploredSpills.push(newSpill);
+      exploredCandidates.push(explored.alternativesConsidered ?? 0);
+      exploredTakes.push(newBacking);
+      exploredChordTakes.push(explored.progression.chords);
+
       for (const [operation, takes] of [
         ["continue", continueTakes],
         ["variation", reimagineTakes],
@@ -180,6 +225,13 @@ function runEvaluation(): QualityReport {
         barCoverage: barCoverage.at(-1) ?? 0,
         adaptiveCoverage: adaptiveCoverage.at(-1) ?? 0,
         adaptiveChangesPerBar: adaptiveChangesPerBar.at(-1) ?? 0,
+        exploredCoverage: exploredCoverages.at(-1) ?? 0,
+        exploredChangesPerBar: exploredChanges.at(-1) ?? 0,
+        exploredNearLeadCollision: exploredCollisions.at(-1) ?? 0,
+        exploredTailSpill: exploredSpills.at(-1) ?? 0,
+        exploredAlternativesConsidered: exploredCandidates.at(-1) ?? 0,
+        exploredChordPath: exploredChordTakes.at(-1)?.map(chord =>
+          ({ name: chord.name, timeStart: chord.timeStart, duration: chord.duration })) ?? [],
         nearLeadCollision: collisions.at(-1) ?? 0,
         chordTailSpill: spills.at(-1) ?? 0,
         generatedBackingNotes: generated.length,
@@ -196,6 +248,13 @@ function runEvaluation(): QualityReport {
       id: fixture.id, tonicCoverage, greedyCoverage,
       barCoverage: mean(barCoverage), adaptiveCoverage: mean(adaptiveCoverage),
       adaptiveChangesPerBar: mean(adaptiveChangesPerBar),
+      exploredCoverage: mean(exploredCoverages),
+      exploredChangesPerBar: mean(exploredChanges),
+      exploredNearLeadCollision: mean(exploredCollisions),
+      exploredTailSpill: mean(exploredSpills),
+      exploredBackingStructuralDiversity: structuralTakeDiversity(exploredTakes),
+      exploredChordPathUniqueRate: chordPathDiversity(exploredChordTakes),
+      exploredMeanCandidates: mean(exploredCandidates),
       harmonyCollision: mean(collisions), tailSpill: mean(spills),
       backingPitchEntropy: mean(entropies),
       backingScaleToneRate: mean(scaleRates),
@@ -213,7 +272,10 @@ function runEvaluation(): QualityReport {
 
   const fields: Array<keyof Omit<CaseResult, "id" | "seedCount">> = [
     "tonicCoverage", "greedyCoverage", "barCoverage",
-    "adaptiveCoverage", "adaptiveChangesPerBar", "harmonyCollision",
+    "adaptiveCoverage", "adaptiveChangesPerBar",
+    "exploredCoverage", "exploredChangesPerBar", "exploredNearLeadCollision",
+    "exploredTailSpill", "exploredBackingStructuralDiversity",
+    "exploredChordPathUniqueRate", "exploredMeanCandidates", "harmonyCollision",
     "tailSpill", "backingPitchEntropy", "backingScaleToneRate",
     "backingUniqueRenderRate", "backingStructuralDiversity", "chordPathUniqueRate",
     "continuationUniqueRenderRate", "continuationStructuralDiversity",
@@ -224,8 +286,8 @@ function runEvaluation(): QualityReport {
   ) as QualityReport["aggregate"];
   const sortedTimings = [...timings].sort((a, b) => a - b);
   return {
-    benchmark: "midi-spark-symbolic-quality-v3",
-    methodology: "10 original synthetic phrases x 12 fixed seeds x 4 actual engine calls; basic tonic/greedy triad diagnostics",
+    benchmark: "midi-spark-symbolic-quality-v4",
+    methodology: "10 original synthetic phrases x 12 paired seeds x 5 real engine calls; legacy adaptive vs k-best (62% exploration), and two simple triad controls",
     fixtures: results.length,
     seedsPerFixture: SEEDS.length,
     runs, results, samples, aggregate,
@@ -241,6 +303,8 @@ function runEvaluation(): QualityReport {
       "Entropy and output diversity are descriptive, not monotonic indicators of musical quality.",
       "Exact event diversity can be inflated by velocity/timing jitter; structural diversity quantizes to sixteenth-note grids and ignores velocity.",
       "Chord-path diversity describes harmonic novelty, not correctness or intentional expressive repetition.",
+      "The explored vs original adaptive comparison uses identical melody, parameters, chord vocabulary and random seeds, but the algorithms consume random draws differently.",
+      "Coverage and diversity metrics are correlated with the search objective; listener coherence and phrase quality remain unmeasured.",
       "Node runtime varies by hardware and CI load; timing is not a browser audio-latency benchmark.",
       "No subjective listener preferences measured. External-model comparisons require identical paired inputs.",
     ],
@@ -256,7 +320,7 @@ function markdownReport(report: QualityReport): string {
     "",
     "- Scenario corpus: " + report.fixtures + " original, synthetic four-bar MIDI melodies; no copyrighted works.",
     "- Fixed seeds: " + report.seedsPerFixture + " per fixture.",
-    "- Engine calls: " + report.runs + " (bar harmonization, adaptive harmonization, Continue, Reimagine).",
+    "- Engine calls: " + report.runs + " (bar, legacy adaptive, k-best adaptive, Continue, Reimagine).",
     "- Machine JSON includes " + report.samples.length + " scenario/seed records with chord paths.",
     "- Chord baselines: tonic-only and local greedy diatonic triads. **No external pretrained model was executed.**",
     "",
@@ -267,7 +331,11 @@ function markdownReport(report: QualityReport): string {
     "| Tonic-only chord-tone coverage | " + pcnt(a.tonicCoverage) + " | Negative-control reference |",
     "| Greedy triad chord-tone coverage | " + pcnt(a.greedyCoverage) + " | Independent bar fit, no sequence awareness |",
     "| MIDI Spark: one chord/bar coverage | " + pcnt(a.barCoverage) + " | Globally optimized progression |",
-    "| MIDI Spark: adaptive coverage | " + pcnt(a.adaptiveCoverage) + " | Harmonic pacing may split bars |",
+    "| MIDI Spark: legacy adaptive coverage | " + pcnt(a.adaptiveCoverage) + " | Existing Viterbi baseline |",
+    "| MIDI Spark: diverse k-best adaptive coverage | " + pcnt(a.exploredCoverage) + " | Same phrases, chord vocabulary and seeds |",
+    "| Diverse-search mean candidate paths | " + fixed(a.exploredMeanCandidates) + " | Credible alternatives per phrase |",
+    "| Diverse-search near-lead collision | " + pcnt(a.exploredNearLeadCollision) + " | Register masking diagnostic |",
+    "| Diverse-search chord-window spill | " + pcnt(a.exploredTailSpill) + " | Must remain zero |",
     "| Adaptive chord changes per bar | " + fixed(a.adaptiveChangesPerBar) + " | Descriptive harmonic activity |",
     "| Near-lead register collision | " + pcnt(a.harmonyCollision) + " | Close overlapping pitches / backing duration |",
     "| Accompaniment crossing chord boundary | " + pcnt(a.tailSpill) + " | Correctness diagnostic: should be 0 |",
@@ -275,7 +343,9 @@ function markdownReport(report: QualityReport): string {
     "| Backing pitch-class entropy | " + fixed(a.backingPitchEntropy) + " bits | Diversity of notes, not aesthetic quality |",
     "| Unique accompaniment takes (exact events) | " + pcnt(a.backingUniqueRenderRate) + " | Includes small timing/velocity changes |",
     "| Unique accompaniment structures | " + pcnt(a.backingStructuralDiversity) + " | Sixteenth-grid notes, no velocity |",
-    "| Unique chord paths | " + pcnt(a.chordPathUniqueRate) + " | Changes in chord identity or chord onset/duration |",
+    "| Unique chord paths (legacy) | " + pcnt(a.chordPathUniqueRate) + " | Existing adaptive search |",
+    "| Unique chord paths (k-best) | " + pcnt(a.exploredChordPathUniqueRate) + " | Distinct chord identity/timing |",
+    "| Unique backing structures (k-best) | " + pcnt(a.exploredBackingStructuralDiversity) + " | Velocity-independent arrangements |",
     "| Unique Continue takes (exact events) | " + pcnt(a.continuationUniqueRenderRate) + " | Reproducible seeded continuations |",
     "| Unique Continue structures | " + pcnt(a.continuationStructuralDiversity) + " | Velocity-excluded melodic variation |",
     "| Unique Reimagine takes (exact events) | " + pcnt(a.variationUniqueRenderRate) + " | Reproducible seeded variations |",
@@ -284,11 +354,12 @@ function markdownReport(report: QualityReport): string {
     "",
     "## Fixture-by-fixture chord-tone coverage",
     "",
-    "| Original scenario | Tonic | Greedy | MIDI Spark: bar | MIDI Spark: adaptive | Adaptive changes/bar |",
-    "|---|---:|---:|---:|---:|---:|",
+    "| Original scenario | Tonic | Greedy | MIDI Spark: bar | Legacy adaptive | K-best adaptive | Legacy diversity | K-best diversity |",
+    "|---|---:|---:|---:|---:|---:|---:|---:|",
     ...report.results.map(x => [
       "| " + x.id, pcnt(x.tonicCoverage), pcnt(x.greedyCoverage),
-      pcnt(x.barCoverage), pcnt(x.adaptiveCoverage), fixed(x.adaptiveChangesPerBar) + " |",
+      pcnt(x.barCoverage), pcnt(x.adaptiveCoverage), pcnt(x.exploredCoverage),
+      pcnt(x.chordPathUniqueRate), pcnt(x.exploredChordPathUniqueRate) + " |",
     ].join(" | ")),
     "",
     "## Runtime (Node/Vitest, all operations combined)",
@@ -310,14 +381,21 @@ function markdownReport(report: QualityReport): string {
 }
 
 describe("reproducible symbolic-music diagnostic benchmark", () => {
-  it("measures four real generation paths without compromising source MIDI", () => {
+  it("compares legacy and k-best harmonies on paired seeds, preserving exact source MIDI", () => {
     const report = runEvaluation();
     expect(report.fixtures).toBe(10);
-    expect(report.runs).toBe(report.fixtures * report.seedsPerFixture * 4);
+    expect(report.runs).toBe(report.fixtures * report.seedsPerFixture * 5);
     expect(report.samples).toHaveLength(report.fixtures * report.seedsPerFixture);
     expect(new Set(report.samples.map(s => s.fixtureId + ":" + s.seed)).size)
       .toBe(report.samples.length);
     expect(report.aggregate.tailSpill).toBe(0);
+    expect(report.aggregate.exploredTailSpill).toBe(0);
+    // The quality guard is checked against the identical legacy benchmark,
+    // never against an unrelated trained system or invented listener score.
+    expect(report.aggregate.exploredCoverage).toBeGreaterThanOrEqual(
+      report.aggregate.adaptiveCoverage - 0.045);
+    expect(report.aggregate.exploredChordPathUniqueRate).toBeGreaterThanOrEqual(
+      report.aggregate.chordPathUniqueRate);
     expect(report.aggregate.adaptiveCoverage).toBeGreaterThan(0);
     expect(report.aggregate.backingStructuralDiversity).toBeLessThanOrEqual(
       report.aggregate.backingUniqueRenderRate + 1e-10);
