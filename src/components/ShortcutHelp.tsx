@@ -11,7 +11,7 @@ const GROUPS = [
     ["Drag note edge", "Resize a note"], ["Drag velocity bar", "Adjust note velocity"],
   ] },
   { title: "Timeline & loop", items: [
-    ["Shift + drag ruler", "Set a loop range with a keyboard"],
+    ["Shift + drag ruler", "Set a loop range with a pointer + keyboard"],
     ["Drag loop handles", "Adjust loop start or end (also on touch)"],
     ["Arrow keys on loop handle", "Fine-adjust an active loop edge"],
     ["Double-click ruler", "Reset to the full loop"],
