@@ -214,4 +214,26 @@ describe("melody-aware harmonic pacing", () => {
     expect(generateFromMelody({...source, totalBars: Number.NaN}, prefs).ok).toBe(false);
   });
 
+  it("responds to source dynamics rather than overpowering quiet melodic phrases", () => {
+    const makePhrase = (velocity: number): ProgressionData => ({
+      notes: [60, 64, 67, 72].map((midi, i) => ({
+        ...event(midi, i, 0.75), velocity,
+      })),
+      chords: [], totalBars: 1,
+    });
+    const quiet = generateFromMelody(makePhrase(0.2),
+      {...prefs, harmonicPacing:"bar", density:"sparse"}, seededRandom(7));
+    const strong = generateFromMelody(makePhrase(0.95),
+      {...prefs, harmonicPacing:"bar", density:"sparse"}, seededRandom(7));
+    expect(quiet.ok).toBe(true);
+    expect(strong.ok).toBe(true);
+    if (!quiet.ok || !strong.ok) return;
+    const bassVelocity = (result: typeof quiet) => result.ok
+      ? result.progression.notes.find(note => note.trackIndex === result.generatedTrackIndices[0])?.velocity
+      : undefined;
+    expect(bassVelocity(quiet)).toBeLessThan(bassVelocity(strong)!);
+    expect(quiet.progression.notes.slice(0, 4)).toEqual(makePhrase(0.2).notes);
+    expect(strong.progression.notes.slice(0, 4)).toEqual(makePhrase(0.95).notes);
+  });
+
 });
