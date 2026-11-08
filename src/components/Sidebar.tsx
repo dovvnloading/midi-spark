@@ -128,7 +128,7 @@ export function Sidebar(p: SidebarProps) {
             </div>
             {p.melodyTask === "continue" && <>
               <div className="field-heading"><h4>Additional bars</h4></div>
-              <div className="generation-mode melody-density" role="group" aria-label="Continuation length">
+              <div className="generation-mode melody-bar-count" role="group" aria-label="Continuation length">
                 {([1, 2, 4, 8] as const).map(count =>
                   <button key={count} type="button" aria-pressed={p.continuationBars === count}
                     onClick={() => p.onContinuationBarsChange(count)}>{count}</button>)}
