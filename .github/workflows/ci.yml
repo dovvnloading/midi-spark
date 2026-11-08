@@ -30,5 +30,21 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Reproducible symbolic music evaluation
+        env:
+          MIDI_SPARK_EVAL_OUTPUT: music-evaluation
+        run: npm run eval:music
+
       - name: Build
         run: npm run build
+
+      - name: Publish diagnostic benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: symbolic-music-evaluation
+          path: |
+            music-evaluation.md
+            music-evaluation.json
+          retention-days: 30
+          if-no-files-found: warn
