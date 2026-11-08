@@ -24,6 +24,7 @@ const GROUPS = [
     ["Delete", "Remove selection"],
     ["Escape", "Clear selection or dismiss an open panel"],
   ] },
+];
 
 export function ShortcutHelp({ open, onClose }: { open: boolean; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
