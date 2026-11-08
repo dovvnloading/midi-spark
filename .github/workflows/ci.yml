@@ -35,6 +35,9 @@ jobs:
           MIDI_SPARK_EVAL_OUTPUT: music-evaluation
         run: npm run eval:music
 
+      - name: Verify paired evaluation comparison CLI
+        run: npm run eval:compare -- music-evaluation.json music-evaluation.json > /dev/null
+
       - name: Build
         run: npm run build
 
