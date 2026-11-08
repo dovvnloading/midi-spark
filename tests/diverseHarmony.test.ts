@@ -133,6 +133,24 @@ describe("quality-bounded diverse global chord search", () => {
     expect(structuralTakeDiversity(variants)).toBeGreaterThan(0.1);
   });
 
+  it("handles a full 64-bar phrase with bounded k-best search and valid MIDI", () => {
+    const fixture = EVALUATION_FIXTURES[0];
+    const notes = Array.from({length: 64 * 4}, (_, i) => ({
+      midi: [60, 64, 67, 69, 72, 67, 64, 62][i % 8],
+      name: ["C4", "E4", "G4", "A4", "C5", "G4", "E4", "D4"][i % 8],
+      timeStart: i, duration: 0.8, velocity: 0.75, trackIndex: 0,
+    }));
+    const data = {...makeFixtureProgression(fixture), notes, totalBars: 64};
+    const result = succeed(data, {...basic, harmonyExploration: 70}, 900);
+    expect(result.progression.totalBars).toBe(64);
+    expect(result.progression.notes.filter(n => trackIndexOf(n) === 0)).toEqual(data.notes);
+    expect(result.alternativesConsidered).toBeGreaterThanOrEqual(1);
+    const backing = result.progression.notes.filter(n => trackIndexOf(n) !== 0);
+    expect(backing.length).toBeGreaterThan(64);
+    expect(chordTailSpill(backing, result.progression.chords)).toBe(0);
+    expect(backing.every(n => n.midi >= 0 && n.midi <= 127 && n.duration > 0)).toBe(true);
+  });
+
   it("rejects invalid exploration inputs instead of silently producing unstable search", () => {
     const data = makeFixtureProgression(EVALUATION_FIXTURES[0]);
     for (const value of [Number.NaN, Infinity, -1, 101]) {
