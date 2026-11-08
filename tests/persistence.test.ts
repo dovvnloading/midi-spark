@@ -205,6 +205,43 @@ describe("saveSession / loadSession", () => {
     }
   });
 
+  it("persists motif preferences and continuation/variation ownership within v1 sessions", () => {
+    const updated: SavedSession = {
+      ...sampleSession,
+      melodyTask: "continue",
+      motifCreativity: 84,
+      continuationBars: 8,
+      progression: {
+        ...sampleProgression,
+        tracks: [
+          {index: 0, name: "Lead", channel: 0},
+          {index: 3, name: "Melody Continuation", channel: 1,
+            generatedRole: "continuation", sourceTrackIndex: 0},
+          {index: 4, name: "Melody Variation", channel: 2,
+            generatedRole: "variation", sourceTrackIndex: 0},
+        ],
+      },
+    };
+    saveSession(updated);
+    expect(loadSession()).toEqual(updated);
+    saveSession(sampleSession);
+    expect(loadSession()).toEqual(sampleSession);
+  });
+
+  it("rejects malformed motif preferences and unsupported source role", () => {
+    for (const update of [
+      {melodyTask: "compose"},
+      {motifCreativity: -0.1},
+      {motifCreativity: 101},
+      {continuationBars: 3},
+      {progression: {...sampleProgression,
+        tracks: [{index: 3, name: "Unsupported", generatedRole: "oracle", sourceTrackIndex: 0}]}},
+    ]) {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({...sampleSession, ...update}));
+      expect(loadSession()).toBeNull();
+    }
+  });
+
   it("round-trips a null progression (no sequence generated yet)", () => {
     const session: SavedSession = { ...sampleSession, progression: null };
     saveSession(session);

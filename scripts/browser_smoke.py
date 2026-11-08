@@ -429,6 +429,79 @@ with sync_playwright() as p:
   'Keys','Bass','Empty pad','Generated Bass','Generated Harmony']
  record('Melody-aware layers export and re-import as standard multi-track MIDI')
  adaptive.close()
+ # Melody continuation and variation are separate, user-protecting operations.
+ motif_page=b.new_page(viewport={'width':1280,'height':800})
+ motif_page.on('pageerror',lambda error:errors.append(str(error)))
+ motif_page.goto(args.url)
+ import_fixture(motif_page)
+ motif_source=snap(motif_page)['progression']
+ motif_page.get_by_role('tab',name='Compose',exact=True).click()
+ motif_page.get_by_role('button',name='Follow melody',exact=True).click()
+ motif_page.get_by_role('combobox',name='Source melody track',exact=True).select_option('0')
+ motif_page.get_by_role('button',name='Continue',exact=True).click()
+ motif_page.get_by_role('slider',name='Melodic creative distance',exact=True).fill('64')
+ motif_page.get_by_role('button',name='2',exact=True).click()
+ motif_page.get_by_role('button',name='Continue melody',exact=False).click()
+ motif_page.wait_for_timeout(650)
+ continued=snap(motif_page)
+ source_count=len(motif_source['notes'])
+ assert continued['progression']['notes'][:source_count]==motif_source['notes']
+ tail_tracks=[t for t in continued['progression']['tracks'] if t.get('generatedRole')=='continuation']
+ assert len(tail_tracks)==1 and tail_tracks[0]['sourceTrackIndex']==0
+ tail_index=tail_tracks[0]['index']
+ assert continued['progression']['totalBars']>=3
+ tail_notes=[n for n in continued['progression']['notes'] if n['trackIndex']==tail_index]
+ assert len(tail_notes)>0 and all(n['timeStart']>=4 for n in tail_notes)
+ record('Continue melody extends a drawn/imported phrase on a separate owned track')
+ motif_page.get_by_role('button',name='Try another continuation',exact=False).click()
+ motif_page.wait_for_timeout(650)
+ continued_again=snap(motif_page)
+ assert [t for t in continued_again['progression']['tracks'] if t.get('generatedRole')=='continuation']==tail_tracks
+ assert continued_again['progression']['notes'][:source_count]==motif_source['notes']
+ record('Alternative continuation reuses the same track and never duplicates source notes')
+ motif_page.get_by_role('button',name='Harmonize',exact=True).click()
+ motif_page.get_by_role('button',name='Harmonize melody',exact=False).click()
+ motif_page.wait_for_timeout(650)
+ arranged=snap(motif_page)
+ assert len([c for c in arranged['progression']['chords'] if c.get('generatedSourceTrackIndex')==0])==arranged['progression']['totalBars']
+ assert arranged['progression']['notes'][:source_count]==motif_source['notes']
+ assert [n for n in arranged['progression']['notes'] if n.get('trackIndex')==tail_index]==[n for n in continued_again['progression']['notes'] if n.get('trackIndex')==tail_index]
+ record('Adaptive harmony follows a linked continuation without rewriting either melody')
+ motif_page.get_by_role('button',name='Reimagine',exact=True).click()
+ motif_page.get_by_role('button',name='Reimagine melody',exact=False).click()
+ motif_page.wait_for_timeout(650)
+ variation=snap(motif_page)
+ var_tracks=[t for t in variation['progression']['tracks'] if t.get('generatedRole')=='variation']
+ assert len(var_tracks)==1 and var_tracks[0]['sourceTrackIndex']==0
+ var_index=var_tracks[0]['index']
+ assert variation['trackMix'][str(var_index)]['solo'] is True
+ assert len([n for n in variation['progression']['notes'] if n['trackIndex']==var_index])>0
+ assert variation['progression']['notes'][:source_count]==motif_source['notes']
+ record('Reimagine creates a solo-auditioned alternative and preserves the original')
+ motif_page.get_by_role('button',name='Undo',exact=True).click()
+ assert snap(motif_page)['progression']==arranged['progression']
+ motif_page.get_by_role('button',name='Redo',exact=True).click()
+ assert snap(motif_page)['progression']==variation['progression']
+ motif_page.wait_for_timeout(650)
+ motif_page.reload();motif_page.wait_for_timeout(650)
+ restored_motif=snap(motif_page)
+ assert restored_motif['progression']==variation['progression']
+ assert restored_motif['melodyTask']=='reimagine'
+ assert restored_motif['motifCreativity']==64
+ assert restored_motif['continuationBars']==2
+ record('Motif creation, undo/redo and creative controls survive browser reload')
+ with motif_page.expect_download() as motif_download:
+  motif_page.get_by_role('button',name='Export MIDI',exact=True).click()
+ motif_file=OUTPUT/'motif.mid'
+ motif_download.value.save_as(str(motif_file))
+ assert motif_file.read_bytes().startswith(b'MThd')
+ motif_page.locator('input[type=file]').first.set_input_files(str(motif_file))
+ motif_page.wait_for_timeout(650)
+ motif_roundtrip=snap(motif_page)['progression']
+ assert len(motif_roundtrip['notes'])==len(variation['progression']['notes'])
+ assert len(motif_roundtrip['tracks'])==len(variation['progression']['tracks'])
+ record('Continued and reimagined notes round-trip through standard multi-track MIDI')
+ motif_page.close()
  assert not errors,errors
  record('No browser page errors during the complete suite')
  (OUTPUT/'geometry.json').write_text(json.dumps(metrics,indent=2))

@@ -4,6 +4,7 @@ import type { LoopRange } from "./timeline";
 import type { SynthType } from "./audio";
 import { PRESET_IDS } from "./presets";
 import type { AccompanimentDensity, MelodyKeyStrategy } from "./adaptive";
+import type { ContinuationBars } from "./motif";
 
 /** Versioned so an incompatible future shape change can invalidate old saves
  *  cleanly (loadSession just won't find this key) instead of crashing on a
@@ -26,6 +27,9 @@ export interface SavedSession {
   harmonicFit?: number;
   accompanimentDensity?: AccompanimentDensity;
   melodyKeyStrategy?: MelodyKeyStrategy;
+  melodyTask?: "harmonize" | "continue" | "reimagine";
+  motifCreativity?: number;
+  continuationBars?: ContinuationBars;
   synthType: SynthType;
   snapResolution: number;
   noteLength: number;
@@ -76,7 +80,7 @@ function isTrackMetadata(v: unknown): v is TrackMetadata {
     typeof t.name === "string" &&
     (t.program === undefined || (Number.isInteger(t.program) && (t.program as number) >= 0 && (t.program as number) <= 127)) &&
     (t.channel === undefined || (Number.isInteger(t.channel) && (t.channel as number) >= 0 && (t.channel as number) <= 15)) &&
-    (t.generatedRole === undefined || t.generatedRole === "bass" || t.generatedRole === "harmony") &&
+    (t.generatedRole === undefined || (typeof t.generatedRole === "string" && ["bass", "harmony", "continuation", "variation"].includes(t.generatedRole))) &&
     (t.sourceTrackIndex === undefined || (Number.isInteger(t.sourceTrackIndex) && (t.sourceTrackIndex as number) >= 0)) &&
     (t.generatedRole === undefined || t.sourceTrackIndex !== undefined)
   );
@@ -137,6 +141,9 @@ function isValidSession(v: unknown): v is SavedSession {
     (s.harmonicFit === undefined || (isFiniteNumber(s.harmonicFit) && s.harmonicFit >= 0 && s.harmonicFit <= 100)) &&
     (s.accompanimentDensity === undefined || ["sparse", "balanced", "active"].includes(String(s.accompanimentDensity))) &&
     (s.melodyKeyStrategy === undefined || s.melodyKeyStrategy === "manual" || s.melodyKeyStrategy === "detect") &&
+    (s.melodyTask === undefined || s.melodyTask === "harmonize" || s.melodyTask === "continue" || s.melodyTask === "reimagine") &&
+    (s.motifCreativity === undefined || (isFiniteNumber(s.motifCreativity) && s.motifCreativity >= 0 && s.motifCreativity <= 100)) &&
+    (s.continuationBars === undefined || s.continuationBars === 1 || s.continuationBars === 2 || s.continuationBars === 4 || s.continuationBars === 8) &&
     typeof s.synthType === "string" &&
     SYNTH_TYPES.has(s.synthType) &&
     isFiniteNumber(s.snapResolution) &&

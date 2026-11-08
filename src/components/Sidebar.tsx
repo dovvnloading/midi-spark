@@ -5,6 +5,7 @@ import { CustomSlider } from "./CustomSlider";
 import { ROOT_NOTES } from "../lib/constants";
 import type { SynthType } from "../lib/audio";
 import type { AccompanimentDensity, MelodyKeyStrategy } from "../lib/adaptive";
+import type { ContinuationBars } from "../lib/motif";
 
 export interface SidebarProps {
   root: string; mode: "major" | "minor"; dissonance: number; complexity: number; bars: number; canVary: boolean;
@@ -17,6 +18,12 @@ export interface SidebarProps {
   harmonicFit: number;
   accompanimentDensity: AccompanimentDensity;
   melodyKeyStrategy: MelodyKeyStrategy;
+  melodyTask: "harmonize" | "continue" | "reimagine";
+  motifCreativity: number;
+  continuationBars: ContinuationBars;
+  onMelodyTaskChange: (task: "harmonize" | "continue" | "reimagine") => void;
+  onMotifCreativityChange: (value: number) => void;
+  onContinuationBarsChange: (value: ContinuationBars) => void;
   onMelodySourceModeChange: (mode: "scratch" | "follow") => void;
   onMelodySourceTrackChange: (index: number) => void;
   onHarmonicFitChange: (value: number) => void;
@@ -86,6 +93,16 @@ export function Sidebar(p: SidebarProps) {
             </label> : <p className="generation-hint" role="status">
               Draw notes in the piano roll, or import a MIDI file, to choose a melody.
             </p>}
+            <div className="field-heading"><h4>Creative operation</h4></div>
+            <div className="generation-mode melody-task" role="group" aria-label="Melody operation">
+              <button type="button" aria-pressed={p.melodyTask === "harmonize"}
+                onClick={() => p.onMelodyTaskChange("harmonize")}>Harmonize</button>
+              <button type="button" aria-pressed={p.melodyTask === "continue"}
+                onClick={() => p.onMelodyTaskChange("continue")}>Continue</button>
+              <button type="button" aria-pressed={p.melodyTask === "reimagine"}
+                onClick={() => p.onMelodyTaskChange("reimagine")}>Reimagine</button>
+            </div>
+            {p.melodyTask === "harmonize" ? <>
             <div className="expression-control">
               <div className="field-heading"><h4>Harmonic fit</h4>
                 <output>{p.harmonicFit}<span>%</span></output></div>
@@ -101,6 +118,28 @@ export function Sidebar(p: SidebarProps) {
                   {value === "sparse" ? "Sparse" : value === "balanced" ? "Balanced" : "Active"}
                 </button>)}
             </div>
+            </> : <>
+            <div className="expression-control">
+              <div className="field-heading"><h4>Creative distance</h4>
+                <output>{p.motifCreativity}<span>%</span></output></div>
+              <CustomSlider value={p.motifCreativity} min={0} max={100}
+                onChange={p.onMotifCreativityChange} label="Melodic creative distance" />
+              <div className="range-captions"><span>Recognizable</span><span>Adventurous</span></div>
+            </div>
+            {p.melodyTask === "continue" && <>
+              <div className="field-heading"><h4>Additional bars</h4></div>
+              <div className="generation-mode melody-bar-count" role="group" aria-label="Continuation length">
+                {([1, 2, 4, 8] as const).map(count =>
+                  <button key={count} type="button" aria-pressed={p.continuationBars === count}
+                    onClick={() => p.onContinuationBarsChange(count)}>{count}</button>)}
+              </div>
+              <p className="generation-hint">MIDI Spark learns a recent melodic motif and continues
+                the phrase after its last note, leaving the original exactly as drawn.</p>
+            </>}
+            {p.melodyTask === "reimagine" && <p className="generation-hint">
+              Create an alternate lead on a separate track. Its first and final notes
+              remain recognizable, and it is soloed for easy A/B listening.</p>}
+            </>}
             <div className="field-heading melody-key-heading"><h4>Key strategy</h4></div>
             <div className="generation-mode" role="group" aria-label="Melody key strategy">
               <button type="button" aria-pressed={p.melodyKeyStrategy === "manual"}
@@ -108,8 +147,9 @@ export function Sidebar(p: SidebarProps) {
               <button type="button" aria-pressed={p.melodyKeyStrategy === "detect"}
                 onClick={() => p.onMelodyKeyStrategyChange("detect")}>Detect melody</button>
             </div>
-            <p className="generation-hint">The melody is always preserved. Generated Bass and Harmony
-              tracks are replaceable; duplicate one in Tracks to keep its edits. Uncertain keys fall back to Compose.</p>
+            <p className="generation-hint">Source notes are never rewritten. Each generated part
+              remains editable; duplicate it before regenerating to preserve your edits.
+              Uncertain keys use your Compose selection.</p>
           </div>}
         </section>
 
@@ -142,7 +182,7 @@ export function Sidebar(p: SidebarProps) {
             : <SoundPicker label="Preview sound" value={p.synthType} onChange={p.onSynthChange} onPreviewError={p.onPreviewError} />}
         </section>
 
-        <section className="field-section compose-section expression-section">
+        {(p.melodySourceMode === "scratch" || p.melodyTask === "harmonize") && <section className="field-section compose-section expression-section">
           <div className="section-heading">
             <span className="section-heading-icon"><SlidersHorizontal size={15} /></span>
             <h3>Expression</h3>
@@ -172,7 +212,7 @@ export function Sidebar(p: SidebarProps) {
             ))}
           </div>
           </>}
-        </section>
+        </section>}
 
         {p.melodySourceMode === "scratch" && <section className="field-section compose-section arrangement-section">
           <div className="section-heading">
@@ -204,16 +244,22 @@ export function Sidebar(p: SidebarProps) {
           disabled={p.melodySourceMode === "follow" && p.melodyTracks.length === 0}
           onClick={p.onGenerate} aria-keyshortcuts="Control+g Meta+g">
           <Sparkles size={17} strokeWidth={1.9} />
-          <span>{p.melodySourceMode === "follow" ? "Harmonize melody" : "Generate pattern"}</span>
+          <span>{p.melodySourceMode !== "follow" ? "Generate pattern"
+            : p.melodyTask === "harmonize" ? "Harmonize melody"
+              : p.melodyTask === "continue" ? "Continue melody" : "Reimagine melody"}</span>
           <kbd>{shortcut}</kbd>
         </button>
         <button type="button" className="text-button variation-button" disabled={!p.canVary} onClick={p.onAddVariation}
-          title={p.canVary ? "Create a fresh variation from the current pattern" : "Generate a pattern to unlock variations"}>
-          <Shuffle size={15} /><span>{p.melodySourceMode === "follow" ? "Try another harmonization" : "Create a variation"}</span><ArrowUpRight size={14} />
+          title={p.canVary
+            ? p.melodySourceMode === "follow" ? "Regenerate only the selected operation's output" : "Create a rhythmic variation"
+            : "Draw or generate notes to unlock variations"}>
+          <Shuffle size={15} /><span>{p.melodySourceMode !== "follow" ? "Create a variation"
+            : p.melodyTask === "harmonize" ? "Try another harmonization"
+              : p.melodyTask === "continue" ? "Try another continuation" : "Try another reimagination"}</span><ArrowUpRight size={14} />
         </button>
         <p className="compose-action-note"><Info size={12} />
           {p.melodySourceMode === "follow"
-            ? "Only generated accompaniment is replaced. Your melody stays untouched."
+            ? "Only the selected generated part is replaced. Your source melody stays untouched."
             : "Generation replaces the pattern. Undo restores it."}</p>
       </div>
     </div>

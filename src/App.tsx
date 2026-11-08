@@ -22,6 +22,7 @@ import {
 } from "./lib/audio";
 import { exportToMidiBlob, parseMidiFile } from "./lib/midi";
 import { generateFromMelody, isAdaptiveTrack, type AccompanimentDensity, type MelodyKeyStrategy } from "./lib/adaptive";
+import { generateMotif, type ContinuationBars } from "./lib/motif";
 import { MAX_BPM, MIN_BPM, clamp } from "./lib/constants";
 import { normalizeLoopRange, sequenceEndQuarters, type LoopRange } from "./lib/timeline";
 import {
@@ -79,6 +80,9 @@ export default function App() {
   const [harmonicFit, setHarmonicFit] = useState(savedSession?.harmonicFit ?? 82);
   const [accompanimentDensity, setAccompanimentDensity] = useState<AccompanimentDensity>(savedSession?.accompanimentDensity ?? "balanced");
   const [melodyKeyStrategy, setMelodyKeyStrategy] = useState<MelodyKeyStrategy>(savedSession?.melodyKeyStrategy ?? "manual");
+  const [melodyTask, setMelodyTask] = useState<"harmonize" | "continue" | "reimagine">(savedSession?.melodyTask ?? "harmonize");
+  const [motifCreativity, setMotifCreativity] = useState(savedSession?.motifCreativity ?? 46);
+  const [continuationBars, setContinuationBars] = useState<ContinuationBars>(savedSession?.continuationBars ?? 4);
 
   // Transport / sound
   const [bpm, setBpm] = useState(savedSession?.bpm ?? 120);
@@ -246,6 +250,9 @@ export default function App() {
         harmonicFit,
         accompanimentDensity,
         melodyKeyStrategy,
+        melodyTask,
+        motifCreativity,
+        continuationBars,
         synthType,
         snapResolution,
         noteLength,
@@ -271,6 +278,9 @@ export default function App() {
     harmonicFit,
     accompanimentDensity,
     melodyKeyStrategy,
+    melodyTask,
+    motifCreativity,
+    continuationBars,
     synthType,
     snapResolution,
     noteLength,
@@ -499,6 +509,47 @@ export default function App() {
         notify("Draw or import a melody, then choose its track.", "error");
         return;
       }
+      if (melodyTask === "continue" || melodyTask === "reimagine") {
+        const result = generateMotif(progression, {
+          sourceTrackIndex: effectiveMelodySourceTrackIndex,
+          operation: melodyTask === "continue" ? "continue" : "variation",
+          root, mode, keyStrategy: melodyKeyStrategy,
+          creativity: motifCreativity, continuationBars,
+        });
+        if (!result.ok) {
+          notify(result.reason, "error");
+          return;
+        }
+        handleStop();
+        commit(result.progression);
+        setSelectedNoteIndices(new Set());
+        // A new variation is auditioned in solo mode so the unchanged original
+        // isn't played simultaneously. Its solo state remains user-adjustable.
+        const sourcePreset = trackMix[effectiveMelodySourceTrackIndex]?.synthType ?? synthType;
+        setTrackOverrides(previous => {
+          if (previous[result.generatedTrackIndex]) return previous;
+          return {...previous, [result.generatedTrackIndex]: {
+            ...defaultTrackSettings(result.generatedTrackIndex, sourcePreset),
+            synthType: sourcePreset,
+            solo: melodyTask === "reimagine",
+          }};
+        });
+        if (result.detectedKey) {
+          setRoot(result.root);
+          setMode(result.mode);
+        }
+        setFocusedTrack(null);
+        setLoopRegion(null);
+        setCurrentTick(0);
+        setFitRequest(k => k + 1);
+        setMobileInspectorOpen(false);
+        notify((melodyTask === "continue" ? "Continued" : "Reimagined") +
+          " the source melody on its own editable track (" + result.generatedNoteCount +
+          " notes)." + (melodyTask === "reimagine"
+            ? " The variation is soloed for comparison; adjust in Tracks."
+            : " Source notes remain unchanged."), "success");
+        return;
+      }
       const result = generateFromMelody(progression, {
         sourceTrackIndex: effectiveMelodySourceTrackIndex,
         root, mode, tension: dissonance, harmonicFit,
@@ -555,7 +606,8 @@ export default function App() {
     setMobileInspectorOpen(false);
     notify("Generated a " + seq.totalBars + "-bar pattern in " + root + " " + mode + (layered ? " with separate Bass and Harmony tracks." : "."), "success");
   }, [root, mode, bars, dissonance, complexity, generationMode, synthType, commit, notify, handleStop,
-    progression, effectiveMelodySourceTrackIndex, melodySourceMode, harmonicFit, accompanimentDensity, melodyKeyStrategy]);
+    progression, effectiveMelodySourceTrackIndex, melodySourceMode, harmonicFit, accompanimentDensity, melodyKeyStrategy,
+    melodyTask, motifCreativity, continuationBars, trackMix]);
 
   const handleGenerateVariations = useCallback(() => {
     if (melodySourceMode === "follow") {
@@ -934,6 +986,9 @@ export default function App() {
             harmonicFit={harmonicFit} onHarmonicFitChange={setHarmonicFit}
             accompanimentDensity={accompanimentDensity} onAccompanimentDensityChange={setAccompanimentDensity}
             melodyKeyStrategy={melodyKeyStrategy} onMelodyKeyStrategyChange={setMelodyKeyStrategy}
+            melodyTask={melodyTask} onMelodyTaskChange={setMelodyTask}
+            motifCreativity={motifCreativity} onMotifCreativityChange={setMotifCreativity}
+            continuationBars={continuationBars} onContinuationBarsChange={setContinuationBars}
             synthType={displayedSynth} multiTrack={tracks.length > 1} onSynthChange={handleSynthChange} onOpenTracks={openTracks}
             onRootChange={setRoot} onModeChange={setMode} onDissonanceChange={setDissonance} onComplexityChange={setComplexity} onBarsChange={setBars}
             onGenerate={handleGenerate} onAddVariation={handleGenerateVariations} onPreviewError={message => notify(message, "error")} />}

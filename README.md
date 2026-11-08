@@ -87,7 +87,26 @@ around a phrase instead of generating an unrelated progression:
    **Duplicate a generated track in Tracks** before regenerating if you want
    to preserve your own edits to that part.
 
-The harmonizer runs entirely in-browser, deterministically with a supplied
+The **Follow melody → Creative operation** selector now has three actions:
+**Harmonize**, **Continue**, and **Reimagine**.
+
+- **Continue** uses recent note onset groups and interval contour as a rhythmic
+  motif, generates a 1/2/4/8-bar answer after the source phrase, and writes it to
+  a replaceable **Melody Continuation** track. The **Creative distance** control
+  permits more or less diatonic substitution and contour inversion. The original
+  notes and other user tracks are never modified.
+- **Reimagine** creates a recognizable alternative on a separate **Melody
+  Variation** track, preserving the phrase's recognizable opening and ending
+  while adding bounded pitch and rhythmic changes. The new alternative is
+  automatically soloed for A/B playback; use Tracks to adjust solo/mute.
+- **Harmonize** can also use the linked continuation as a harmonic guide, so
+  bass and chords follow the new passage as well as the original phrase.
+
+Generate again to replace only the corresponding generated track. Duplicate a
+generated track before regenerating if you want to keep edits. These operations
+are undoable and persist locally with their ownership metadata.
+
+The generator runs entirely in-browser, deterministically with a supplied
 random seed (and spontaneously in normal use). No model, account, upload,
 server, or sampled audio is required. Existing **From scratch** generation is
 unchanged.
