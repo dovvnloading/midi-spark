@@ -114,11 +114,11 @@ interface BoxState {
 
 const BLACK_KEY_CLASSES = [1, 3, 6, 8, 10];
 const TOOL_HINTS: Record<ToolMode, string> = {
-  draw: "Click to draw · drag for length",
-  select: "Drag to lasso · Shift to add",
-  stamp: "Click to place a chord or scale",
-  cut: "Drag across notes to split",
-  pan: "Drag to move the canvas · F to fit pattern",
+  draw: "Draw · Tap grid to add; drag for length",
+  select: "Select · Tap a note; drag to move or lasso",
+  stamp: "Stamp · Tap grid to place chord/scale",
+  cut: "Slice · Drag across notes to split",
+  pan: "Hand · Drag canvas to navigate",
 };
 
 export function PianoRoll({
@@ -1246,7 +1246,7 @@ export function PianoRoll({
             </div>
           )}
         </div>
-        <footer className="editor-footnote"><span>{TOOL_HINTS[toolMode]}</span><span>{selectedIndices.size > 0 ? <strong>{selectedIndices.size} selected</strong> : progression ? progression.notes.length + " notes" : "No notes yet"} · {statusLabel}</span></footer>
+        <footer className="editor-footnote"><span className="editor-active-tool" role="status" aria-live="polite">{TOOL_HINTS[toolMode]}</span><span>{selectedIndices.size > 0 ? <strong>{selectedIndices.size} selected</strong> : progression ? progression.notes.length + " notes" : "No notes yet"} · {statusLabel}</span></footer>
     </section>
   );
 }
