@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { Note } from "@tonaljs/tonal";
+import { Chord, Note } from "@tonaljs/tonal";
+import { ROOT_NOTES } from "../src/lib/constants";
 import { generateFromMelody, isAdaptiveTrack, type MelodyGenerationOptions } from "../src/lib/adaptive";
 import { seededRandom } from "../src/lib/random";
 import type { NoteEvent, ProgressionData } from "../src/lib/theory";
@@ -83,6 +84,22 @@ describe("adaptive melody harmonization", () => {
     expect(arrangements.size).toBeGreaterThan(1);
     for (const result of generated) {
       expect(result.progression.notes.filter(n => n.trackIndex === 0)).toEqual(source.notes);
+    }
+  });
+
+  it("emits valid harmonies for every Compose key and both modes", () => {
+    const seed = melody();
+    for (const root of ROOT_NOTES) {
+      for (const mode of ["major", "minor"] as const) {
+        for (const tension of [0, 40, 85]) {
+          const result = succeed(seed, {...options, root, mode, tension}, 2026);
+          expect(result.progression.chords).toHaveLength(2);
+          for (const chord of result.progression.chords) {
+            expect(Chord.get(chord.name).empty).toBe(false);
+          }
+          expect(result.progression.notes.filter(n => n.trackIndex === 0)).toEqual(seed.notes);
+        }
+      }
     }
   });
 
