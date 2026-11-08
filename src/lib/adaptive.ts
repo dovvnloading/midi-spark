@@ -44,7 +44,8 @@ const clamp = (value: number, low: number, high: number) => Math.max(low, Math.m
 const toName = (midi: number) => Note.fromMidi(midi) ?? "C4";
 
 export function isAdaptiveTrack(track: TrackMetadata): boolean {
-  return (track.generatedRole === "bass" || track.generatedRole === "harmony") &&
+  return (track.generatedRole === "bass" || track.generatedRole === "harmony" ||
+    track.generatedRole === "continuation" || track.generatedRole === "variation") &&
     Number.isInteger(track.sourceTrackIndex) && (track.sourceTrackIndex ?? -1) >= 0;
 }
 
