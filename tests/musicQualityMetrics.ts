@@ -116,6 +116,26 @@ export function uniqueRenderRate(outputs: readonly NoteEvent[][]): number {
     outputs.length;
 }
 
+/** Seed variation must change actual harmonic/rhythmic content, not merely
+ * change tiny expressive velocities. Onsets/durations quantized to 16ths. */
+export function structuralTakeDiversity(outputs: readonly NoteEvent[][]): number {
+  if (!outputs.length) return 0;
+  const snap = (value: number) => Math.round(value * 4) / 4;
+  const fingerprints = outputs.map(notes => notes.map(note =>
+    [trackIndexOf(note), note.midi, snap(note.timeStart), snap(note.duration)])
+    .sort((a, b) => a[0] - b[0] || a[2] - b[2] || a[1] - b[1] || a[3] - b[3])
+    .map(values => values.join(":")).join(";"));
+  return new Set(fingerprints).size / outputs.length;
+}
+
+/** Chord-path variety completely ignores note velocities/voicings. */
+export function chordPathDiversity(outputs: readonly ChordPath[]): number {
+  if (!outputs.length) return 0;
+  const fingerprints = outputs.map(path => path
+    .map(chord => [chord.name, chord.timeStart, chord.duration].join(":")).join(";"));
+  return new Set(fingerprints).size / outputs.length;
+}
+
 export function meanIntervalMagnitude(notes: readonly NoteEvent[]): number {
   if (notes.length < 2) return 0;
   const ordered = [...notes].sort((a, b) => a.timeStart - b.timeStart || b.midi - a.midi);
