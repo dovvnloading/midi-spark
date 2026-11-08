@@ -522,6 +522,8 @@ with sync_playwright() as p:
  assert restored_adaptive['harmonicFit']==90
  assert restored_adaptive['harmonyExploration']==85
  record('Adaptive harmony is undoable and persistent across browser reload')
+ # Native details is intentionally closed after a page reload; reopen to tune.
+ adaptive.locator('.melody-advanced > summary').click()
  # The old deterministic Viterbi path remains available at exploration=0.
  adaptive.get_by_role('slider',name='Harmony exploration',exact=True).fill('0')
  adaptive.get_by_role('button',name='Harmonize melody',exact=False).click()
