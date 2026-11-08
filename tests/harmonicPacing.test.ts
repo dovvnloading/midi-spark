@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Note } from "@tonaljs/tonal";
+import { Chord, Note } from "@tonaljs/tonal";
 import { generateFromMelody, type HarmonicPacing, type MelodyGenerationOptions } from "../src/lib/adaptive";
 import { seededRandom } from "../src/lib/random";
 import type { ProgressionData, NoteEvent } from "../src/lib/theory";
@@ -49,6 +49,10 @@ describe("melody-aware harmonic pacing", () => {
     const result = generate(phrase, "adaptive");
     expect(result.progression.chords.map(chord => [chord.timeStart, chord.duration]))
       .toEqual([[0, 2], [2, 2]]);
+    const firstClasses = Chord.get(result.progression.chords[0].name).notes.map(Note.chroma);
+    const secondClasses = Chord.get(result.progression.chords[1].name).notes.map(Note.chroma);
+    expect([0, 4, 7].every(chroma => firstClasses.includes(chroma))).toBe(true);
+    expect([2, 5, 9].every(chroma => secondClasses.includes(chroma))).toBe(true);
     expect(result.progression.notes.slice(0, phrase.notes.length)).toEqual(phrase.notes);
     expect(phrase.chords).toEqual([]);
   });
