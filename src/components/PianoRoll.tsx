@@ -11,7 +11,7 @@ import { Sparkles, Pencil } from "lucide-react";
 import { ensureBarsCoverNotes } from "../lib/transforms";
 import { ProgressionData, NoteEvent, getScaleChromas } from "../lib/theory";
 import { initAudio, playNote } from "../lib/audio";
-import { trackIndexOf } from "../lib/tracks";
+import { trackIndexOf, listTracks } from "../lib/tracks";
 import { normalizeLoopRange, sequenceEndQuarters, type LoopRange } from "../lib/timeline";
 import {
   CHORD_STAMPS,
@@ -150,6 +150,7 @@ export function PianoRoll({
   onScrub,
   onScrubStateChange,
   onLivePreview,
+  onAudioPreviewError,
 }: PianoRollProps) {
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dragDrawState, setDragDrawState] = useState<DragDrawState | null>(null);
@@ -160,6 +161,11 @@ export function PianoRoll({
   const [loopPreview, setLoopPreview] = useState<LoopRange | null>(null);
   const [containerWidth, setContainerWidth] = useState(1200);
   const [rowHeight, setRowHeight] = useState(NOTE_HEIGHT);
+  // The "All tracks" view does not mean new notes belong to an invisible
+  // track zero. Choose the first real track when none is explicitly focused.
+  const drawTrackIndex = useMemo(() => focusedTrack ??
+    (progression ? listTracks(progression)[0]?.index : undefined) ?? 0,
+  [focusedTrack, progression]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const emptyImportRef = useRef<HTMLInputElement>(null);
@@ -382,7 +388,6 @@ export function PianoRoll({
     snapTick,
     zoomX,
     onLivePreview,
-    onAudioPreviewError,
   ]);
 
   // ----- Interaction handlers -----
@@ -498,18 +503,18 @@ export function PianoRoll({
             timeStart: tick,
             duration: isScale ? FREE_SNAP : noteLength, // scales place tiny guides
             velocity: isScale ? 0.1 : 0.8, // low velocity so guides render faint
-            trackIndex: focusedTrack ?? 0,
+            trackIndex: drawTrackIndex,
           };
         });
       commit((prev) => prev ? ensureBarsCoverNotes({ ...prev, notes: [...prev.notes, ...newNotes] }) : prev);
-      if (!isScale) void initAudio().then(() => newNotes.forEach(n => playNote(n.name, 0.5, n.velocity, focusedTrack ?? 0)))
+      if (!isScale) void initAudio().then(() => newNotes.forEach(n => playNote(n.name, 0.5, n.velocity, drawTrackIndex)))
         .catch(() => onAudioPreviewError?.("Audio preview could not start. Notes are still editable; use Play to retry after enabling audio."));
       return;
     }
 
     // Default: draw a single note.
     const name = Note.fromMidi(midi) || "C4";
-    void initAudio().then(() => playNote(name, 0.25, 0.8, focusedTrack ?? 0))
+    void initAudio().then(() => playNote(name, 0.25, 0.8, drawTrackIndex))
       .catch(() => onAudioPreviewError?.("Audio preview could not start. Notes are still editable; use Play to retry after enabling audio."));
     setDragDrawState({
       startTick: tick,
@@ -517,7 +522,7 @@ export function PianoRoll({
       startX: e.clientX,
       currentX: e.clientX,
       startDuration: noteLength,
-      trackIndex: focusedTrack ?? 0,
+      trackIndex: drawTrackIndex,
     });
   };
 
