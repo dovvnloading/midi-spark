@@ -93,7 +93,14 @@ of piling up directly on the lead.
 
 Sparse, balanced and active accompaniment options control note density.
 If the source melody has many onsets in a bar, the generator automatically
-reduces density to leave room for the lead. No operations change source notes.
+reduces density to leave room for the lead. Onsets are grouped so polyphonic
+attacks do not skew the groove detector: clearly straight melody timing favors
+on-beat accompaniment, while a strong repeated offbeat emphasis influences
+syncopated bass/chord accents. Within each chord region, rising melodic contour
+favors descending arpeggios (and vice versa), making the accompaniment less
+likely to compete in the same register direction. Seeded arpeggio start-tone
+variations preserve alternative arrangements even when the source groove is
+strong. No operations change source notes.
 
 ### 5. Melody continuation and reimagination
 
