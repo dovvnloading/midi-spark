@@ -530,6 +530,82 @@ with sync_playwright() as p:
  assert len(motif_roundtrip['tracks'])==len(variation['progression']['tracks'])
  record('Continued and reimagined notes round-trip through standard multi-track MIDI')
  motif_page.close()
+ # Phrase scope integration: selection, a real timeline loop, and safe retry.
+ phrase=b.new_page(viewport={'width':1280,'height':800})
+ phrase.on('pageerror',lambda error:errors.append(str(error)))
+ phrase.goto(args.url)
+ import_fixture(phrase)
+ original_phrase=snap(phrase)['progression']
+ phrase.get_by_role('combobox',name='Edit track',exact=True).select_option('0')
+ phrase.get_by_role('button',name='Select tool',exact=True).click()
+ phrase.get_by_test_id('note-move').first.click()
+ phrase.get_by_test_id('note-move').nth(1).click(modifiers=['Shift'])
+ phrase.get_by_role('tab',name='Compose',exact=True).click()
+ phrase.get_by_role('button',name='Follow melody',exact=True).click()
+ phrase.get_by_role('button',name='Selected',exact=True).click()
+ expect(phrase.get_by_text('2 source notes selected',exact=False)).to_be_visible()
+ phrase.get_by_role('button',name='Continue',exact=True).click()
+ phrase.get_by_role('button',name='2',exact=True).click()
+ phrase.get_by_role('button',name='Continue melody',exact=False).click()
+ phrase.wait_for_timeout(650)
+ scoped=snap(phrase)
+ assert scoped['melodyPhraseScope']=='selected'
+ assert scoped['progression']['notes'][:len(original_phrase['notes'])]==original_phrase['notes']
+ output=[t for t in scoped['progression']['tracks'] if t.get('generatedRole')=='continuation']
+ assert len(output)==1
+ continuation_id=output[0]['index']
+ assert all(n['timeStart']>=4 for n in scoped['progression']['notes'] if n['trackIndex']==continuation_id)
+ expect(phrase.get_by_text('2 source notes selected',exact=False)).to_be_visible()
+ record('Selected-note continuation protects source notes and retains the selection for retry')
+ phrase.get_by_role('button',name='Try another continuation',exact=False).click()
+ phrase.wait_for_timeout(650)
+ retry=snap(phrase)
+ assert retry['progression']['tracks']==scoped['progression']['tracks']
+ assert retry['progression']['notes'][:len(original_phrase['notes'])]==original_phrase['notes']
+ record('Repeated selected-phrase generation retains source selection and owned track ID')
+ # Explicit timeline loop, not a programmatic in-memory shortcut.
+ timeline=phrase.locator('.piano-timeline').last
+ ruler=timeline.bounding_box()
+ zoom=snap(phrase)['zoomX']
+ y=ruler['y']+13
+ phrase.keyboard.down('Shift')
+ phrase.mouse.move(ruler['x']+.5*zoom,y)
+ phrase.mouse.down()
+ phrase.mouse.move(ruler['x']+2.5*zoom,y,steps=8)
+ phrase.mouse.up()
+ phrase.keyboard.up('Shift')
+ selected_loop=snap(phrase)['loopRegion']
+ assert selected_loop is not None and selected_loop['end']>selected_loop['start']
+ phrase.get_by_role('button',name='Loop range',exact=True).click()
+ phrase.get_by_role('button',name='Reimagine',exact=True).click()
+ phrase.get_by_role('button',name='Reimagine melody',exact=False).click()
+ phrase.wait_for_timeout(650)
+ looped=snap(phrase)
+ assert looped['melodyPhraseScope']=='loop' and looped['loopRegion']==selected_loop
+ assert looped['progression']['notes'][:len(original_phrase['notes'])]==original_phrase['notes']
+ variants=[t for t in looped['progression']['tracks'] if t.get('generatedRole')=='variation']
+ assert len(variants)==1
+ variation_notes=[n for n in looped['progression']['notes'] if n['trackIndex']==variants[0]['index']]
+ assert len(variation_notes)==2
+ record('Shift-dragged loop selects a specific source phrase and survives generation')
+ phrase.get_by_role('button',name='Harmonize',exact=True).click()
+ phrase.get_by_role('button',name='Harmonize melody',exact=False).click()
+ phrase.wait_for_timeout(650)
+ local=snap(phrase)
+ labels=[c for c in local['progression']['chords'] if c.get('generatedSourceTrackIndex')==0]
+ assert labels and all(c['timeStart']<4 for c in labels)
+ assert local['progression']['notes'][:len(original_phrase['notes'])]==original_phrase['notes']
+ assert [n for n in local['progression']['notes'] if n.get('trackIndex')==variants[0]['index']]==variation_notes
+ record('Loop-scoped harmonization updates covered bars without altering melody variants')
+ phrase.wait_for_timeout(650)
+ phrase.reload()
+ phrase.wait_for_timeout(650)
+ persisted_phrase=snap(phrase)
+ assert persisted_phrase['melodyPhraseScope']=='loop'
+ assert persisted_phrase['loopRegion']==selected_loop
+ assert persisted_phrase['progression']==local['progression']
+ record('Source-phrase preference and real loop range persist through browser reload')
+ phrase.close()
  assert not errors,errors
  record('No browser page errors during the complete suite')
  (OUTPUT/'geometry.json').write_text(json.dumps(metrics,indent=2))
