@@ -14,6 +14,8 @@ OUTPUT.mkdir(parents=True, exist_ok=True)
 KEY='midi-spark:session:v1'
 fixture=OUTPUT/'two-tracks.mid'
 subprocess.run(['node','-e', "const fs=require('fs'),{Midi}=require('@tonejs/midi');const m=new Midi();m.header.setTempo(108);const k=m.addTrack();k.name='Keys';k.channel=0;k.instrument.number=4;[[60,0],[64,480],[67,960]].forEach(([midi,ticks])=>k.addNote({midi,ticks,durationTicks:360,velocity:.8}));const b=m.addTrack();b.name='Bass';b.channel=1;b.instrument.number=33;[[48,0],[43,960]].forEach(([midi,ticks])=>b.addNote({midi,ticks,durationTicks:720,velocity:.7}));const e=m.addTrack();e.name='Empty pad';e.channel=2;e.instrument.number=89;fs.writeFileSync(process.argv[1],Buffer.from(m.toArray()));",str(fixture)],cwd=ROOT,check=True)
+meter_fixture=OUTPUT/'three-four.mid'
+subprocess.run(['node','-e', "const fs=require('fs'),{Midi}=require('@tonejs/midi');const m=new Midi();m.header.timeSignatures.push({ticks:0,timeSignature:[3,4]});m.header.update();m.addTrack().addNote({midi:60,ticks:0,durationTicks:480,velocity:.8});fs.writeFileSync(process.argv[1],Buffer.from(m.toArray()));",str(meter_fixture)],cwd=ROOT,check=True)
 results=[]
 def record(name): results.append(name); print('PASS',name,flush=True)
 def snap(page):
@@ -753,6 +755,19 @@ with sync_playwright() as p:
  assert all(4<=c['timeStart']<12 for c in touch_result['progression']['chords'] if c.get('generatedSourceTrackIndex')==0)
  record('Touch-selected loop harmonizes only requested bars without replacing authored melody')
  mobile_loop.close()
+ # Source meter is disclosed alongside the editor, survives autosave, and
+ # does not pretend that the fixed 4/4 grid follows the source bar lines.
+ meter=b.new_page(viewport={'width':1280,'height':800})
+ meter.on('pageerror',lambda error:errors.append(str(error)))
+ meter.goto(args.url)
+ meter.locator('input[type=file]').first.set_input_files(str(meter_fixture))
+ expect(meter.locator('.meter-import-warning')).to_contain_text('Imported meter: 3/4')
+ expect(meter.locator('.time-signature')).to_contain_text('4/4 editor grid')
+ assert snap(meter)['progression']['sourceTimeSignatures']==['3/4']
+ meter.reload();meter.wait_for_timeout(350)
+ expect(meter.locator('.meter-import-warning')).to_contain_text('Imported meter: 3/4')
+ record('Imported 3/4 meter warning persists while the 4/4 editor remains explicit')
+ meter.close()
  assert not errors,errors
  record('No browser page errors during the complete suite')
  (OUTPUT/'geometry.json').write_text(json.dumps(metrics,indent=2))
