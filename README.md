@@ -78,8 +78,12 @@ around a phrase instead of generating an unrelated progression:
    *Adaptive* (change halfway only when the melody gives independent evidence
    for contrasting harmonies), or *2 / bar* (regular half-bar changes).
    **Accompaniment motion** sets the density of the generated backing.
-   The engine follows clear offbeat emphasis and favors arpeggio motion
-   opposite a rising or falling lead, while retaining seeded alternatives.
+   **Harmony exploration** controls a quality-bounded, diversity-aware global
+   chord search: low values prefer near-best paths; higher values consider
+   more harmonically distinct possibilities without ignoring melody fit.
+   Set it to **0** for the original Viterbi-based search. The engine follows
+   clear offbeat emphasis and favors arpeggio motion opposite a rising or
+   falling lead, while retaining seeded alternatives.
 3. **Choose the key strategy.** Use the root and mode from Compose, or select
    **Detect melody**. When key detection is uncertain, the app keeps the Compose
    key rather than presenting a guess as certain.
@@ -166,6 +170,11 @@ npm run eval:compare -- path/to/before.json path/to/after.json
 The first pilot found 97.3% *literal chord-tone coverage* on deliberately
 constructed example phrases, but only **22.5% distinct accompaniment
 structures** and **20.0% distinct chord paths** across twelve takes.
+A paired follow-up with the new 62%-exploration k-best search raised structural
+backing diversity to **61.7%** and chord-path diversity to **55.0%**, with
+literal chord-tone coverage of **97.5%** versus **97.3%** for the legacy search.
+These numbers are from the same small synthetic benchmark, **not** a listener
+preference study or a comparison with pretrained models.
 **These are diagnostic values, not a measure of perceived musical quality or
 evidence of superiority to trained models.** No external pretrained checkpoint
 or human listening study has been run; the linked audit specifies a blinded
