@@ -183,14 +183,16 @@ export default function App() {
   const noticeSequence = useRef(0);
 
   const notify = useCallback((message: string, kind: NoticeKind = "info") => {
-    setNotice({ id: ++noticeSequence.current, message, kind });
+    setNotice(previous => previous?.kind === "error" && kind === "error" &&
+      previous.message === message
+      ? previous : { id: ++noticeSequence.current, message, kind });
   }, []);
 
   useEffect(() => {
-    if (!notice) return;
+    if (!notice || notice.kind === "error") return;
     const timeout = setTimeout(() => {
       setNotice((current) => current?.id === notice.id ? null : current);
-    }, notice.kind === "error" ? 6500 : 4200);
+    }, 4200);
     return () => clearTimeout(timeout);
   }, [notice]);
 
@@ -1059,7 +1061,8 @@ export default function App() {
             fitRequest={fitRequest} isPlaying={isPlaying} currentTick={currentTick} followPlayback={followPlayback}
             isLooping={isLooping} loopRegion={loopRegion} onLoopRegionChange={handleLoopRegionChange}
             scrollAnchorKey={scrollAnchorKey} onSelectionChange={setSelectedNoteIndices} commit={commit} onZoomChange={setZoomX}
-            onScrub={handleScrub} onScrubStateChange={handleScrubStateChange} onLivePreview={setLivePreview} />
+            onScrub={handleScrub} onScrubStateChange={handleScrubStateChange} onLivePreview={setLivePreview}
+            onAudioPreviewError={message => notify(message, "error")} />
         </main>
       </div>
       <footer className="app-status"><span className="save-status">{saveState === "saved" ? <Check size={12} /> : <HardDrive size={12} />}
