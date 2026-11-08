@@ -481,9 +481,17 @@ with sync_playwright() as p:
  original=snap(adaptive)['progression']
  adaptive.get_by_role('tab',name='Compose',exact=True).click()
  adaptive.get_by_role('button',name='Follow melody',exact=True).click()
+ assert adaptive.locator('.melody-step-heading h4').all_inner_texts()==['Choose source','Choose action','Tune result']
+ expect(adaptive.locator('.melody-advanced > summary')).to_be_visible()
+ assert adaptive.locator('.melody-advanced').get_attribute('open') is None
+ adaptive.locator('.melody-advanced > summary').click()
  adaptive.get_by_role('combobox',name='Source melody track',exact=True).select_option('0')
  adaptive.get_by_role('slider',name='Harmonic fit to melody',exact=True).fill('90')
  adaptive.get_by_role('slider',name='Harmony exploration',exact=True).fill('85')
+ assert '85% explore' in adaptive.locator('.melody-advanced > summary').inner_text()
+ adaptive.get_by_role('button',name='Continue',exact=True).click()
+ assert snap(adaptive)['harmonyExploration']==85
+ adaptive.get_by_role('button',name='Harmonize',exact=True).click()
  adaptive.get_by_role('button',name='Balanced',exact=True).click()
  adaptive.get_by_role('button',name='Harmonize melody',exact=False).click()
  adaptive.wait_for_timeout(600)
@@ -753,6 +761,23 @@ with sync_playwright() as p:
  assert all(4<=c['timeStart']<12 for c in touch_result['progression']['chords'] if c.get('generatedSourceTrackIndex')==0)
  record('Touch-selected loop harmonizes only requested bars without replacing authored melody')
  mobile_loop.close()
+ # 390px Follow Melody task hierarchy keeps Generate dock visible and
+ # advanced settings discoverable without forcing every slider onscreen.
+ melody_mobile=b.new_page(viewport={'width':390,'height':844},has_touch=True)
+ melody_mobile.on('pageerror',lambda error:errors.append(str(error)))
+ melody_mobile.goto(args.url)
+ import_fixture(melody_mobile)
+ melody_mobile.get_by_role('button',name='Toggle inspector',exact=True).click()
+ melody_mobile.get_by_role('tab',name='Compose',exact=True).click()
+ melody_mobile.get_by_role('button',name='Follow melody',exact=True).click()
+ assert melody_mobile.locator('.melody-step-heading h4').all_inner_texts()==['Choose source','Choose action','Tune result']
+ assert melody_mobile.locator('.melody-advanced').get_attribute('open') is None
+ expect(melody_mobile.get_by_role('button',name='Harmonize melody',exact=False)).to_be_visible()
+ melody_mobile.get_by_role('button',name='Continue',exact=True).click()
+ expect(melody_mobile.get_by_role('slider',name='Melodic creative distance')).to_be_visible()
+ expect(melody_mobile.get_by_role('button',name='Continue melody',exact=False)).to_be_visible()
+ record('390px melody workflow exposes task essentials and expandable advanced settings')
+ melody_mobile.close()
  assert not errors,errors
  record('No browser page errors during the complete suite')
  (OUTPUT/'geometry.json').write_text(json.dumps(metrics,indent=2))
