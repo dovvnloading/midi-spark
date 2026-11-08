@@ -12,6 +12,7 @@ export interface SidebarProps {
   generationMode: "single" | "layers";
   melodySourceMode: "scratch" | "follow";
   melodyTracks: { index: number; name: string; noteCount: number }[];
+  melodyBarCount: number | null;
   melodySourceTrackIndex: number | null;
   harmonicFit: number;
   accompanimentDensity: AccompanimentDensity;
@@ -51,11 +52,13 @@ export function Sidebar(p: SidebarProps) {
             : "Start with a key, shape the feeling, and make it yours."}</p>
         </div>
 
-        <div className="composition-summary" aria-label={"Current setup: " + p.root + " " + p.mode + ", " + p.bars + " bars"}>
+        <div className="composition-summary" aria-label={"Current setup: " + p.root + " " + p.mode + ", " +
+          (p.melodySourceMode === "follow" ? (p.melodyBarCount ?? 0) + " melody bars" : p.bars + " bars")}>
           <span className="composition-summary-icon"><Music2 size={17} strokeWidth={1.8} /></span>
           <span className="composition-summary-copy">
             <small>YOUR STARTING POINT</small>
-            <strong>{p.root} {p.mode} <span>·</span> {p.bars} bars</strong>
+            <strong>{p.root} {p.mode} <span>·</span>
+              {p.melodySourceMode === "follow" ? (p.melodyBarCount === null ? "Draw a melody" : p.melodyBarCount + " bars") : p.bars + " bars"}</strong>
           </span>
           <span className="composition-summary-status" aria-hidden="true" />
         </div>
@@ -106,7 +109,7 @@ export function Sidebar(p: SidebarProps) {
                 onClick={() => p.onMelodyKeyStrategyChange("detect")}>Detect melody</button>
             </div>
             <p className="generation-hint">The melody is always preserved. Generated Bass and Harmony
-              tracks can be regenerated independently. Ambiguous key detection falls back to Compose.</p>
+              tracks are replaceable; duplicate one in Tracks to keep its edits. Uncertain keys fall back to Compose.</p>
           </div>}
         </section>
 
@@ -150,6 +153,7 @@ export function Sidebar(p: SidebarProps) {
             <CustomSlider value={p.dissonance} min={0} max={100} onChange={p.onDissonanceChange} label="Chord tension" />
             <div className="range-captions"><span>Familiar</span><span>Unexpected</span></div>
           </div>
+          {p.melodySourceMode === "scratch" && <>
           <div className="expression-control">
             <div className="field-heading"><h4>Rhythmic detail</h4><output>{p.complexity}<span>%</span></output></div>
             <CustomSlider value={p.complexity} min={0} max={100} onChange={p.onComplexityChange} label="Rhythmic detail" />
@@ -167,6 +171,7 @@ export function Sidebar(p: SidebarProps) {
                 }}>{preset.label}</button>
             ))}
           </div>
+          </>}
         </section>
 
         {p.melodySourceMode === "scratch" && <section className="field-section compose-section arrangement-section">
