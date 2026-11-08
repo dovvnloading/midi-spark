@@ -224,7 +224,96 @@ describe("multitrack audio routing", () => {
     expect(mockState.starts - starts).toBe(1);
     const sounding = mockState.voices.slice(voices).filter(voice => voice.triggers.length > 0);
     expect(sounding).toHaveLength(1);
-    expect(sounding[0].triggers[0][0]).toEqual(["C3", "G3"]);
+    expect(sounding[0].triggers[0][0]).toEqual(["C2", "G2"]);
+    audio.stopAudio();
+  });
+
+  it("constructs each new voice family with distinct sound-defining parameters", async () => {
+    vi.resetModules();
+    const fresh = await import("../src/lib/audio");
+    const { PRESET_BY_ID, SOUND_PRESETS } = await import("../src/lib/presets");
+    const expected = {
+      epiano: "FMSynth", classic: "MonoSynth", pad: "DuoSynth",
+      warmPad: "AMSynth", unisonStack: "Synth", punchKick: "MembraneSynth",
+    };
+    for (const [id, engine] of Object.entries(expected)) {
+      const before = mockState.voices.length;
+      const voice = fresh.createTrackSynth(id as keyof typeof PRESET_BY_ID);
+      expect(mockState.voices[before].engine).toBe(engine);
+      expect(mockState.voices[before].options).toBeDefined();
+      expect(mockState.voices[before].polyphony).toBeLessThanOrEqual(16);
+      voice.dispose();
+    }
+    // Every catalog entry must be constructible by one of our six engines.
+    const old = mockState.voices.length;
+    for (const preset of SOUND_PRESETS) fresh.createTrackSynth(preset.id);
+    const created = mockState.voices.slice(old);
+    expect(created).toHaveLength(49);
+    expect(new Set(created.map(v => v.engine)).size).toBe(6);
+  });
+
+  it("provides measurable soft-to-hard expression curves without editing MIDI", async () => {
+    vi.resetModules();
+    const audio = await import("../src/lib/audio");
+    const { SOUND_PRESETS } = await import("../src/lib/presets");
+    for (const preset of SOUND_PRESETS) {
+      const low = audio.presetVelocity(preset.id, .2);
+      const mid = audio.presetVelocity(preset.id, .6);
+      const loud = audio.presetVelocity(preset.id, .95);
+      expect(low).toBeGreaterThan(0);
+      expect(low).toBeLessThan(mid);
+      expect(mid).toBeLessThan(loud);
+      expect(loud).toBeLessThanOrEqual(1);
+    }
+    expect(audio.presetVelocity("tines", .3)).toBeLessThan(
+      audio.presetVelocity("velvet", .3));
+    expect(audio.presetVelocity("classic", .8)).toBeCloseTo(.8 ** 1.08, 6);
+    expect(audio.presetVelocity("epiano", NaN)).toBeGreaterThan(0);
+  });
+
+  it("disposes preset-specific filters and LFO processors on audition and mixer changes", async () => {
+    vi.resetModules();
+    const audio = await import("../src/lib/audio");
+    await audio.initAudio();
+    let from = mockState.processors.length;
+    await audio.auditionPreset("orbit");
+    const orbitNodes = mockState.processors.slice(from)
+      .filter(p => ["Filter", "Phaser", "AutoPanner"].includes(p.kind));
+    expect(orbitNodes.map(p => p.kind)).toEqual(["Filter", "Phaser", "AutoPanner"]);
+    expect(orbitNodes.every(p => !p.disposed)).toBe(true);
+    from = mockState.processors.length;
+    await audio.auditionPreset("hollowClav");
+    expect(orbitNodes.every(p => p.disposed)).toBe(true);
+    expect(mockState.processors.slice(from).some(p => p.kind === "Filter")).toBe(true);
+
+    audio.setTrackMixer({0: {synthType: "tidalPad", level: .65, muted:false, solo:false}});
+    const nodes = mockState.processors.filter(p => !p.disposed).length;
+    expect(nodes).toBeGreaterThan(orbitNodes.length);
+    audio.setTrackMixer({0: {synthType: "punchKick", level: .65, muted:false, solo:false}});
+    expect(mockState.processors.filter(p => !p.disposed).length).toBeLessThan(nodes);
+    audio.setTrackMixer({});
+    audio.stopAudio();
+  });
+
+  it("routes dry bass directly and preserves dynamic velocity on scheduled note events", async () => {
+    vi.resetModules();
+    const audio = await import("../src/lib/audio");
+    await audio.initAudio();
+    audio.setTrackMixer({0:{synthType:"punchKick",level:1,muted:false,solo:false}});
+    const seq = {
+      notes: [
+        {name:"C2",midi:36,timeStart:0,duration:.4,velocity:.2,trackIndex:0},
+        {name:"C2",midi:36,timeStart:1,duration:.4,velocity:.95,trackIndex:0},
+      ], chords:[],totalBars:1,
+    };
+    audio.playProgression(seq,120,{onTick(){},onEnded(){}},0,false);
+    const notes = mockState.parts.at(-1)!.notes as typeof seq.notes;
+    const voice = mockState.voices.at(-1)!;
+    const first = voice.triggers.length;
+    mockState.parts.at(-1)!.callback(0,notes[0]);
+    mockState.parts.at(-1)!.callback(.5,notes[1]);
+    expect(voice.triggers.length).toBe(first+2);
+    expect(Number(voice.triggers.at(-2)?.[3])).toBeLessThan(Number(voice.triggers.at(-1)?.[3]));
     audio.stopAudio();
   });
 
