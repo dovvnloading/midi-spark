@@ -82,6 +82,37 @@ MusicGen Melody and MIDI-SAG illustrate the distinction between MIDI-conditioned
 
 All values must be interpreted as **scenario-level diagnostics**, not a weighted aesthetic composite. Scenarios receive equal weight in aggregates, avoiding one dense polyphonic test dominating many small phrases. Strong user-facing claims require an independent, rights-cleared test set and human listening.
 
+### Measured pilot — 8 November 2026 GitHub Actions
+
+The first successful real-engine diagnostic run, **[CI run 42484176393](https://github.com/dovvnloading/midi-spark/actions/runs/42484176393)**, yielded the following **equally weighted averages across 10 synthetic scenarios** (12 seeded takes each, 480 generator calls):
+
+| Metric | Observed |
+|---|---:|
+| Tonic-only chord-tone coverage | **66.8%** |
+| Local greedy diatonic triads | **76.1%** |
+| MIDI Spark one chord per bar | **88.6%** |
+| MIDI Spark adaptive harmony | **97.3%** |
+| Mean adaptive distinct chord changes per bar | **1.07** |
+| Close lead-register overlap | **1.2%** |
+| Generated note tails crossing chord boundaries | **0.0%** |
+| Backing scale-tone rate | **99.1%** |
+| Unique accompaniment takes across 12 seeds | **22.5%** |
+| Unique continuation takes / reimagination takes | **100% / 100%** |
+| Approximate Node/Vitest p50 / p95 operation timing | **0.43 / 0.98 ms** |
+
+The per-fixture CSV-equivalent breakdown, all seed run descriptors, and machine-readable values are published as Markdown/JSON workflow artifacts, not copied into app state.
+
+**Interpretation:**
+
+- The large chord-tone membership score means the search matches the pitch classes of these synthetic phrases. It **does not mean 97.3% musical quality**: the score aligns with the engine's own objective, and broad chord vocabularies plus frequent chord changes raise it mechanically.
+- The greedy comparison is **not** a matched-vocabulary, same-search ablation. It uses seven plain diatonic triads, whereas MIDI Spark considers more harmonies and optimized half-bar splits. The gap is descriptive, not causal evidence of algorithmic superiority.
+- The clearest **product problem** is that only **22.5%** of generated accompaniment MIDI signatures were distinct across twelve seeds per fixture. This is roughly 2.7 distinct takes out of 12. Repeated "Try another harmonization" can therefore be an underwhelming experience. Before optimizing, add a **structural novelty** metric (chord path and grid-quantized pitch/onset patterns) that cannot be gamed by insignificant velocity jitter.
+- The 100% unique melody-generation rates reflect event-signature diversity; they do not guarantee good motifs, just different MIDI events. They require a human coherence evaluation.
+- The 0% chord-tail violation and unchanged source notes are meaningful **correctness** evidence. A low near-lead collision ratio suggests limited immediate register overlap but is not proof of good orchestration.
+- Very small latency numbers are Node-process timings for simple fixtures; they say nothing about browser audio initialization, large input files, device memory use or neural-model deployment time.
+
+**Next measured hypothesis:** improve the *structural* diversity and phrase coherence of alternative accompaniment takes without materially degrading source-note preservation, tone fit, or generated-track ownership. Compare the same fixture/seed set before and after any algorithmic change, and confirm with blinded listening.
+
 ### Baseline fairness and what has *not* been run
 
 The benchmark's tonic and greedy systems are transparent **simple controls**. They lack the same chord vocabulary and full arrangement generation as MIDI Spark. Consequently, it is not a controlled algorithm-ablation study and cannot prove the sequence optimizer beats a same-vocabulary local optimizer. A future study should compare against a same-candidate greedy scorer and a sequence search with cadence/transition costs ablated.
