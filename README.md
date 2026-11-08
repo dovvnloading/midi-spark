@@ -143,6 +143,34 @@ The optional key detector is heuristic and may be uncertain on short or
 chromatic phrases. See [adaptive engine notes](docs/ADAPTIVE_MELODY.md)
 for scoring, limitations, and future evaluation.
 
+### Research and reproducible musical evaluation
+
+A [competitive research and music-quality audit](docs/MUSIC_RESEARCH_EVALUATION_2026.md)
+compares MIDI Spark's *editable, melody-conditioned MIDI workflow* against
+AccoMontage2, GETMusic, MIDI-GPT, Magenta Studio and audio-generation systems,
+while explicitly separating incompatible tasks and pretrained-model licensing.
+
+The evaluation harness runs **ten original synthetic melody scenarios, twelve
+fixed seeds per scenario and 480 actual engine calls**. It tracks note-preserving
+correctness, duration-weighted chord-tone coverage, register overlap, chord
+boundary spill, **structural and chord-path diversity**, and basic runtime.
+GitHub CI publishes JSON/Markdown evaluation artifacts so future algorithm
+changes can be compared on identical inputs:
+
+```sh
+npm ci
+npm run eval:music
+npm run eval:compare -- path/to/before.json path/to/after.json
+```
+
+The first pilot found 97.3% *literal chord-tone coverage* on deliberately
+constructed example phrases, but only **22.5% distinct accompaniment
+structures** and **20.0% distinct chord paths** across twelve takes.
+**These are diagnostic values, not a measure of perceived musical quality or
+evidence of superiority to trained models.** No external pretrained checkpoint
+or human listening study has been run; the linked audit specifies a blinded
+listener protocol and a prioritized improvement roadmap.
+
 ### Interactive Piano Roll
 
 * **Draw** notes with click or click-drag (drag sets the length)

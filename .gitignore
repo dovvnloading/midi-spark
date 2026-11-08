@@ -11,3 +11,7 @@ browser-report/
 
 __pycache__/
 *.pyc
+
+# Locally generated evaluation reports (published as CI artifacts).
+music-evaluation.md
+music-evaluation.json
