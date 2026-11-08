@@ -257,7 +257,6 @@ function makeNote(midi: number, timeStart: number, duration: number, velocity: n
 }
 
 function makeAccompaniment(
-  progression: ProgressionData,
   source: readonly NoteEvent[],
   chords: readonly ChordCandidate[],
   bassIndex: number, harmonyIndex: number, density: AccompanimentDensity,
@@ -369,7 +368,7 @@ export function generateFromMelody(
   }
   const [bassIndex, harmonyIndex] = selectedTracks;
   const generated = new Set(selectedTracks);
-  const accompaniment = makeAccompaniment(working, source, harmony, bassIndex, harmonyIndex, options.density);
+  const accompaniment = makeAccompaniment(source, harmony, bassIndex, harmonyIndex, options.density);
   const chords = harmony.map((chord, bar) => ({
     name: chord.name, timeStart: bar * 4, duration: 4, generatedSourceTrackIndex: trackIndex,
   }));
