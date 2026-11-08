@@ -6,48 +6,51 @@ import {
   PRESET_IDS,
   SOUND_PRESETS,
   SYNTH_OPTIONS,
+  type PresetDefinition, type SynthType,
 } from "../src/lib/presets";
+
+const presets: readonly PresetDefinition[] = SOUND_PRESETS;
 
 /** Professional sound design is about real spectral/temporal identities,
  * not a new label on the same saw wave and envelope. */
 describe("expressive sound bank", () => {
   it("maintains all 33 legacy IDs and offers 49 instruments across seven categories", () => {
     expect(SOUND_PRESETS).toHaveLength(49);
-    expect(PRESET_IDS.size).toBe(SOUND_PRESETS.length);
+    expect(PRESET_IDS.size).toBe(presets.length);
     expect(PRESET_CATEGORIES).toHaveLength(7);
-    expect(PRESET_GROUP_OPTIONS.reduce((n, g) => n + g.options.length, 0)).toBe(SOUND_PRESETS.length);
-    expect(SYNTH_OPTIONS.map(x => x.value)).toEqual(SOUND_PRESETS.map(x => x.id));
+    expect(PRESET_GROUP_OPTIONS.reduce((n, g) => n + g.options.length, 0)).toBe(presets.length);
+    expect(SYNTH_OPTIONS.map(x => x.value)).toEqual(presets.map(x => x.id));
     for (const id of ["classic", "epiano", "pad", "pluck", "dream",
       "velvet", "tines", "organ", "retro", "pulse", "analogBass", "acid",
       "rubberBass", "fmBass", "strings", "chime", "fmLead", "warmPad"]) {
       expect(PRESET_IDS.has(id), id + " would break autosave").toBe(true);
     }
-    expect(new Set(SOUND_PRESETS.map(p => p.label)).size).toBe(49);
+    expect(new Set(presets.map(p => p.label)).size).toBe(49);
   });
 
   it("uses six real voice architectures, not only oscillator/ADSR variations", () => {
     for (const engine of ["basic", "mono", "fm", "am", "duo", "membrane"]) {
-      expect(SOUND_PRESETS.some(p => p.patch.engine === engine)).toBe(true);
+      expect(presets.some(p => p.patch.engine === engine)).toBe(true);
     }
-    expect(SOUND_PRESETS.filter(p => p.patch.engine === "duo").length).toBeGreaterThanOrEqual(5);
-    expect(SOUND_PRESETS.filter(p => p.patch.engine === "membrane")).toHaveLength(1);
-    expect(SOUND_PRESETS.filter(p => p.patch.wave.startsWith("fat")).length)
+    expect(presets.filter(p => p.patch.engine === "duo").length).toBeGreaterThanOrEqual(5);
+    expect(presets.filter(p => p.patch.engine === "membrane")).toHaveLength(1);
+    expect(presets.filter(p => p.patch.wave.startsWith("fat")).length)
       .toBeGreaterThanOrEqual(5);
-    expect(SOUND_PRESETS.filter(p => p.patch.wave === "pulse" || p.patch.wave === "pwm").length)
+    expect(presets.filter(p => p.patch.wave === "pulse" || p.patch.wave === "pwm").length)
       .toBeGreaterThanOrEqual(4);
   });
 
   it("delivers individual timbral signatures and genuinely different LFO motion", () => {
-    const motionKinds = new Set(SOUND_PRESETS.flatMap(p =>
+    const motionKinds = new Set(presets.flatMap(p =>
       (p.motion ?? []).map(m => m.kind)));
     for (const kind of ["chorus", "tremolo", "autoFilter", "autoPan", "vibrato", "phaser"]) {
       expect(motionKinds.has(kind), kind).toBe(true);
     }
-    expect(SOUND_PRESETS.filter(p => (p.motion?.length ?? 0) > 0).length)
+    expect(presets.filter(p => (p.motion?.length ?? 0) > 0).length)
       .toBeGreaterThanOrEqual(36);
-    expect(SOUND_PRESETS.filter(p => (p.motion?.length ?? 0) > 1).length)
+    expect(presets.filter(p => (p.motion?.length ?? 0) > 1).length)
       .toBeGreaterThanOrEqual(8);
-    const fingerprints = SOUND_PRESETS.map(p => JSON.stringify({
+    const fingerprints = presets.map(p => JSON.stringify({
       patch: p.patch, motion: p.motion, color: p.color, fx: p.fx,
     }));
     expect(new Set(fingerprints).size).toBe(49);
@@ -57,8 +60,8 @@ describe("expressive sound bank", () => {
   });
 
   it("validates useful musical bounds and safe, readable descriptions", () => {
-    SOUND_PRESETS.forEach(p => {
-      expect(PRESET_BY_ID[p.id]).toBe(p);
+    presets.forEach(p => {
+      expect(PRESET_BY_ID[p.id as SynthType]).toBe(p);
       expect(p.label.length).toBeGreaterThanOrEqual(4);
       expect(p.description.length).toBeGreaterThan(15);
       expect(p.character.length).toBeGreaterThan(12);
