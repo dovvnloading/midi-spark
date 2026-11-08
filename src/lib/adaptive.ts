@@ -458,6 +458,17 @@ export function generateFromMelody(
   if (!Number.isInteger(trackIndex) || trackIndex < 0) {
     return {ok: false, reason: "Choose a valid melody track."};
   }
+  if (!Number.isInteger(input.totalBars) || input.totalBars < 1) {
+    return {ok: false, reason: "The sequence has an invalid bar length."};
+  }
+  if (!Number.isFinite(options.tension) || options.tension < 0 || options.tension > 100 ||
+    !Number.isFinite(options.harmonicFit) || options.harmonicFit < 0 || options.harmonicFit > 100) {
+    return {ok: false, reason: "Chord tension and harmonic fit must be from 0 to 100."};
+  }
+  if (!["manual", "detect"].includes(options.keyStrategy) ||
+      !["major", "minor"].includes(options.mode)) {
+    return {ok: false, reason: "Choose a valid key strategy and scale."};
+  }
   const originalMelody = input.notes.filter(note => trackIndexOf(note) === trackIndex);
   if (originalMelody.length === 0) return {ok: false, reason: "Draw or import notes on the melody track first."};
   // A linked continuation supplies harmonic evidence after the original phrase.
@@ -468,7 +479,8 @@ export function generateFromMelody(
     [...originalMelody, ...input.notes.filter(note => trackIndexOf(note) === continuation.index)];
   if (source.some(note => !Number.isInteger(note.midi) || note.midi < 0 || note.midi > 127 ||
     !Number.isFinite(note.timeStart) || note.timeStart < 0 ||
-    !Number.isFinite(note.duration) || note.duration <= 0)) {
+    !Number.isFinite(note.duration) || note.duration <= 0 ||
+    !Number.isFinite(note.velocity) || note.velocity < 0 || note.velocity > 1)) {
     return {ok: false, reason: "The melody contains invalid pitches or timing."};
   }
   if (source.length > 4096) return {ok: false, reason: "Choose a melody with 4,096 notes or fewer."};
