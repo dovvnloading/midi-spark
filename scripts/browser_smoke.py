@@ -35,6 +35,27 @@ with sync_playwright() as p:
  trigger=page.locator('.sound-picker-trigger').first.bounding_box()
  assert trigger and panel and trigger['y']+trigger['height']<=panel['y']+panel['height']-16
  record('Sound selection is discoverable without inspector scrolling')
+ # Numeric fields must allow incomplete intermediate text while typing.
+ tempo=page.get_by_role('spinbutton',name='Tempo')
+ tempo.focus()
+ tempo.press('ControlOrMeta+A')
+ page.keyboard.type('90')
+ assert tempo.input_value()=='90'
+ tempo.press('Enter')
+ assert tempo.input_value()=='90'
+ tempo.focus();tempo.press('ControlOrMeta+A');page.keyboard.type('140')
+ assert tempo.input_value()=='140'
+ tempo.press('Enter')
+ assert tempo.input_value()=='140'
+ tempo.focus();tempo.press('ControlOrMeta+A');page.keyboard.type('280')
+ tempo.press('Escape')
+ assert tempo.input_value()=='140'
+ tempo.focus();tempo.press('ControlOrMeta+A');page.keyboard.type('900')
+ tempo.press('Enter')
+ assert tempo.input_value()=='300'
+ tempo.focus();tempo.press('ControlOrMeta+A');page.keyboard.type('120');tempo.press('Enter')
+ assert tempo.input_value()=='120'
+ record('Tempo accepts multi-digit keyboard drafts, Enter commit, Escape cancel and range clamp')
  # New composer shortcuts should update both fine-tuning controls without generating notes.
  page.get_by_role('button',name='Groove',exact=True).click()
  assert page.get_by_role('slider',name='Chord tension').input_value()=='34'
@@ -68,6 +89,13 @@ with sync_playwright() as p:
  page.get_by_role('button',name='Preview sound: Classic Analog. Open sound library').click()
  expect(page.get_by_role('dialog',name='Sound library')).to_be_visible()
  assert page.locator('.sound-library-row').count()==49
+ expect(page.get_by_role('status').filter(has_text='49 of 49 sounds')).to_be_visible()
+ page.get_by_role('searchbox',name='Search presets').fill('no-such-instrument-x')
+ assert page.locator('.sound-library-row').count()==0
+ expect(page.get_by_role('status').filter(has_text='0 of 49 sounds')).to_be_visible()
+ page.get_by_role('button',name='Clear filters',exact=True).click()
+ assert page.locator('.sound-library-row').count()==49
+ record('Sound-search result count, empty state and clear-filters are discoverable')
  page.get_by_role('button',name='Keys',exact=True).click()
  assert page.locator('.sound-library-row').count()==8
  page.get_by_role('searchbox',name='Search presets').fill('glass piano')
@@ -146,7 +174,9 @@ with sync_playwright() as p:
  assert after_scroll>before_scroll
  record('Hand tool pans without editing notes')
  import_fixture(page);original=snap(page)['progression']['notes'];assert len(original)==5
- page.get_by_role('combobox',name='Edit track',exact=True).select_option('1');page.get_by_role('tab',name='Transform',exact=True).click()
+ page.get_by_role('combobox',name='Edit track',exact=True).select_option('1')
+ assert 'Edit: Bass' in page.locator('.edit-target-indicator').inner_text()
+ page.get_by_role('tab',name='Transform',exact=True).click()
  page.get_by_role('button',name='Transpose up 1 semitones',exact=True).click()
  after=snap(page)['progression']['notes']
  for a,n in zip(original,after): assert n['midi']==a['midi']+(1 if a['trackIndex']==1 else 0)
@@ -156,7 +186,10 @@ with sync_playwright() as p:
  expect(page.get_by_role('button',name='Apply humanize',exact=True)).to_be_disabled()
  assert snap(page)['progression']['notes']==after
  record('Empty-track transforms are disabled, never affect hidden notes')
- page.get_by_role('combobox',name='Edit track',exact=True).select_option('all');page.get_by_role('tab',name='Tracks',exact=True).click()
+ page.get_by_role('combobox',name='Edit track',exact=True).select_option('all')
+ assert page.locator('.edit-target-indicator').inner_text().startswith('New → ')
+ record('Focused track is visible and All-tracks drawing target is explicit')
+ page.get_by_role('tab',name='Tracks',exact=True).click()
  bass_strip=page.locator('section.track-strip').filter(has_text='Bass').first
  bass_strip.locator('.sound-picker-trigger').click()
  page.get_by_role('button',name='Bass',exact=True).click()
