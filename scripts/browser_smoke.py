@@ -777,6 +777,9 @@ with sync_playwright() as p:
  keyedit.keyboard.press('ControlOrMeta+z')
  assert snap(keyedit)['progression']['notes']==before_edit
  record('Keyboard note navigation, single-note selection, pitch and duration edits undo cleanly')
+ # Undo clears note selection, so explicitly reselect before editing velocity.
+ keyedit.locator('[data-testid="piano-note"][data-note-index="'+str(index)+'"]').focus()
+ keyedit.keyboard.press('Enter')
  keyedit.locator('.note-precision-summary').click()
  vel=keyedit.get_by_test_id('precision-note-velocity')
  vel.fill('62');vel.press('Tab')
