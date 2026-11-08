@@ -1303,6 +1303,7 @@ export function PianoRoll({
                       <button
                         type="button"
                         key={`vel-${i}`}
+                        tabIndex={tabStopIndex === i ? 0 : -1}
                         aria-label={"Velocity " + Math.round(n.velocity * 100) + " percent, " +
                           (Note.fromMidi(n.midi) ?? n.name) + ", note " + (i + 1)}
                         aria-pressed={isSelected}
