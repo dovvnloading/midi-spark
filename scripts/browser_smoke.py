@@ -763,6 +763,70 @@ with sync_playwright() as p:
  assert all(4<=c['timeStart']<12 for c in touch_result['progression']['chords'] if c.get('generatedSourceTrackIndex')==0)
  record('Touch-selected loop harmonizes only requested bars without replacing authored melody')
  mobile_loop.close()
+ # Keyboard-only note navigation and precision editing for imported multitrack MIDI.
+ keyedit=b.new_page(viewport={'width':390,'height':844},has_touch=True)
+ keyedit.on('pageerror',lambda error:errors.append(str(error)))
+ keyedit.goto(args.url)
+ import_fixture(keyedit)
+ keyedit.get_by_role('combobox',name='Edit track',exact=True).select_option('0')
+ assert keyedit.get_by_test_id('piano-note').count()==3
+ keyedit.get_by_test_id('piano-note').first.focus()
+ keyedit.keyboard.press('ArrowRight')
+ keyedit.wait_for_timeout(70)
+ keyedit.keyboard.press('Enter')
+ picked=keyedit.locator('[data-testid="piano-note"][data-selected="true"]')
+ assert picked.count()==1
+ index=int(picked.get_attribute('data-note-index'))
+ before_edit=snap(keyedit)['progression']['notes']
+ keyedit.keyboard.press('Alt+ArrowUp')
+ assert snap(keyedit)['progression']['notes'][index]['midi']==before_edit[index]['midi']+1
+ keyedit.keyboard.press('ControlOrMeta+z')
+ assert snap(keyedit)['progression']['notes']==before_edit
+ keyedit.keyboard.press(']')
+ assert snap(keyedit)['progression']['notes'][index]['duration']>before_edit[index]['duration']
+ keyedit.keyboard.press('ControlOrMeta+z')
+ assert snap(keyedit)['progression']['notes']==before_edit
+ record('Keyboard note navigation, single-note selection, pitch and duration edits undo cleanly')
+ # Undo clears note selection, so explicitly reselect before editing velocity.
+ keyedit.locator('[data-testid="piano-note"][data-note-index="'+str(index)+'"]').focus()
+ keyedit.keyboard.press('Enter')
+ keyedit.locator('.note-precision-summary').click()
+ vel=keyedit.get_by_test_id('precision-note-velocity')
+ vel.fill('62');vel.press('Tab')
+ exact=snap(keyedit)['progression']['notes']
+ assert abs(exact[index]['velocity']-.62)<.001
+ assert all(n==before_edit[i] for i,n in enumerate(exact) if i!=index)
+ keyedit.get_by_role('button',name='Increase selected velocity by 10 percentage points').click()
+ assert abs(snap(keyedit)['progression']['notes'][index]['velocity']-.72)<.001
+ assert vel.input_value()=='72'
+ assert keyedit.locator('.velocity-hit-target[tabindex="0"]').count()==1
+ record('Exact numeric velocity entry and ten-point nudges update the displayed value and isolate neighbors')
+ keyedit.get_by_test_id('piano-note').nth(1).focus()
+ keyedit.keyboard.press('Delete')
+ assert len(snap(keyedit)['progression']['notes'])==4
+ keyedit.keyboard.press('ControlOrMeta+z')
+ assert len(snap(keyedit)['progression']['notes'])==5
+ keyedit.get_by_role('combobox',name='Edit track',exact=True).select_option('1')
+ assert keyedit.get_by_test_id('piano-note').count()==2
+ assert keyedit.get_by_test_id('precision-note-select').locator('option').count()==3
+ record('Keyboard Delete/Undo and precision chooser respect focused-track isolation')
+ keyedit.close()
+ # Compact editing tools remain recognizable with 40px targets at 320/390.
+ touch_tools=b.new_page(viewport={'width':320,'height':740},has_touch=True)
+ touch_tools.on('pageerror',lambda error:errors.append(str(error)))
+ touch_tools.goto(args.url)
+ for width in (320,390):
+  touch_tools.set_viewport_size({'width':width,'height':844})
+  for label in ('Draw','Select','Slice','Hand','Stamp'):
+   button=touch_tools.get_by_role('button',name=label+' tool')
+   button.click()
+   rect=button.bounding_box()
+   assert rect['width']>=40 and rect['height']>=40,(width,label,rect)
+   assert label+' tool' in touch_tools.locator('.active-tool-readout').inner_text()
+   assert touch_tools.locator('.active-tool-readout').is_visible()
+  assert touch_tools.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+ record('Compact 320/390px tool sweep gives permanent mode instructions and 40px targets')
+ touch_tools.close()
  # 390px Follow Melody task hierarchy keeps Generate dock visible and
  # advanced settings discoverable without forcing every slider onscreen.
  melody_mobile=b.new_page(viewport={'width':390,'height':844},has_touch=True)
