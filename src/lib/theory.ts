@@ -22,6 +22,8 @@ export interface ChordEvent {
   name: string;
   timeStart: number;
   duration: number;
+  /** Accompaniment labels can be replaced without removing user chords. */
+  generatedSourceTrackIndex?: number;
 }
 
 export interface TrackMetadata {
@@ -31,6 +33,9 @@ export interface TrackMetadata {
   program?: number;
   /** Original MIDI channel (0-15); percussion is not imported. */
   channel?: number;
+  /** Optional generator ownership, separate from a user's track naming. */
+  generatedRole?: "bass" | "harmony";
+  sourceTrackIndex?: number;
 }
 
 export interface ProgressionData {
