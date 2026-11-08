@@ -100,7 +100,9 @@ syncopated bass/chord accents. Within each chord region, rising melodic contour
 favors descending arpeggios (and vice versa), making the accompaniment less
 likely to compete in the same register direction. Seeded arpeggio start-tone
 variations preserve alternative arrangements even when the source groove is
-strong. No operations change source notes.
+strong. Per-region accompaniment velocities also scale with the user's
+melodic attack velocities, so quiet phrases aren't dominated by loud,
+fixed-level generated parts. No operations change source notes.
 
 ### 5. Melody continuation and reimagination
 
