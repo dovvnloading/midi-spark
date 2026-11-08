@@ -64,6 +64,21 @@ silent bars. A first-order dynamic-programming (Viterbi-style) search picks
 the highest-scoring *sequence*, rather than selecting each bar independently.
 A small seeded perturbation allows repeatable alternative harmonizations.
 
+**Harmonic pacing (follow-up):** *Each bar* maintains the original one-chord
+per four beats, while *2 / bar* explicitly requests two-beat segments.
+*Adaptive* compares the chord evidence for the first and second halves of
+each bar against a single four-beat chord: the halves must contain actual
+onsets, prefer different harmonies and collectively improve fit by enough to
+justify an extra change. The same global sequence-level search is run across
+the resulting one- or two-part bar windows, penalizing unnecessary changes
+on beat three. If the optimized path ends up assigning the same chord to
+both halves, it coalesces them into one four-beat event to avoid needless
+bass/chord retriggers. Bass and harmony note durations are bounded to each
+resulting chord window, so a newly chosen chord does not overlap its
+predecessor's notes by accident. Automatic key detection now uses the
+**original user melody** rather than allowing a generated continuation to
+redefine the key; the continuation still contributes harmonic evidence.
+
 No claim is made that these hand-tuned scores match the quality of a
 state-of-the-art learned harmonization model. They provide a reliable,
 inspectable no-server baseline for a controlled MIDI editor.
