@@ -8,7 +8,7 @@ if (!beforePath || !afterPath) {
 
 function readReport(path) {
   const report = JSON.parse(readFileSync(path, "utf8"));
-  if (report.benchmark !== "midi-spark-symbolic-quality-v2" ||
+  if (report.benchmark !== "midi-spark-symbolic-quality-v3" ||
     !Array.isArray(report.results) || typeof report.seedsPerFixture !== "number") {
     throw new Error("Unsupported or malformed evaluation report: " + path);
   }
@@ -18,9 +18,13 @@ function readReport(path) {
 const before = readReport(beforePath);
 const after = readReport(afterPath);
 const ids = report => report.results.map(row => row.id).join("|");
+const paired = report => Array.isArray(report.samples)
+  ? report.samples.map(row => row.fixtureId + ":" + row.seed).join("|")
+  : null;
 if (before.fixtures !== after.fixtures ||
   before.seedsPerFixture !== after.seedsPerFixture ||
-  before.runs !== after.runs || ids(before) !== ids(after)) {
+  before.runs !== after.runs || ids(before) !== ids(after) ||
+  !paired(before) || paired(before) !== paired(after)) {
   throw new Error("Reports use incompatible fixtures, seed counts or workloads");
 }
 
