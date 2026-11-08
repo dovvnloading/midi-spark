@@ -154,13 +154,14 @@ with sync_playwright() as playwright:
         dimensions(phone,summary,"Precision edit disclosure",40)
         tap(phone,summary,cdp)
         expect(phone.locator(".note-precision-editor")).to_have_attribute("open","")
+        before=phone.evaluate("JSON.parse(localStorage.getItem('midi-spark:session:v1')).progression.notes")
         phone.get_by_test_id("precision-note-select").select_option("0")
         duration=phone.get_by_test_id("precision-note-duration")
-        duration.fill("1.5")
+        duration.fill("2.5")
         duration.press("Tab")
         phone.wait_for_timeout(550)
         notes=phone.evaluate("JSON.parse(localStorage.getItem('midi-spark:session:v1')).progression.notes")
-        assert notes[0]["duration"]==1.5 and notes[1]["duration"]!=1.5,notes[:2]
+        assert notes[0]["duration"]==2.5 and notes[0]!=before[0] and notes[1:]==before[1:],notes[:2]
         record(str(width)+"px: exact note resize without dragging a narrow grid handle")
         phone.get_by_role("button",name="Toggle inspector",exact=True).click()
         phone.get_by_role("tab",name="Tracks",exact=True).click()
