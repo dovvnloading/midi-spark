@@ -34,7 +34,7 @@ export interface TrackMetadata {
   /** Original MIDI channel (0-15); percussion is not imported. */
   channel?: number;
   /** Optional generator ownership, separate from a user's track naming. */
-  generatedRole?: "bass" | "harmony";
+  generatedRole?: "bass" | "harmony" | "continuation" | "variation";
   sourceTrackIndex?: number;
 }
 
