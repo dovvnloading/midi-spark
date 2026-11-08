@@ -1,0 +1,177 @@
+"""Computed contrast, browser-zoom reflow and simulated-touch acceptance.
+Chromium emulation does not replace testing on real mobile devices or screen readers.
+"""
+import argparse, json, os
+from pathlib import Path
+from playwright.sync_api import sync_playwright, expect
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--url", default="http://127.0.0.1:4173")
+parser.add_argument("--output", default="browser-report")
+args = parser.parse_args()
+output = Path(args.output).resolve()
+output.mkdir(parents=True, exist_ok=True)
+fixture = output / "two-tracks.mid"
+assert fixture.is_file(), "Run browser_smoke.py first"
+report = {"contrast": [], "targets": [], "checks": []}
+
+def record(label):
+    report["checks"].append(label)
+    print("PASS", label, flush=True)
+
+# For representative solid-background surfaces, composite computed ancestor
+# backgrounds rather than guessing one contrast background for all labels.
+COLOR_JS = r"""(rules) => {
+  const parse = value => {
+    const m = value.match(/rgba?\(([^)]+)\)/);
+    if (!m) throw new Error('Unsupported color: ' + value);
+    const n = m[1].split(/[ ,/]+/).filter(Boolean).map(Number);
+    return [n[0], n[1], n[2], n[3] ?? 1];
+  };
+  const mix = (a,b) => [a[0]*a[3]+b[0]*(1-a[3]),
+                         a[1]*a[3]+b[1]*(1-a[3]),
+                         a[2]*a[3]+b[2]*(1-a[3]),1];
+  const bg = el => {
+    const layers=[];
+    for(let n=el;n instanceof HTMLElement;n=n.parentElement)
+      layers.push(parse(getComputedStyle(n).backgroundColor));
+    return layers.reverse().reduce((a,b)=>mix(b,a),[20,22,24,1]);
+  };
+  const linear = n => {n/=255;return n<=.04045?n/12.92:((n+.055)/1.055)**2.4};
+  const lum = c => .2126*linear(c[0])+.7152*linear(c[1])+.0722*linear(c[2]);
+  return rules.map(rule => {
+    const el=document.querySelector(rule.selector);
+    if(!el) return {...rule,missing:true};
+    const cs=getComputedStyle(el), background=bg(el);
+    const foreground=mix(parse(cs.color),background);
+    const a=lum(background), b=lum(foreground);
+    return {...rule,size:parseFloat(cs.fontSize),
+      ratio:Math.round(100*(Math.max(a,b)+.05)/(Math.min(a,b)+.05))/100,
+      foreground:cs.color,background:background.slice(0,3).map(Math.round)};
+  });
+}"""
+
+def contrast(page, scene, rules):
+    rows = page.evaluate(COLOR_JS, rules)
+    for item in rows:
+        item["scene"] = scene
+        assert not item.get("missing"), item
+        assert item["size"] >= item["minimum"], item
+        assert item["ratio"] >= 4.5, item
+    report["contrast"].extend(rows)
+    record(scene + ": computed text sizes and sample contrast >=4.5:1")
+
+def dimensions(page, locator, name, minimum):
+    box = locator.bounding_box()
+    assert box and box["width"]>=minimum and box["height"]>=minimum,(name,box)
+    report["targets"].append({"name":name,"viewport":page.viewport_size["width"],
+                              "width":round(box["width"],1),"height":round(box["height"],1)})
+    return box
+
+def tap(page, locator, cdp):
+    box=locator.bounding_box()
+    assert box, "Missing touch target"
+    x=box["x"]+box["width"]/2
+    y=box["y"]+box["height"]/2
+    cdp.send("Input.dispatchTouchEvent",{"type":"touchStart","touchPoints":[{"x":x,"y":y}]})
+    page.wait_for_timeout(45)
+    cdp.send("Input.dispatchTouchEvent",{"type":"touchEnd","touchPoints":[]})
+    page.wait_for_timeout(80)
+
+with sync_playwright() as playwright:
+    browser=playwright.chromium.launch(headless=True,**(
+        {"executable_path":os.environ["CHROMIUM_PATH"]} if os.environ.get("CHROMIUM_PATH") else {}))
+    errors=[]
+    desktop=browser.new_page(viewport={"width":1440,"height":900},has_touch=True)
+    desktop.on("pageerror",lambda e:errors.append(str(e)))
+    desktop.goto(args.url)
+    desktop.evaluate("document.fonts.ready")
+    contrast(desktop,"Desktop composer",[
+        {"selector":".compose-panel .panel-version","minimum":11},
+        {"selector":".compose-panel .eyebrow","minimum":11},
+        {"selector":".compose-panel .section-heading h3","minimum":13},
+        {"selector":".compose-panel .field-control > span","minimum":12},
+        {"selector":".compose-panel .generation-hint","minimum":12},
+        {"selector":".compose-panel .range-captions","minimum":12},
+        {"selector":".precision-controls label > span","minimum":12},
+        {"selector":".editor-context-right .time-signature","minimum":12},
+        {"selector":".app-status","minimum":11},
+    ])
+    desktop.get_by_role("button",name="Preview sound: Classic Analog. Open sound library").click()
+    expect(desktop.get_by_role("dialog",name="Sound library")).to_be_visible()
+    contrast(desktop,"Sound library",[
+        {"selector":".sound-library-eyebrow","minimum":11},
+        {"selector":".sound-library-row-character","minimum":11},
+        {"selector":".sound-library-row-copy small","minimum":12},
+        {"selector":".sound-library-footer","minimum":12},
+    ])
+    desktop.keyboard.press("Escape")
+    desktop.close()
+
+    # 200% browser zoom on a 1440x900 display behaves like ~720x450 CSS px
+    # with a 2x device scale. body.style.zoom='2' does NOT test reflow.
+    zoom=browser.new_page(viewport={"width":720,"height":450},device_scale_factor=2,has_touch=True)
+    zoom.on("pageerror",lambda e:errors.append(str(e)))
+    zoom.goto(args.url)
+    zoom.evaluate("document.fonts.ready")
+    assert zoom.evaluate("document.documentElement.scrollWidth<=innerWidth+1")
+    for label in ("Import MIDI","Export MIDI","Fit pattern"):
+        expect(zoom.get_by_role("button",name=label,exact=True)).to_be_visible()
+    controls=zoom.locator(".app-header button:visible").evaluate_all("""xs=>xs.map(el=>{
+      const b=el.getBoundingClientRect();
+      return {name:el.getAttribute('aria-label')||el.textContent.trim(),
+              x:b.left,y:b.top,w:b.width,h:b.height};
+    })""")
+    for i,a in enumerate(controls):
+        assert a["x"]>=0 and a["x"]+a["w"]<=721,("header offscreen",a)
+        for b in controls[i+1:]:
+            w=max(0,min(a["x"]+a["w"],b["x"]+b["w"])-max(a["x"],b["x"]))
+            h=max(0,min(a["y"]+a["h"],b["y"]+b["h"])-max(a["y"],b["y"]))
+            assert w*h<=1,("header overlap",a,b)
+    zoom.get_by_role("button",name="Toggle inspector",exact=True).click()
+    expect(zoom.get_by_role("button",name="Generate pattern",exact=False).first).to_be_visible()
+    zoom.screenshot(path=str(output/"typography-200-percent-reflow.png"))
+    record("200% equivalent viewport: no header overlap; primary controls reachable")
+    zoom.close()
+
+    for width in (320,390):
+        phone=browser.new_page(viewport={"width":width,"height":844},has_touch=True)
+        phone.on("pageerror",lambda e:errors.append(str(e)))
+        phone.goto(args.url)
+        phone.evaluate("document.fonts.ready")
+        cdp=phone.context.new_cdp_session(phone)
+        for label in ("Draw","Select","Slice","Hand","Stamp"):
+            btn=phone.get_by_role("button",name=label+" tool",exact=True)
+            dimensions(phone,btn,label+" tool",40)
+            tap(phone,btn,cdp)
+            expect(btn).to_have_attribute("aria-pressed","true")
+            expect(phone.locator(".active-tool-readout")).to_contain_text(label+" tool")
+        assert phone.evaluate("document.documentElement.scrollWidth<=innerWidth+1")
+        record(str(width)+"px: CDP touch sweep through all 5 tools with 40px targets")
+        phone.locator("input[type=file]").first.set_input_files(str(fixture))
+        phone.wait_for_timeout(450)
+        summary=phone.locator(".note-precision-summary")
+        dimensions(phone,summary,"Precision edit disclosure",40)
+        tap(phone,summary,cdp)
+        expect(phone.locator(".note-precision-editor")).to_have_attribute("open","")
+        phone.get_by_test_id("precision-note-select").select_option("0")
+        duration=phone.get_by_test_id("precision-note-duration")
+        duration.fill("1.5")
+        duration.press("Tab")
+        phone.wait_for_timeout(550)
+        notes=phone.evaluate("JSON.parse(localStorage.getItem('midi-spark:session:v1')).progression.notes")
+        assert notes[0]["duration"]==1.5 and notes[1]["duration"]!=1.5,notes[:2]
+        record(str(width)+"px: exact note resize without dragging a narrow grid handle")
+        phone.get_by_role("button",name="Toggle inspector",exact=True).click()
+        phone.get_by_role("tab",name="Tracks",exact=True).click()
+        mute=phone.get_by_role("button",name="Mute Keys",exact=True)
+        solo=phone.get_by_role("button",name="Solo Keys",exact=True)
+        dimensions(phone,mute,"Mute Keys",44)
+        dimensions(phone,solo,"Solo Keys",44)
+        phone.screenshot(path=str(output/("touch-accessibility-"+str(width)+".png")))
+        record(str(width)+"px: track M/S controls >=44px")
+        phone.close()
+    assert not errors, errors
+    browser.close()
+(output/"accessibility-matrix.json").write_text(json.dumps(report,indent=2))
+print("Completed",len(report["checks"]),"accessibility acceptance checks",flush=True)
