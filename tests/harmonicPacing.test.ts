@@ -150,4 +150,45 @@ describe("melody-aware harmonic pacing", () => {
         .toEqual(withContinuation.notes.filter(note => note.trackIndex === 9));
     }
   });
+  it("adapts bass and chord-stab timing to clear straight vs offbeat lead accents", () => {
+    const makePhrase = (offset: number): ProgressionData => ({
+      notes: [72, 76, 79, 76].map((midi, i) => event(midi, i + offset, 0.25)),
+      chords: [], totalBars: 1,
+    });
+    const straight = generateFromMelody(makePhrase(0),
+      {...prefs, harmonicPacing: "bar", density: "balanced"}, seededRandom(1));
+    const syncopated = generateFromMelody(makePhrase(0.5),
+      {...prefs, harmonicPacing: "bar", density: "balanced"}, seededRandom(1));
+    expect(straight.ok).toBe(true);
+    expect(syncopated.ok).toBe(true);
+    if (!straight.ok || !syncopated.ok) return;
+    const bassOnsets = (progression: typeof straight.progression, index: number) =>
+      progression.notes.filter(note => note.trackIndex === index)
+        .map(note => note.timeStart).sort((a, b) => a - b);
+    expect(bassOnsets(straight.progression, straight.generatedTrackIndices[0])).toEqual([0, 2]);
+    expect(bassOnsets(syncopated.progression, syncopated.generatedTrackIndices[0])).toEqual([0, 2.5]);
+  });
+
+  it("moves arpeggios opposite to a clearly rising or falling melody", () => {
+    const arrangement = (pitches: number[]) => {
+      const input: ProgressionData = {
+        notes: pitches.map((midi, i) => event(midi, i, 0.5)),
+        chords: [], totalBars: 1,
+      };
+      const result = generateFromMelody(input, {
+        ...prefs, harmonicPacing: "bar", density: "active",
+      }, seededRandom(2));
+      if (!result.ok) throw Error(result.reason);
+      return result.progression.notes
+        .filter(note => note.trackIndex === result.generatedTrackIndices[1])
+        .sort((a, b) => a.timeStart - b.timeStart);
+    };
+    const up = arrangement([60, 62, 64, 67]);
+    const down = arrangement([67, 64, 62, 60]);
+    expect(up).toHaveLength(8);
+    expect(down).toHaveLength(8);
+    expect(up[0].midi).toBeGreaterThan(up[1].midi);
+    expect(down[0].midi).toBeLessThan(down[1].midi);
+  });
+
 });
