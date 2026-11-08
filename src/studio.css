@@ -596,3 +596,9 @@ button:disabled { opacity: .42; }
   .note-precision-fields input { width: 68px; height: 40px; }
   .velocity-nudge-controls button { height: 40px; }
 }
+
+/* Precision-editor summary is an additional mobile row: reclaim unused status
+   footer padding rather than shrinking the 40px expansion target or canvas. */
+@media (max-width: 760px) {
+  .editor-footnote { min-height: 20px; padding-block: 2px; }
+}
