@@ -752,7 +752,6 @@ export default function App() {
     if (!result.ok) { notify(result.reason, "error"); return; }
     handleStop();
     commit(result.progression);
-    setSavedTakeBank(null);
     setTakeBatch(null);
     setPreviewTakeIndex(null);
     setSelectedNoteIndices(new Set());
