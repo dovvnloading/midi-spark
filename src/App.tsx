@@ -1190,15 +1190,20 @@ export default function App() {
     setSelectedNoteIndices(new Set()); setTrackOverrides({}); setFocusedTrack(null); setMelodySourceTrackIndex(null); setLoopRegion(null);
     setToolMode("draw"); setScrollAnchorKey(k => k + 1); setFitRequest(k => k + 1); setMobileInspectorOpen(false);
   };
-  const hasNotes = !!progression?.notes.length;
+  const hasNotes = !!displayProgression?.notes.length;
   const unsupportedMeters = progression ? unsupportedSourceMeters(progression) : [];
   const displayedSynth = tracks.length === 1 ? trackMix[tracks[0].index]?.synthType ?? synthType : synthType;
   return (
     <div className={"workbench" + (!desktopInspectorOpen ? " inspector-collapsed" : "")} style={{ "--inspector-width": inspectorWidth + "px" } as CSSProperties} onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
       {isDraggingMidi && <div className="file-drop-overlay"><Upload size={36} /><h2>Drop your MIDI here</h2><p>Your current pattern is recoverable with Undo.</p></div>}
-      <TransportBar isPlaying={isPlaying} isPaused={playbackState === "paused"} canPlay={hasNotes} canUndo={canUndo} canRedo={canRedo} isLooping={isLooping} bpm={bpm} currentTick={currentTick}
+      <TransportBar isPlaying={isPlaying} isPaused={playbackState === "paused"} canPlay={hasNotes}
+        canUndo={canUndo && !previewTake} canRedo={canRedo && !previewTake}
+        isLooping={isLooping} bpm={bpm} currentTick={currentTick}
         onPlay={handlePlay} onPause={handlePause} onStop={handleStop} onUndo={undo} onRedo={redo} onToggleLoop={toggleLooping} onBpmChange={setBpm}
-        onLoadFile={loadMidiFile} onExport={handleExport} onClearSavedSession={handleClearSavedSession} onOpenShortcuts={() => setShortcutsOpen(true)} onToggleInspector={toggleInspector} />
+        onLoadFile={loadMidiFile} onExport={() => previewTake
+          ? notify("Accept the auditioned take before exporting its MIDI; this project is still unchanged.", "info")
+          : handleExport()}
+        onClearSavedSession={handleClearSavedSession} onOpenShortcuts={() => setShortcutsOpen(true)} onToggleInspector={toggleInspector} />
       <div className="workspace">
         <Inspector tab={inspectorTab} onTabChange={setInspectorTab} mobileOpen={mobileInspectorOpen} onClose={() => setMobileInspectorOpen(false)}
           onToggle={toggleInspector} width={inspectorWidth} onResize={setInspectorWidth}
@@ -1217,6 +1222,13 @@ export default function App() {
             lockedChordCount={lockedChordCount} onUnlockAllChords={handleUnlockAllChords}
             harmonyGuides={harmonyGuides} availableHarmonyChords={harmonyChordChoices}
             onAddHarmonyGuide={handleAddHarmonyGuide} onRemoveHarmonyGuide={handleRemoveHarmonyGuide}
+            canExploreTakes={canExploreTakes} takeViews={validTakeBatch?.takes.map((take, i) => ({
+              label: "Take " + (i + 1), changedRegions: take.changedRegions,
+              chordSummary: take.chordSummary,
+            })) ?? []}
+            previewTakeIndex={validTakeBatch ? previewTakeIndex : null}
+            onExploreTakes={handleExploreHarmonyTakes} onSelectTake={handleSelectHarmonyTake}
+            onAcceptTake={handleAcceptHarmonyTake} onDiscardTakes={handleDiscardHarmonyTakes}
             accompanimentDensity={accompanimentDensity} onAccompanimentDensityChange={setAccompanimentDensity}
             harmonicPacing={harmonicPacing} onHarmonicPacingChange={setHarmonicPacing}
             melodyKeyStrategy={melodyKeyStrategy} onMelodyKeyStrategyChange={setMelodyKeyStrategy}
@@ -1239,9 +1251,13 @@ export default function App() {
             onRenameTrack={handleRenameTrack} onDuplicateTrack={handleDuplicateTrack} onDeleteTrack={handleDeleteTrack}
             onPreviewError={message => notify(message, "error")} />}
         />
-        <main className="editor-main" aria-label="MIDI editor">
+        <main className={"editor-main" + (previewTake ? " take-preview-active" : "")}
+          inert={!!previewTake} aria-label="MIDI editor">
           <div className="editor-context"><div className="editor-title"><Music2 size={16} /><h1>Piano roll</h1><span className="context-separator">/</span>
-            <span>{progression ? root + " " + mode : "New session"}</span></div>
+            <span>{displayProgression ? displayRoot + " " + displayMode : "New session"}</span>
+            {previewTake && <span className="take-preview-label" aria-hidden="true">
+              Auditioning Take {(previewTakeIndex ?? 0) + 1} · Read only
+            </span>}</div>
             <div className="editor-context-right">{progression && <><span className="pattern-length">{progression.totalBars} bars</span>
               <select aria-label="Edit track" value={visibleFocusedTrack ?? "all"} onChange={event => handleFocusTrack(event.target.value === "all" ? null : Number(event.target.value))}>
                 <option value="all">All tracks</option>{tracks.map(t => <option key={t.index} value={t.index}>{t.name}</option>)}
@@ -1265,8 +1281,10 @@ export default function App() {
             followPlayback={followPlayback} inspectorOpen={desktopInspectorOpen} onToolModeChange={setToolMode} onStampTypeChange={setStampType}
             onNoteLengthChange={setNoteLength} onSnapResolutionChange={setSnapResolution} onZoomChange={setZoomX}
             onToggleFollow={() => setFollowPlayback(f => !f)} onFit={() => setFitRequest(k => k + 1)} onToggleInspector={toggleInspector} />
-          <PianoRoll progression={progression} focusedTrack={visibleFocusedTrack} root={root} mode={mode} statusLabel={scopeLabel}
-            onGenerate={handleGenerate} onStartBlank={startBlank} onLoadFile={loadMidiFile} selectedIndices={selectedNoteIndices}
+          <PianoRoll progression={displayProgression} focusedTrack={visibleFocusedTrack}
+            root={displayRoot} mode={displayMode} statusLabel={scopeLabel}
+            onGenerate={handleGenerate} onStartBlank={startBlank} onLoadFile={loadMidiFile}
+            selectedIndices={previewTake ? new Set<number>() : selectedNoteIndices}
             toolMode={toolMode} stampType={stampType} noteLength={noteLength} snapResolution={snapResolution} zoomX={zoomX}
             fitRequest={fitRequest} isPlaying={isPlaying} currentTick={currentTick} followPlayback={followPlayback}
             isLooping={isLooping} loopRegion={loopRegion} onLoopRegionChange={handleLoopRegionChange}
