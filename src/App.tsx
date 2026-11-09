@@ -22,6 +22,8 @@ import {
   SynthType,
 } from "./lib/audio";
 import { exportToMidiBlob, parseMidiFile, unsupportedSourceMeters } from "./lib/midi";
+import { parseNativeProjectFile, serializeNativeProject, PROJECT_EXTENSION } from "./lib/projectFile";
+import { buildSongForm, type SongForm } from "./lib/songForm";
 import { availableHarmonyChords, generateFromMelody, isAdaptiveTrack, type AccompanimentDensity, type MelodyKeyStrategy,
   type HarmonicPacing } from "./lib/adaptive";
 import { generateMotif, type ContinuationBars } from "./lib/motif";
@@ -76,6 +78,7 @@ interface HarmonyTakeBatch {
 
 type PendingReplacement =
   | {kind: "import"; filename: string; parsed: ProgressionData; fileBpm: number | null}
+  | {kind: "project"; filename: string; session: SavedSession}
   | {kind: "generate"};
 
 export default function App() {
@@ -106,6 +109,8 @@ export default function App() {
   const [melodyTask, setMelodyTask] = useState<"harmonize" | "continue" | "reimagine">(savedSession?.melodyTask ?? "harmonize");
   const [motifCreativity, setMotifCreativity] = useState(savedSession?.motifCreativity ?? 46);
   const [continuationBars, setContinuationBars] = useState<ContinuationBars>(savedSession?.continuationBars ?? 4);
+  const [songForm, setSongForm] = useState<SongForm>(savedSession?.songFormPreference ?? "AABA");
+  const [formContrast, setFormContrast] = useState(savedSession?.formContrast ?? 65);
 
   // Transport / sound
   const [bpm, setBpm] = useState(savedSession?.bpm ?? 120);
@@ -319,72 +324,34 @@ export default function App() {
     setTrackMixer(trackMix);
   }, [trackMix]);
 
-  // Debounced autosave of the session so a hard reload can restore it.
+  // A single versioned session snapshot powers both local autosave and the
+  // explicit .midispark archive. Preview-only candidate notes never enter it.
+  const currentSession = useMemo<SavedSession>(() => ({
+    progression, root, mode, bpm, dissonance, complexity, bars,
+    generationMode, melodySourceMode, melodySourceTrackIndex, melodyPhraseScope,
+    harmonicFit, harmonyExploration, phraseCoherence, accompanimentDensity,
+    harmonicPacing, melodyKeyStrategy, melodyTask, motifCreativity,
+    continuationBars, songFormPreference: songForm, formContrast,
+    synthType, snapResolution, noteLength, zoomX, trackMix, isLooping, loopRegion,
+    ...(persistableTakeBank ? { savedHarmonyTakes: persistableTakeBank } : {}),
+  }), [
+    progression, root, mode, bpm, dissonance, complexity, bars,
+    generationMode, melodySourceMode, melodySourceTrackIndex, melodyPhraseScope,
+    harmonicFit, harmonyExploration, phraseCoherence, accompanimentDensity,
+    harmonicPacing, melodyKeyStrategy, melodyTask, motifCreativity,
+    continuationBars, songForm, formContrast,
+    synthType, snapResolution, noteLength, zoomX, trackMix, isLooping, loopRegion,
+    persistableTakeBank,
+  ]);
+
+  // Debounced autosave of the *same* data exported to a native file.
   useEffect(() => {
     autosaveTimeoutRef.current = setTimeout(() => {
-      const saved = saveSession({
-        progression,
-        root,
-        mode,
-        bpm,
-        dissonance,
-        complexity,
-        bars,
-        generationMode,
-        melodySourceMode,
-        melodySourceTrackIndex,
-        melodyPhraseScope,
-        harmonicFit,
-        harmonyExploration,
-        phraseCoherence,
-        accompanimentDensity,
-        harmonicPacing,
-        melodyKeyStrategy,
-        melodyTask,
-        motifCreativity,
-        continuationBars,
-        synthType,
-        snapResolution,
-        noteLength,
-        zoomX,
-        trackMix,
-        isLooping,
-        loopRegion,
-        ...(persistableTakeBank ? { savedHarmonyTakes: persistableTakeBank } : {}),
-      });
+      const saved = saveSession(currentSession);
       setSaveState(saved ? "saved" : "unavailable");
     }, 400);
     return () => clearTimeout(autosaveTimeoutRef.current);
-  }, [
-    progression,
-    root,
-    mode,
-    bpm,
-    dissonance,
-    complexity,
-    bars,
-    generationMode,
-    melodySourceMode,
-    melodySourceTrackIndex,
-    melodyPhraseScope,
-    harmonicFit,
-    harmonyExploration,
-    phraseCoherence,
-    accompanimentDensity,
-    harmonicPacing,
-    melodyKeyStrategy,
-    melodyTask,
-    motifCreativity,
-    continuationBars,
-    synthType,
-    snapResolution,
-    noteLength,
-    zoomX,
-    trackMix,
-    isLooping,
-    loopRegion,
-    persistableTakeBank,
-  ]);
+  }, [currentSession]);
 
   // Keep the audio engine in sync with edits (including live drag previews),
   // BPM changes, and loop toggles while the transport is running.
