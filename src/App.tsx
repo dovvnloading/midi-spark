@@ -24,6 +24,7 @@ import { exportToMidiBlob, parseMidiFile, unsupportedSourceMeters } from "./lib/
 import { generateFromMelody, isAdaptiveTrack, type AccompanimentDensity, type MelodyKeyStrategy,
   type HarmonicPacing } from "./lib/adaptive";
 import { generateMotif, type ContinuationBars } from "./lib/motif";
+import { toggleChordRegionLock, unlockChordRegions } from "./lib/chordLocks";
 import type { MelodySourceScope } from "./lib/melodyScope";
 import { MAX_BPM, MIN_BPM, clamp } from "./lib/constants";
 import { normalizeLoopRange, sequenceEndQuarters, type LoopRange } from "./lib/timeline";
@@ -143,6 +144,8 @@ export default function App() {
   const selectedMelodyNoteCount = [...selectedNoteIndices].filter(index =>
     progression?.notes[index] &&
     trackIndexOf(progression.notes[index]) === effectiveMelodySourceTrackIndex).length;
+  const lockedChordCount = progression?.chords.filter(chord =>
+    chord.locked && chord.generatedSourceTrackIndex === effectiveMelodySourceTrackIndex).length ?? 0;
   const trackMix = useMemo(
     () => reconcileTrackMix(progression, trackOverrides, synthType),
     [progression, trackOverrides, synthType],
@@ -532,6 +535,21 @@ export default function App() {
   }, [notify]);
 
   // ----- Generation -----
+
+  const handleToggleChordLock = useCallback((index: number) => {
+    const chord = progression?.chords[index];
+    if (!chord || chord.generatedSourceTrackIndex === undefined) return;
+    commit(prev => prev ? toggleChordRegionLock(prev, index) : prev);
+    notify((chord.locked ? "Unlocked " : "Locked ") + chord.name +
+      (chord.locked ? " for regeneration." : " and its accompaniment. Undo to restore."), "success");
+  }, [progression, commit, notify]);
+
+  const handleUnlockAllChords = useCallback(() => {
+    if (effectiveMelodySourceTrackIndex === null || lockedChordCount === 0) return;
+    const sourceIndex = effectiveMelodySourceTrackIndex;
+    commit(prev => prev ? unlockChordRegions(prev, sourceIndex) : prev);
+    notify("Unlocked " + lockedChordCount + " chord regions. Undo restores them.", "info");
+  }, [effectiveMelodySourceTrackIndex, lockedChordCount, commit, notify]);
 
   /** New compositions are deliberately separate from melody-conditioned
    * generation: only this path can replace the entire project. */
@@ -1072,6 +1090,7 @@ export default function App() {
             harmonicFit={harmonicFit} onHarmonicFitChange={setHarmonicFit}
             harmonyExploration={harmonyExploration} onHarmonyExplorationChange={setHarmonyExploration}
             phraseCoherence={phraseCoherence} onPhraseCoherenceChange={setPhraseCoherence}
+            lockedChordCount={lockedChordCount} onUnlockAllChords={handleUnlockAllChords}
             accompanimentDensity={accompanimentDensity} onAccompanimentDensityChange={setAccompanimentDensity}
             harmonicPacing={harmonicPacing} onHarmonicPacingChange={setHarmonicPacing}
             melodyKeyStrategy={melodyKeyStrategy} onMelodyKeyStrategyChange={setMelodyKeyStrategy}
@@ -1125,6 +1144,7 @@ export default function App() {
             toolMode={toolMode} stampType={stampType} noteLength={noteLength} snapResolution={snapResolution} zoomX={zoomX}
             fitRequest={fitRequest} isPlaying={isPlaying} currentTick={currentTick} followPlayback={followPlayback}
             isLooping={isLooping} loopRegion={loopRegion} onLoopRegionChange={handleLoopRegionChange}
+            onToggleChordLock={handleToggleChordLock}
             scrollAnchorKey={scrollAnchorKey} onSelectionChange={setSelectedNoteIndices} commit={commit} onZoomChange={setZoomX}
             onScrub={handleScrub} onScrubStateChange={handleScrubStateChange} onLivePreview={setLivePreview}
             onAudioPreviewError={message => notify(message, "error")} />
