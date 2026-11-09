@@ -738,7 +738,74 @@ with sync_playwright() as p:
  assert snap(take_page)['progression']==take_base
  assert len(snap(take_page)['savedHarmonyTakes']['favorites'])==0
  record('Take Lab persists compact favorites, explains changes, auditions at one loop anchor and accepts one undoable take')
+ # A melody with existing Bass/Harmony invokes scoped reharmonization of B.
+ take_page.get_by_role('button',name='Build 16-bar song form',exact=True).click()
+ take_page.wait_for_timeout(750)
+ formed=snap(take_page)['progression']
+ assert formed['totalBars']==16
+ assert [section['label'] for section in formed['arrangementSections']]==[
+  'A','A′','B','A (return)']
+ assert formed['notes'][:len(take_base['notes'])]==take_base['notes']
+ assert len([chord for chord in formed['chords'] if chord.get('generatedSourceTrackIndex')==0
+  and 32<=chord['timeStart']<48])>=4
+ record('Melody-aware song form retains original section and reharmonizes a contrasting bridge')
  take_page.close()
+ # Native projects preserve editable sections, settings, and metadata when
+ # exported/opened; malformed files and Cancel must leave the current score.
+ project_page=b.new_page(viewport={'width':1280,'height':800})
+ project_page.on('pageerror',lambda e:errors.append(str(e)))
+ project_page.goto(args.url)
+ project_page.get_by_role('button',name='Generate pattern',exact=True).last.click()
+ project_page.wait_for_timeout(650)
+ seed_score=snap(project_page)['progression']
+ assert seed_score['totalBars']==4
+ project_page.get_by_role('tab',name='Compose',exact=True).click()
+ project_page.get_by_role('button',name='Build 16-bar song form',exact=True).click()
+ project_page.wait_for_timeout(650)
+ expanded=snap(project_page)
+ assert expanded['progression']['totalBars']==16
+ assert expanded['progression']['notes'][:len(seed_score['notes'])]==seed_score['notes']
+ assert [section['startBar'] for section in expanded['progression']['arrangementSections']]==[0,4,8,12]
+ assert project_page.locator('.song-form-marker').count()==4
+ project_page.locator('.project-menu > summary').click()
+ with project_page.expect_download() as project_download:
+  project_page.get_by_role('button',name='Save MIDI Spark project').click()
+ project_file=OUTPUT/'song-form.midispark'
+ project_download.value.save_as(str(project_file))
+ assert project_file.read_bytes().startswith(b'{')
+ native=json.loads(project_file.read_text())
+ assert native['format']=='midi-spark-project' and native['version']==1
+ assert native['session']['progression']==expanded['progression']
+ assert native['session']['songFormPreference']=='AABA'
+ # A damaged file is rejected without losing the current score.
+ invalid_project=OUTPUT/'broken.midispark'
+ invalid_project.write_text('{broken')
+ project_page.locator('input[aria-label="Open MIDI Spark project file"]').set_input_files(str(invalid_project))
+ project_page.wait_for_timeout(500)
+ assert snap(project_page)['progression']==expanded['progression']
+ # Replace with a new pattern, then Cancel a native import.
+ project_page.get_by_role('button',name='Generate pattern',exact=False).click()
+ confirm_replacement_if_present(project_page)
+ project_page.wait_for_timeout(650)
+ other_score=snap(project_page)['progression']
+ assert other_score!=expanded['progression']
+ project_page.get_by_role('combobox',name='Root key').select_option('D')
+ project_page.locator('input[aria-label="Open MIDI Spark project file"]').set_input_files(str(project_file))
+ expect(project_page.get_by_role('dialog',name='Open native project?')).to_be_visible()
+ project_page.get_by_role('button',name='Keep current work').click()
+ assert snap(project_page)['progression']==other_score
+ project_page.locator('input[aria-label="Open MIDI Spark project file"]').set_input_files(str(project_file))
+ project_page.get_by_role('button',name='Open and replace').click()
+ project_page.wait_for_timeout(750)
+ restored_project=snap(project_page)
+ assert restored_project['progression']==expanded['progression']
+ assert restored_project['root']==native['session']['root']
+ assert restored_project['songFormPreference']=='AABA'
+ project_page.reload();project_page.wait_for_timeout(750)
+ assert snap(project_page)['progression']==expanded['progression']
+ expect(project_page.get_by_role('list',name='Current arrangement sections')).to_be_visible()
+ record('Native project file restores all song sections and settings after invalid-file and Cancel safety checks')
+ project_page.close()
  # Melody continuation and variation are separate, user-protecting operations.
  motif_page=b.new_page(viewport={'width':1280,'height':800})
  motif_page.on('pageerror',lambda error:errors.append(str(error)))
