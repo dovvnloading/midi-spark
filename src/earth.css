@@ -430,3 +430,113 @@ body { background: var(--app-bg); }
   .inspector-close { background: #505a56; border-color: #98a99a; color: #f1f2ed; }
   .transport { border-top-color: #909a94; }
 }
+
+/* Focused creation workflow: hierarchy, not stacked feature advertisements.
+ * These are layout refinements only; section-specific musical controls remain
+ * fully keyboard accessible inside native expandable disclosures. */
+.inspector-heading { min-height: 54px; padding: 11px 17px; }
+.inspector-heading-copy { gap: 2px; }
+.inspector-heading-copy strong { font-size: 14px; }
+.inspector-overline { font-size: 9px; letter-spacing: 1px; }
+.inspector-tabs-row { height: 50px; padding: 6px 12px; }
+.inspector-tabs button { font-size: 12px; gap: 6px; }
+.compose-panel .inspector-content { padding: 16px 17px 25px; }
+.compose-compact-intro { margin: 0 0 18px; }
+.compose-intro-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+.compose-intro-label .eyebrow { font-size: 10px; color: #e2cfb6; }
+.compose-intro-label .panel-version { font-size: 10px; color: #c7d0c7; }
+.compose-compact-intro h2 { margin: 0; color: #f3f3ed; font-size: 20px; font-weight: 680; letter-spacing: -.65px; }
+.compose-compact-intro p { margin: 5px 0 0; font-size: 12px; color: #d7ddd7; text-transform: capitalize; }
+.compose-compact-intro p span { margin-inline: 4px; color: #c7ad8d; }
+
+.compose-panel .compose-section { padding-bottom: 14px; margin-bottom: 14px; }
+.compose-panel .section-heading { margin-bottom: 9px; }
+.compose-panel .section-heading h3 { font-size: 13px; color: #f2f2ed; }
+.compose-panel .field-heading { margin-bottom: 7px; }
+.compose-panel .field-heading h4 { font-size: 12px; }
+.compose-panel .field-control { gap: 5px; }
+.compose-panel .field-control > span { color: #e4e8df; font-size: 12px; }
+.compose-panel .select-field select { height: 39px; }
+.compose-panel .generation-mode button { min-height: 37px; }
+.compose-panel .segmented button { height: 36px; }
+.compose-panel .generation-hint { margin: 5px 0 0; }
+.compose-panel .sound-picker-trigger { min-height: 45px; }
+.compose-panel .sound-section { padding-bottom: 14px; margin-bottom: 14px; }
+.compose-panel .feel-presets button { min-height: 36px; }
+.compose-panel .arrangement-label { margin-top: 13px; margin-bottom: 8px; }
+.compose-panel .range-captions { margin-top: 1px; }
+
+.follow-workflow-section .melody-adaptive-controls { gap: 10px; padding-top: 0; }
+.follow-workflow-section .melody-step-heading { margin: 4px 0 0; color: #eceee7; }
+.follow-workflow-section .melody-step-heading h4 { font-size: 12px; font-weight: 650; }
+.follow-workflow-section .melody-task-help {
+  margin: -4px 0 1px; padding: 0; border: 0;
+  background: transparent; color: #d6dcd3;
+}
+.follow-workflow-section .field-heading output { margin-left: auto; color: #ede7d9; }
+.follow-workflow-section .expression-control .field-heading { margin-bottom: 0; }
+.follow-workflow-section .expression-control .range-field { margin-top: 1px; }
+
+/* Consistent, understated progressive disclosures for optional workflows. */
+.compose-disclosure {
+  margin: 0 0 9px; border: 1px solid #859089;
+  background: #41494a; border-radius: 9px; overflow: clip;
+}
+.compose-disclosure > summary {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; list-style: none; cursor: pointer; min-height: 47px;
+  padding: 9px 34px 9px 12px; position: relative; color: #f1f2ec;
+}
+.compose-disclosure > summary::-webkit-details-marker { display: none; }
+.compose-disclosure > summary::after {
+  content: ""; position: absolute; right: 15px; top: calc(50% - 4px);
+  width: 7px; height: 7px; border-right: 1.5px solid #d1d9cf;
+  border-bottom: 1.5px solid #d1d9cf; transform: rotate(45deg);
+  transition: transform .15s ease;
+}
+.compose-disclosure[open] > summary::after { transform: rotate(225deg) translate(-3px, -3px); }
+.compose-disclosure > summary:focus-visible { outline: 2px solid #e3c29f; outline-offset: -3px; border-radius: 8px; }
+.compose-disclosure > summary > span { font-size: 12px; font-weight: 670; }
+.compose-disclosure > summary small { flex: 0 1 auto; min-width: 0; font-size: 10px; font-weight: 480; color: #d0d8d0; text-align: right; overflow-wrap: anywhere; }
+.compose-disclosure[open] { background: #444c4d; border-color: #b0aaa0; }
+.compose-disclosure-body { padding: 11px 12px 13px; border-top: 1px solid #77817a; }
+.compose-disclosure-body .field-heading h4 { font-size: 12px; }
+.compose-disclosure-body .expression-control + .expression-control { margin-top: 16px; }
+.compose-disclosure-body .generation-hint { color: #d5dbd3; }
+.compose-disclosure-body .harmony-take-lab { margin-top: 0; background: #454f4a; }
+.compose-disclosure-body .take-choices { margin-top: 8px; }
+.compose-disclosure-body .song-form-build { margin-top: 12px; }
+.compose-disclosure-body .song-form-sections { margin-top: 12px; }
+.compose-disclosure-body .source-loop-editor { margin-top: 7px; }
+.follow-workflow-section .melody-advanced { margin-top: 0; background: #41494a; }
+.follow-workflow-section .melody-advanced > summary { min-height: 48px; padding: 9px 32px 9px 12px; gap: 3px; }
+.follow-workflow-section .melody-advanced > summary span { line-height: 1.35; color: #d4dad0; }
+.follow-workflow-section .melody-advanced-content { padding: 11px 12px 13px; gap: 13px; }
+.follow-workflow-section .melody-advanced-content .generation-hint { margin-top: 4px; }
+
+/* The primary action stays obvious; omit duplicate status copy and disabled
+ * "try another" actions until they are actually applicable. */
+.compose-actions {
+  padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+  border-top-color: #969d96;
+}
+.generate-button { height: 44px; }
+.variation-button {
+  margin-top: 7px; min-height: 30px; padding: 6px;
+  background: transparent; border: 0; color: #e3e7dc;
+}
+.variation-button:hover:not(:disabled) { background: #535f59; color: #ffffff; }
+
+/* Keep text, not pictograms, as the primary navigation language. */
+.inspector-tabs button svg { opacity: .68; }
+@media (max-width: 760px) {
+  .inspector-heading { min-height: 52px; padding: 10px 16px; }
+  .inspector-tabs-row { height: 48px; padding: 6px 10px; }
+  .compose-panel .inspector-content { padding: 14px 16px 22px; }
+  .compose-compact-intro { margin-bottom: 14px; }
+  .compose-panel .compose-section { padding-bottom: 12px; margin-bottom: 12px; }
+  .compose-actions { padding: 10px 16px max(12px, env(safe-area-inset-bottom)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .compose-disclosure > summary::after { transition: none; }
+}
