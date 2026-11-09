@@ -28,6 +28,8 @@ export interface SidebarProps {
   onHarmonyExplorationChange: (value: number) => void;
   phraseCoherence: number;
   onPhraseCoherenceChange: (value: number) => void;
+  lockedChordCount: number;
+  onUnlockAllChords: () => void;
   accompanimentDensity: AccompanimentDensity;
   harmonicPacing: HarmonicPacing;
   onHarmonicPacingChange: (value: HarmonicPacing) => void;
@@ -240,6 +242,13 @@ export function Sidebar(p: SidebarProps) {
                 melodic ideas can share a chord-root arc. Melody-supported endings favor resolution.
                 Only near-best, melody-compatible chord paths are considered.</p>
             </div>
+            <div className="field-heading"><h4>Protected chord regions</h4>
+              <span className="field-hint">{p.lockedChordCount} locked</span></div>
+            <p className="generation-hint">Click the padlock on any generated chord in the
+              piano-roll chord lane to preserve that chord and its bass/harmony notes.
+              Generate again to explore only the unlocked regions. Lock changes are undoable.</p>
+            {p.lockedChordCount > 0 && <button type="button" className="text-button"
+              onClick={p.onUnlockAllChords}>Unlock all {p.lockedChordCount} chord regions</button>}
             <div className="field-heading"><h4>Chord changes</h4></div>
             <div className="generation-mode melody-task" role="group" aria-label="Harmonic pacing">
               <button type="button" aria-pressed={p.harmonicPacing === "bar"}
