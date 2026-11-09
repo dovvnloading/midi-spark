@@ -186,6 +186,29 @@ The app only offers Take Lab when the current source already has the two owned
 generated accompaniment tracks, keeping channel routing stable. Stale candidate
 batches are invalidated when the editable base or selected source changes.
 
+**Take Lab v2 — favorites and comparisons.** Select chooses a read-only
+score without playback; **Listen** selects that score and starts the standard
+Tone transport from a *common comparison anchor*: loop-in if looping, otherwise
+quarter 0. **Previous / Next** cycles through original and all available takes
+using the same rule; an in-flight older start is invalidated when a newer
+choice is made. Descriptive metrics compare chord names by bar (including
+half-bar pacing), chord-transition count, and note-event counts on the two
+owned accompaniment tracks. These values help a musician find differences;
+they are not style, perceptual quality or listener-preference scores.
+
+**Save favorite** explicitly stores up to four candidate accompaniment
+snapshots in the same versioned browser session. The compact payload includes
+only generated bass/harmony notes, source-owned chord labels, key/mode and
+seed. Restoration rebuilds the candidate using the *current* source melody,
+unrelated tracks, channels and project metadata; it never overwrites them from
+a saved snapshot. A deterministic whole-progression fingerprint prevents
+stale candidates from being applied after an edit or another project is
+loaded. Fingerprints are a project-compatibility check, not cryptographic
+authentication. Removing favorites affects only the library; no MIDI edit is
+committed. Unsaved candidates remain transient. Standard MIDI export does
+not include Take Lab favorites, and quotas can make browser autosave
+unavailable; the status bar reports failures rather than claiming storage.
+
 ### 4. Accompaniment
 
 Accompaniment uses one dedicated Bass track and one dedicated Harmony track.
