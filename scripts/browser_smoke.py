@@ -285,8 +285,8 @@ with sync_playwright() as p:
  page.locator('.sound-library-select').filter(has_text='Digital Bass').click()
  page.wait_for_timeout(550)
  assert snap(page)['trackMix']['1']['synthType']=='fmBass'
- expect(page.get_by_text('Browser playback sound',exact=False).first).to_be_visible()
- expect(page.get_by_text('GM program 34',exact=False).first).to_be_visible()
+ expect(bass_strip.get_by_text('Browser playback sound',exact=False)).to_be_visible()
+ expect(bass_strip.get_by_text('GM program 34',exact=False)).to_be_visible()
  record('Track picker discloses browser-only sound and exported GM instrument program')
  record('Track mixer chooses independent expanded presets with audition')
  page.get_by_role('button',name='Mute Bass',exact=True).click();assert snap(page)['trackMix']['1']['muted']
