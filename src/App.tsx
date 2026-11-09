@@ -1073,6 +1073,19 @@ export default function App() {
     // Keyboard navigation in menus and buttons takes priority over editor hotkeys.
     if (target?.closest('button, summary, a[href], [role="tab"], [role="button"], [role="listbox"], [role="slider"], [role="spinbutton"], [role="menuitem"]') &&
         !target.closest('[data-testid="piano-note"]')) return;
+    // When auditioning, the score is a read-only candidate. Keep Space as
+    // transport, Escape as Return to Original, but never dispatch editing,
+    // history or regeneration shortcuts against the saved base score.
+    if (previewTake) {
+      if (e.key === "Escape") {
+        e.preventDefault(); handleSelectHarmonyTake(null); return;
+      }
+      if (e.code !== "Space") {
+        if (e.ctrlKey || e.metaKey || e.key === "Delete" || e.key === "Backspace")
+          e.preventDefault();
+        return;
+      }
+    }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "g") {
       e.preventDefault(); if (!e.repeat) handleGenerate(); return;
     }
