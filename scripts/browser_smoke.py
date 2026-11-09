@@ -34,6 +34,13 @@ def import_fixture(page):
  page.locator('input[type=file]').first.set_input_files(str(fixture));page.wait_for_timeout(650)
  confirm_replacement_if_present(page)
  if page.get_by_role('button',name='Dismiss notification').count(): page.get_by_role('button',name='Dismiss notification').click()
+def open_composer_group(page, selector):
+ group=page.locator(selector).first
+ expect(group.locator('summary')).to_be_visible()
+ if group.get_attribute('open') is None:
+  group.locator('summary').first.click()
+ expect(group).to_have_attribute('open','')
+
 def grid_point(page,midi,quarter):
  grid=page.get_by_test_id('piano-grid').bounding_box(); zoom=snap(page)['zoomX'];height=grid['height']/128
  return grid['x']+quarter*zoom,grid['y']+(127-midi+.5)*height
@@ -75,6 +82,22 @@ with sync_playwright() as p:
  assert page.locator('.song-form-build svg').count()==0
  assert page.get_by_role('button',name='Generate pattern').count()>=1
  record('MIDI ident matches favicon/header; all generation buttons are icon-free')
+ # The default Compose screen must prioritize essentials over dense specialist controls.
+ assert page.locator('.composition-summary, .compose-panel .panel-intro, .empty-motif').count()==0
+ assert page.locator('.song-form-disclosure').count()==0
+ assert page.locator('.expression-disclosure').get_attribute('open') is None
+ expect(page.locator('.compose-compact-intro h2')).to_have_text('Make music.')
+ expect(page.get_by_role('button',name='Project menu')).to_be_visible()
+ expect(page.get_by_role('button',name='Canvas view options')).to_be_visible()
+ page.get_by_role('button',name='Canvas view options').click()
+ expect(page.get_by_role('button',name='Zoom in')).to_be_visible()
+ page.get_by_role('button',name='Canvas view options').press('Escape')
+ expect(page.get_by_role('button',name='Zoom in')).not_to_be_visible()
+ page.get_by_role('button',name='Project menu').click()
+ expect(page.get_by_role('button',name='Import MIDI')).to_be_visible()
+ page.get_by_role('button',name='Project menu').press('Escape')
+ expect(page.get_by_role('button',name='Import MIDI')).not_to_be_visible()
+ record('Focused composer keeps power tools folded while Project/View menus remain discoverable')
  # Primary sound choice must be visible without scrolling the desktop inspector.
  panel=page.locator('.inspector-panel:not([hidden])').bounding_box()
  trigger=page.locator('.sound-picker-trigger').first.bounding_box()
@@ -108,6 +131,7 @@ with sync_playwright() as p:
  page.get_by_role('button',name='Warm',exact=True).click()
  assert page.get_by_role('slider',name='Chord tension').input_value()=='12'
  assert page.get_by_role('slider',name='Rhythmic detail').input_value()=='18'
+ open_composer_group(page,'.expression-disclosure')
  page.get_by_role('slider',name='Chord tension').fill('30')
  page.get_by_role('slider',name='Rhythmic detail').fill('20')
  record('Quick feel presets drive both expression controls and allow manual refinement')
@@ -309,6 +333,7 @@ with sync_playwright() as p:
  page.get_by_role('tab',name='Compose',exact=True).click()
  page.get_by_role('combobox',name='Root key',exact=True).select_option('D')
  page.get_by_role('combobox',name='Scale mode',exact=True).select_option('minor')
+ open_composer_group(page,'.expression-disclosure')
  page.get_by_role('slider',name='Chord tension',exact=True).fill('48')
  page.get_by_role('slider',name='Rhythmic detail',exact=True).fill('55')
  page.get_by_role('button',name='Generate pattern',exact=False).click()
@@ -451,7 +476,7 @@ with sync_playwright() as p:
   page.set_viewport_size({'width':width,'height':height});page.wait_for_timeout(100)
   page.get_by_role('button',name='Fit pattern',exact=True).click();page.wait_for_timeout(200)
   assert page.evaluate('document.documentElement.scrollWidth')<=width
-  for name in ['Export MIDI','Import MIDI','Play pattern','Draw tool','Fit pattern']:
+  for name in ['Export MIDI','Project menu','Play pattern','Draw tool','Fit pattern']:
    control=page.get_by_role('button',name=name,exact=True)
    expect(control).to_be_visible()
    box=control.bounding_box()
@@ -523,7 +548,7 @@ with sync_playwright() as p:
  original=snap(adaptive)['progression']
  adaptive.get_by_role('tab',name='Compose',exact=True).click()
  adaptive.get_by_role('button',name='Follow melody',exact=True).click()
- assert adaptive.locator('.melody-step-heading h4').all_inner_texts()==['Choose source','Choose action','Tune result']
+ assert adaptive.locator('.melody-step-heading h4').all_inner_texts()==['Source','Action','Harmonic fit']
  expect(adaptive.locator('.melody-advanced > summary')).to_be_visible()
  assert adaptive.locator('.melody-advanced').get_attribute('open') is None
  adaptive.locator('.melody-advanced > summary').click()
@@ -710,6 +735,7 @@ with sync_playwright() as p:
  take_page.get_by_role('button',name='Harmonize melody',exact=False).click()
  take_page.wait_for_timeout(650)
  take_base=snap(take_page)['progression']
+ open_composer_group(take_page,'.take-lab-disclosure')
  expect(take_page.get_by_role('button',name='Explore 3 takes')).to_be_enabled()
  take_page.get_by_role('button',name='Explore 3 takes').click()
  take_page.wait_for_timeout(650)
@@ -775,6 +801,7 @@ with sync_playwright() as p:
  assert len(snap(take_page)['savedHarmonyTakes']['favorites'])==0
  record('Take Lab persists compact favorites, explains changes, auditions at one loop anchor and accepts one undoable take')
  # A melody with existing Bass/Harmony invokes scoped reharmonization of B.
+ open_composer_group(take_page,'.song-form-disclosure')
  take_page.get_by_role('button',name='Build 16-bar song form',exact=True).click()
  take_page.wait_for_timeout(750)
  formed=snap(take_page)['progression']
@@ -796,6 +823,7 @@ with sync_playwright() as p:
  seed_score=snap(project_page)['progression']
  assert seed_score['totalBars']==4
  project_page.get_by_role('tab',name='Compose',exact=True).click()
+ open_composer_group(project_page,'.song-form-disclosure')
  project_page.get_by_role('button',name='Build 16-bar song form',exact=True).click()
  project_page.wait_for_timeout(650)
  expanded=snap(project_page)
@@ -839,6 +867,7 @@ with sync_playwright() as p:
  assert restored_project['songFormPreference']=='AABA'
  project_page.reload();project_page.wait_for_timeout(750)
  assert snap(project_page)['progression']==expanded['progression']
+ open_composer_group(project_page,'.song-form-disclosure')
  expect(project_page.get_by_role('list',name='Current arrangement sections')).to_be_visible()
  record('Native project file restores all song sections and settings after invalid-file and Cancel safety checks')
  project_page.close()
@@ -930,6 +959,7 @@ with sync_playwright() as p:
  phrase.get_by_test_id('note-move').nth(1).click(modifiers=['Shift'])
  phrase.get_by_role('tab',name='Compose',exact=True).click()
  phrase.get_by_role('button',name='Follow melody',exact=True).click()
+ open_composer_group(phrase,'.melody-scope-disclosure')
  phrase.get_by_role('button',name='Selected',exact=True).click()
  expect(phrase.get_by_text('2 source notes selected',exact=False)).to_be_visible()
  phrase.get_by_role('button',name='Continue',exact=True).click()
@@ -1004,6 +1034,7 @@ with sync_playwright() as p:
  assert loop_original['totalBars']==4
  mobile_loop.get_by_role('button',name='Toggle inspector',exact=True).click()
  mobile_loop.get_by_role('button',name='Follow melody',exact=True).click()
+ open_composer_group(mobile_loop,'.melody-scope-disclosure')
  mobile_loop.get_by_role('button',name='Loop range',exact=True).click()
  mobile_loop.get_by_role('combobox',name='Loop from bar',exact=True).select_option('2')
  mobile_loop.get_by_role('combobox',name='Loop through bar',exact=True).select_option('3')
@@ -1095,7 +1126,7 @@ with sync_playwright() as p:
  melody_mobile.get_by_role('button',name='Toggle inspector',exact=True).click()
  melody_mobile.get_by_role('tab',name='Compose',exact=True).click()
  melody_mobile.get_by_role('button',name='Follow melody',exact=True).click()
- assert melody_mobile.locator('.melody-step-heading h4').all_inner_texts()==['Choose source','Choose action','Tune result']
+ assert melody_mobile.locator('.melody-step-heading h4').all_inner_texts()==['Source','Action','Harmonic fit']
  assert melody_mobile.locator('.melody-advanced').get_attribute('open') is None
  expect(melody_mobile.get_by_role('button',name='Harmonize melody',exact=False)).to_be_visible()
  melody_mobile.get_by_role('button',name='Continue',exact=True).click()
