@@ -62,7 +62,7 @@ export function EditToolbar(p: EditToolbarProps) {
           event.currentTarget.querySelector("summary")?.focus();
         }
       }}>
-        <summary className="secondary-button canvas-view-trigger" aria-label="Canvas view options">
+        <summary role="button" className="secondary-button canvas-view-trigger" aria-label="Canvas view options">
           <span>View</span><ChevronDown size={13} aria-hidden="true" />
         </summary>
         <div className="canvas-view-menu-content">
