@@ -114,7 +114,11 @@ export function saveHarmonyFavorite(
   if (bank.favorites.length >= MAX_HARMONY_FAVORITES) {
     return { ok: false, reason: "Four favorites are saved for this arrangement. Remove one before saving another." };
   }
-  const id = "take-" + take.seed + "-" + bank.favorites.length;
+  let suffix = bank.favorites.length;
+  while (bank.favorites.some(favorite => favorite.id === "take-" + take.seed + "-" + suffix)) {
+    suffix++;
+  }
+  const id = "take-" + take.seed + "-" + suffix;
   return {
     ok: true, alreadySaved: false, id,
     bank: { ...bank, favorites: [...bank.favorites, {
