@@ -48,7 +48,7 @@ export function Inspector({ tab, onTabChange, mobileOpen, onClose, onToggle, wid
         if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); onClose(); }
         if (event.key === "Tab") {
           const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
-            'button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]',
+            'button:not(:disabled), summary, input:not(:disabled), select:not(:disabled), [tabindex="0"]',
           )).filter(element => element.getClientRects().length > 0 && getComputedStyle(element).visibility !== "hidden");
           const first = focusable[0], last = focusable.at(-1);
           if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
