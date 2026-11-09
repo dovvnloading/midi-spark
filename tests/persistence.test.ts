@@ -108,6 +108,17 @@ describe("saveSession / loadSession", () => {
     expect(loadSession()).toEqual(sampleSession);
   });
 
+  it("rejects invalid phrase coherence without invalidating older sessions", () => {
+    for (const invalid of [-1, 101, "high", null]) {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+        ...sampleSession, harmonyExploration: 62, phraseCoherence: invalid,
+      }));
+      expect(loadSession()).toBeNull();
+    }
+    saveSession(sampleSession);
+    expect(loadSession()).toEqual(sampleSession);
+  });
+
   it("rejects corrupt mixer preferences rather than restoring invalid audio gain", () => {
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
       ...sampleSession,
@@ -174,6 +185,8 @@ describe("saveSession / loadSession", () => {
       melodySourceMode: "follow",
       melodySourceTrackIndex: 1,
       harmonicFit: 83,
+      harmonyExploration: 62,
+      phraseCoherence: 73,
       accompanimentDensity: "active",
       melodyKeyStrategy: "detect",
       progression: {
