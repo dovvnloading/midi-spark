@@ -86,6 +86,22 @@ guarantee of satisfying human preference or avoiding every dissonance.
 High-fit melody passages sometimes have very few truly different valid chord
 paths; the solver does **not** force false novelty in such cases.
 
+**Phrase coherence (optional):** the generator analyses two-bar melody cells
+at sixteenth-note resolution for recurring onset patterns and pitch contours.
+At least three distinct attacks with 72% rhythm overlap and 75% consistent
+semitone transposition are required to count a callback; even an octave-
+displaced idea can match. The analyzer maps corresponding chord regions once,
+so candidate scoring does not repeatedly scan all melody events. Four-bar
+boundaries and scoped endings are cadence cues *only* when an ending melody
+note is a tonic triad tone and a sufficiently sustained note or rest supports
+a phrase break. A bounded bonus favors related transposed chord-root arcs
+and potential dominant-to-tonic arrivals. Its user-set strength (0–100) is
+applied **after** the existing objective/coverage budgets, so it never admits
+an otherwise-ineligible chord path. This adds long-range relationships to
+the k-best sampler without changing imported melody notes, ownership or
+zero-exploration/zero-coherence behavior. The scores are heuristic, not a
+learned form model or proof of perceptual improvement.
+
 For a selected or looped **middle phrase**, the search also scores its
 transition **from the already generated chord before the selected bars and
 into the already generated chord after them**. This avoids treating a local
