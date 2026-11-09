@@ -141,6 +141,16 @@ function isLoopRange(v: unknown): v is LoopRange {
     range.start >= 0 && range.end >= range.start + 1;
 }
 
+function isArrangementSections(v: unknown, totalBars: unknown): v is ArrangementSection[] {
+  if (!Array.isArray(v) || v.length > 16) return false;
+  let end = 0;
+  for (const section of v) {
+    if (!isArrangementSection(section) || section.startBar !== end) return false;
+    end += section.bars;
+  }
+  return v.length === 0 || end === totalBars;
+}
+
 function isProgressionData(v: unknown): v is ProgressionData {
   if (typeof v !== "object" || v === null) return false;
   const p = v as Record<string, unknown>;
@@ -150,14 +160,7 @@ function isProgressionData(v: unknown): v is ProgressionData {
     Array.isArray(p.chords) &&
     p.chords.every(isChordEvent) &&
     (p.arrangementSections === undefined ||
-      (Array.isArray(p.arrangementSections) && p.arrangementSections.length <= 16 &&
-        p.arrangementSections.every(isArrangementSection) &&
-        p.arrangementSections.every((section, index) => index === 0
-          ? section.startBar === 0 : section.startBar ===
-            (p.arrangementSections as ArrangementSection[])[index - 1].startBar +
-            (p.arrangementSections as ArrangementSection[])[index - 1].bars) &&
-        (!p.arrangementSections.length ||
-          p.arrangementSections.at(-1).startBar + p.arrangementSections.at(-1).bars === p.totalBars))) &&
+      isArrangementSections(p.arrangementSections, p.totalBars)) &&
     (p.harmonyConstraints === undefined ||
       (Array.isArray(p.harmonyConstraints) && p.harmonyConstraints.length <= 512 &&
         p.harmonyConstraints.every(isHarmonyConstraint))) &&
