@@ -92,7 +92,7 @@ Learn about the search, phrase constraints, seeded behavior, and limits in [Melo
 
 Use the **velocity lane** below the grid to change the intensity of notes; the precision note editor also supports keyboard access and numeric pitch/timing/velocity edits. Set the **snap grid** from quarter notes to 1/32 notes (or free placement), and use **Duplicate Bar** plus copy/paste to build longer ideas.
 
-**Transform** is the non-destructive-to-history, undoable cleanup area:
+**Transform** offers undoable cleanup tools:
 
 - **Quantize:** pull note starts toward a grid at adjustable strength, without changing their durations.
 - **Transpose:** shift by semitone or octave.
@@ -177,7 +177,7 @@ Open **http://localhost:3000**. The production bundle is static and deploys to G
 
 ### Browser checks and screenshot sources
 
-The [browser QA workflow](.github/workflows/browser-qa.yml) exercises the production app in Chromium at desktop and mobile widths, including pointer/touch interactions, import/export, persistence, editing, menus, and accessibility-oriented behavior. It uploads screenshots and geometry as a **browser-review** workflow artifact. The screenshots above are curated from those actual captures.
+The [browser QA workflow](.github/workflows/browser-qa.yml) exercises the production app in Chromium at desktop and mobile widths, including pointer/touch interactions, import/export, persistence, editing, menus, and accessibility-oriented behavior. It uploads screenshots and geometry as a **browser-review** workflow artifact. The screenshots above are curated from those actual captures; see the [capture manifest](docs/screenshots/README.md) for the exact source run, viewport sizes, and re-capture procedure.
 
 To generate the complete evidence set locally, run the production preview in one terminal, then in another:
 
