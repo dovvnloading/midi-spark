@@ -140,6 +140,46 @@ describe("saveSession / loadSession", () => {
     expect(loadSession()).toEqual(sampleSession);
   });
 
+  it("saves validated Take Lab favorites without requiring them in legacy sessions", () => {
+    const favorites = {
+      baseFingerprint: "89abcdef:12345678:218",
+      sourceTrackIndex: 0,
+      favorites: [{
+        id: "take-100-0", seed: 100, root: "C", mode: "major",
+        totalBars: 4,
+        notes: [{ midi: 48, name: "C3", timeStart: 0, duration: 2,
+          velocity: 0.8, trackIndex: 1 }],
+        chords: [{ name: "C", timeStart: 0, duration: 4,
+          generatedSourceTrackIndex: 0 }],
+      }],
+    } as const;
+    const session: SavedSession = {
+      ...sampleSession, savedHarmonyTakes: JSON.parse(JSON.stringify(favorites)),
+    };
+    saveSession(session);
+    expect(loadSession()).toEqual(session);
+    const invalidCases = [
+      { ...favorites, baseFingerprint: "not-a-fingerprint" },
+      { ...favorites, favorites: [{ ...favorites.favorites[0], seed: -1 }] },
+      { ...favorites, favorites: [{ ...favorites.favorites[0], notes: [
+        { ...favorites.favorites[0].notes[0], midi: 144 },
+      ] }] },
+      { ...favorites, favorites: [{ ...favorites.favorites[0], chords: [
+        { ...favorites.favorites[0].chords[0], generatedSourceTrackIndex: 9 },
+      ] }] },
+      { ...favorites, favorites: Array(5).fill(favorites.favorites[0]) },
+    ];
+    for (const item of invalidCases) {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+        ...sampleSession, savedHarmonyTakes: item,
+      }));
+      expect(loadSession()).toBeNull();
+    }
+    // v1 sessions saved before Take Lab remain fully compatible.
+    saveSession(sampleSession);
+    expect(loadSession()).toEqual(sampleSession);
+  });
+
   it("round-trips imported track metadata and custom mixer settings", () => {
     const session: SavedSession = {
       ...sampleSession,
