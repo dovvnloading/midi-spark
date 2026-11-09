@@ -239,7 +239,17 @@ export function loadSession(): SavedSession | null {
     const raw = localStorage.getItem(SESSION_STORAGE_KEY);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
-    return isValidSession(parsed) ? parsed : null;
+    if (isValidSession(parsed)) return parsed;
+    // A malformed optional favorite must never discard an otherwise valid
+    // original composition. Strip only that optional library and try again;
+    // corruption in the actual MIDI/session still fails closed as before.
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) &&
+      "savedHarmonyTakes" in parsed) {
+      const withoutFavorites: Record<string, unknown> = { ...parsed };
+      delete withoutFavorites.savedHarmonyTakes;
+      if (isValidSession(withoutFavorites)) return withoutFavorites;
+    }
+    return null;
   } catch {
     return null;
   }
