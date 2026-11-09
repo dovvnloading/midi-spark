@@ -831,3 +831,16 @@ button:disabled { opacity: .42; }
 .active-tool-readout {
   border-color: var(--stroke-ui-control);
 }
+
+/* Composer-authored chord guides: compact enough for the advanced inspector. */
+.harmony-guide-editor { border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 12px; }
+.harmony-guide-editor .field-pair { margin-top: 12px; }
+.harmony-guide-actions { display: flex; gap: 8px; margin: 10px 0 7px; flex-wrap: wrap; }
+.harmony-guide-actions .secondary-button { flex: 1; min-width: 95px; justify-content: center; }
+.harmony-guide-list { display: flex; flex-direction: column; gap: 5px; list-style: none;
+  padding: 0; margin: 10px 0 0; max-height: 220px; overflow-y: auto; }
+.harmony-guide-item { display: flex; gap: 8px; justify-content: space-between; align-items: center;
+  padding: 7px 9px; border: 1px solid #4a604f; border-radius: 7px; background: #26382e;
+  font-size: 11px; color: #d0e4ce; }
+.harmony-guide-item > span { min-width: 0; overflow-wrap: anywhere; }
+.harmony-guide-item > .text-button { flex: none; }
