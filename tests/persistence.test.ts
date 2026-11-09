@@ -74,6 +74,40 @@ describe("saveSession / loadSession", () => {
     expect(loadSession()).toEqual(sampleSession);
   });
 
+  it("round-trips generated chord-region locks and rejects malformed lock ownership", () => {
+    const withLock: SavedSession = {
+      ...sampleSession,
+      progression: {
+        ...sampleProgression,
+        chords: [
+          { name: "Cmaj7", timeStart: 0, duration: 4,
+            generatedSourceTrackIndex: 0, locked: true },
+          { name: "User label", timeStart: 4, duration: 4 },
+        ],
+      },
+    };
+    saveSession(withLock);
+    expect(loadSession()).toEqual(withLock);
+
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+      ...withLock, progression: {
+        ...withLock.progression,
+        chords: [{ name: "User label", timeStart: 0, duration: 4, locked: true }],
+      },
+    }));
+    expect(loadSession()).toBeNull();
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+      ...withLock, progression: {
+        ...withLock.progression,
+        chords: [{ name: "Cmaj7", timeStart: 0, duration: 4,
+          generatedSourceTrackIndex: 0, locked: "yes" }],
+      },
+    }));
+    expect(loadSession()).toBeNull();
+    saveSession(sampleSession);
+    expect(loadSession()).toEqual(sampleSession);
+  });
+
   it("round-trips imported track metadata and custom mixer settings", () => {
     const session: SavedSession = {
       ...sampleSession,
