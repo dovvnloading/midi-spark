@@ -690,6 +690,37 @@ with sync_playwright() as p:
  assert take_page.locator('.editor-main').evaluate('(el)=>el.inert') is False
  assert snap(take_page)['progression']==take_base
  take_1.click()
+ # Save only the generated accompaniment, never a hidden copy of the melody.
+ take_page.locator('.take-diff summary').first.click()
+ expect(take_page.get_by_text('Chord transitions:',exact=False).first).to_be_visible()
+ take_page.get_by_role('button',name='Save favorite',exact=True).click()
+ take_page.wait_for_timeout(700)
+ saved_snapshot=snap(take_page)
+ assert saved_snapshot['progression']==take_base
+ favorite_bank=saved_snapshot['savedHarmonyTakes']
+ assert len(favorite_bank['favorites'])==1
+ fav=favorite_bank['favorites'][0]
+ generated_indices={t['index'] for t in take_base['tracks'] if t.get('generatedRole') in ('bass','harmony')}
+ assert all(n['trackIndex'] in generated_indices for n in fav['notes'])
+ assert all(c['generatedSourceTrackIndex']==0 for c in fav['chords'])
+ expect(take_page.get_by_role('button',name='Favorite 1',exact=False)).to_have_attribute('aria-pressed','true')
+ # One-click listening should start the matching score at the same loop anchor.
+ take_page.get_by_role('button',name='Play option 1').click()
+ take_page.wait_for_timeout(400)
+ expect(take_page.get_by_role('button',name='Pause playback')).to_be_visible()
+ take_page.get_by_role('button',name='Next',exact=True).click()
+ take_page.wait_for_timeout(400)
+ expect(take_page.get_by_role('button',name='Pause playback')).to_be_visible()
+ take_page.get_by_role('button',name='Play reference').click()
+ take_page.wait_for_timeout(400)
+ expect(take_page.get_by_role('button',name='Pause playback')).to_be_visible()
+ take_page.get_by_role('button',name='Stop playback').click()
+ take_page.reload(); take_page.wait_for_timeout(700)
+ assert snap(take_page)['progression']==take_base
+ assert len(snap(take_page)['savedHarmonyTakes']['favorites'])==1
+ expect(take_page.get_by_role('button',name='Favorite 1',exact=False)).to_be_visible()
+ take_page.get_by_role('button',name='Favorite 1',exact=False).click()
+ assert take_page.locator('.editor-main').evaluate('(el)=>el.inert') is True
  take_page.get_by_role('button',name='Accept selected take',exact=True).click()
  take_page.wait_for_timeout(650)
  accepted_take=snap(take_page)['progression']
@@ -699,7 +730,14 @@ with sync_playwright() as p:
  take_page.get_by_role('button',name='Undo').click()
  take_page.wait_for_timeout(650)
  assert snap(take_page)['progression']==take_base
- record('Take Lab previews original and alternatives without autosave, then accepts one undoable take')
+ # Undo returns to the original base, so its explicit saved favorite remains
+ # compatible and can be deleted without altering the working score.
+ expect(take_page.get_by_role('button',name='Remove favorite 1')).to_be_visible()
+ take_page.get_by_role('button',name='Remove favorite 1').click()
+ take_page.wait_for_timeout(650)
+ assert snap(take_page)['progression']==take_base
+ assert len(snap(take_page)['savedHarmonyTakes']['favorites'])==0
+ record('Take Lab persists compact favorites, explains changes, auditions at one loop anchor and accepts one undoable take')
  take_page.close()
  # Melody continuation and variation are separate, user-protecting operations.
  motif_page=b.new_page(viewport={'width':1280,'height':800})
