@@ -654,4 +654,5 @@ body { background: var(--app-bg); }
   .editor-toolbar .view-controls .fit-button > span,
   .editor-toolbar .view-controls .canvas-view-trigger > span { display: none; }
   .editor-toolbar .view-controls .canvas-view-trigger svg { width: 17px; height: 17px; }
+  .editor-toolbar .view-controls .canvas-view-trigger > svg:last-child { display: none; }
 }
