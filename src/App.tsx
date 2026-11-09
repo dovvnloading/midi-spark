@@ -901,6 +901,85 @@ export default function App() {
     notify("MIDI exported: notes and GM programs only. Browser synth sounds are not embedded in .mid files.", "success");
   }, [progression, bpm, root, mode, notify]);
 
+  const handleExportProject = useCallback(() => {
+    try {
+      const json = serializeNativeProject(currentSession);
+      const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "midi-spark-project" + PROJECT_EXTENSION;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      notify("Native project saved: MIDI, track ownership, mixer, chords, locks, song form and favorites.", "success");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Could not save the native project.", "error");
+    }
+  }, [currentSession, notify]);
+
+  /** Applying a native snapshot restores *settings as well as notes*. It
+   * occurs only after parsing and replacement confirmation, preserving the
+   * previous note score as one Undo history step. */
+  const applyImportedProject = useCallback((session: SavedSession, filename: string) => {
+    handleStop();
+    commit(session.progression);
+    setRoot(session.root);
+    setMode(session.mode);
+    setBpm(clamp(Math.round(session.bpm), MIN_BPM, MAX_BPM));
+    setDissonance(session.dissonance);
+    setComplexity(session.complexity);
+    setBars(session.bars);
+    setGenerationMode(session.generationMode ?? "single");
+    setMelodySourceMode(session.melodySourceMode ?? "scratch");
+    setMelodySourceTrackIndex(session.melodySourceTrackIndex ?? null);
+    setMelodyPhraseScope(session.melodyPhraseScope ?? "track");
+    setHarmonicFit(session.harmonicFit ?? 82);
+    setHarmonyExploration(session.harmonyExploration ?? 62);
+    setPhraseCoherence(session.phraseCoherence ?? 65);
+    setAccompanimentDensity(session.accompanimentDensity ?? "balanced");
+    setHarmonicPacing(session.harmonicPacing ?? "adaptive");
+    setMelodyKeyStrategy(session.melodyKeyStrategy ?? "manual");
+    setMelodyTask(session.melodyTask ?? "harmonize");
+    setMotifCreativity(session.motifCreativity ?? 46);
+    setContinuationBars(session.continuationBars ?? 4);
+    setSongForm(session.songFormPreference ?? "AABA");
+    setFormContrast(session.formContrast ?? 65);
+    setSynthTypeState(session.synthType);
+    setSynthType(session.synthType);
+    setTrackOverrides(session.trackMix ?? {});
+    setSnapResolution(session.snapResolution);
+    setNoteLength(session.noteLength);
+    setZoomX(session.zoomX);
+    setIsLooping(session.isLooping ?? true);
+    isLoopingRef.current = session.isLooping ?? true;
+    setLoopRegion(session.loopRegion ?? null);
+    setSavedTakeBank(session.savedHarmonyTakes ?? null);
+    setTakeBatch(null);
+    setPreviewTakeIndex(null);
+    setLivePreview(null);
+    setFocusedTrack(null);
+    setSelectedNoteIndices(new Set());
+    setCurrentTick(0);
+    setFitRequest(k => k + 1);
+    setScrollAnchorKey(k => k + 1);
+    setMobileInspectorOpen(false);
+    if (session.melodySourceMode === "follow") setInspectorTab("compose");
+    else if (session.progression && listTracks(session.progression).length > 1) setInspectorTab("tracks");
+    else setInspectorTab("compose");
+    notify("Opened " + filename + " with its editable tracks, studio settings and saved musical structure.", "success");
+  }, [handleStop, commit, notify]);
+
+  const loadProjectFile = useCallback(async (file: File) => {
+    const revision = ++importRevision.current;
+    const parsed = await parseNativeProjectFile(file);
+    if (revision !== importRevision.current) return;
+    if (!parsed.ok) { notify(parsed.reason, "error"); return; }
+    if (hasExistingContent) {
+      setPendingReplacement({ kind: "project", filename: file.name, session: parsed.session });
+    } else {
+      applyImportedProject(parsed.session, file.name);
+    }
+  }, [hasExistingContent, applyImportedProject, notify]);
+
   /** Parsing completes before replacing anything. Invalid files and Cancel
    * leave the entire in-memory score, track mixer and loop untouched. */
   const applyImportedMidi = useCallback((parsed: ProgressionData, fileBpm: number | null, fileName: string) => {
@@ -961,8 +1040,9 @@ export default function App() {
     setPendingReplacement(null);
     if (!request) return;
     if (request.kind === "import") applyImportedMidi(request.parsed, request.fileBpm, request.filename);
+    else if (request.kind === "project") applyImportedProject(request.session, request.filename);
     else generateScratch();
-  }, [pendingReplacement, applyImportedMidi, generateScratch]);
+  }, [pendingReplacement, applyImportedMidi, applyImportedProject, generateScratch]);
 
   // ----- Editing -----
 
@@ -1247,8 +1327,12 @@ export default function App() {
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
     const lower = file.name.toLowerCase();
+    if (lower.endsWith(PROJECT_EXTENSION)) {
+      await loadProjectFile(file);
+      return;
+    }
     if (!lower.endsWith(".mid") && !lower.endsWith(".midi")) {
-      notify("Only .mid and .midi files are supported.", "error");
+      notify("Drop a MIDI (.mid/.midi) file or a native .midispark project.", "error");
       return;
     }
     await loadMidiFile(file);
@@ -1265,7 +1349,7 @@ export default function App() {
   const displayedSynth = tracks.length === 1 ? trackMix[tracks[0].index]?.synthType ?? synthType : synthType;
   return (
     <div className={"workbench" + (!desktopInspectorOpen ? " inspector-collapsed" : "")} style={{ "--inspector-width": inspectorWidth + "px" } as CSSProperties} onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
-      {isDraggingMidi && <div className="file-drop-overlay"><Upload size={36} /><h2>Drop your MIDI here</h2><p>Your current pattern is recoverable with Undo.</p></div>}
+      {isDraggingMidi && <div className="file-drop-overlay"><Upload size={36} /><h2>Drop MIDI or .midispark project</h2><p>Native projects also restore mixer settings, chord guides, and song sections.</p></div>}
       <TransportBar isPlaying={isPlaying} isPaused={playbackState === "paused"} canPlay={hasNotes}
         canUndo={canUndo && !previewTake} canRedo={canRedo && !previewTake}
         isLooping={isLooping} bpm={bpm} currentTick={currentTick}
@@ -1273,6 +1357,8 @@ export default function App() {
         onLoadFile={loadMidiFile} onExport={() => previewTake
           ? notify("Accept the auditioned take before exporting its MIDI; this project is still unchanged.", "info")
           : handleExport()}
+        onLoadProject={loadProjectFile} onExportProject={handleExportProject}
+        canExportProject={progression !== null}
         onClearSavedSession={handleClearSavedSession} onOpenShortcuts={() => setShortcutsOpen(true)} onToggleInspector={toggleInspector} />
       <div className="workspace">
         <Inspector tab={inspectorTab} onTabChange={setInspectorTab} mobileOpen={mobileInspectorOpen} onClose={() => setMobileInspectorOpen(false)}
@@ -1386,7 +1472,11 @@ export default function App() {
         incomingSummary={pendingReplacement.kind === "import"
           ? pendingReplacement.parsed.notes.length + " notes · " +
             listTracks(pendingReplacement.parsed).length + " tracks (" + pendingReplacement.filename + ")"
-          : bars + " bars · " + (generationMode === "layers" ? "Bass + Harmony" : "single track")}
+          : pendingReplacement.kind === "project"
+            ? (pendingReplacement.session.progression?.notes.length ?? 0) + " notes · " +
+              (pendingReplacement.session.progression ? listTracks(pendingReplacement.session.progression).length : 0) +
+              " tracks (" + pendingReplacement.filename + ")"
+            : bars + " bars · " + (generationMode === "layers" ? "Bass + Harmony" : "single track")}
         onCancel={() => setPendingReplacement(null)}
         onConfirm={confirmReplacement}
       />}
