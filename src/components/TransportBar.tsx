@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AudioLines, Download, Play, Pause, Square, Repeat2, Undo2, Redo2, Upload, Keyboard, Trash2, MoreHorizontal, SlidersHorizontal } from "lucide-react";
+import { Download, Play, Pause, Square, Repeat2, Undo2, Redo2, Upload, Keyboard, Trash2, MoreHorizontal, SlidersHorizontal } from "lucide-react";
 import { MIN_BPM, MAX_BPM } from "../lib/constants";
 export interface TransportBarProps {
   isPlaying: boolean; isPaused: boolean; canPlay: boolean; canUndo: boolean; canRedo: boolean; isLooping: boolean; bpm: number; currentTick: number;
@@ -30,7 +30,7 @@ export function TransportBar(p: TransportBarProps) {
   }, []);
   const bar = Math.floor(p.currentTick / 4) + 1, beat = Math.floor(p.currentTick % 4) + 1;
   return <header className="app-header">
-    <div className="wordmark"><span className="brand-mark"><AudioLines size={20} strokeWidth={1.8} /></span><span>midi<span className="wordmark-light">spark</span><span className="edition">STUDIO</span></span></div>
+    <div className="wordmark"><img className="brand-mark" src="favicon.svg?v=2" width={37} height={37} alt="" aria-hidden="true" /><span>midi<span className="wordmark-light">spark</span><span className="edition">STUDIO</span></span></div>
     <div className="transport" role="group" aria-label="Playback controls">
       <button className={"play-button" + (p.isPlaying ? " playing" : "")} onClick={p.isPlaying ? p.onPause : p.onPlay} disabled={!p.canPlay}
         aria-label={p.isPlaying ? "Pause playback" : p.isPaused ? "Resume playback" : "Play pattern"} title="Play / pause (Space)">
