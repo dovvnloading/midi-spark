@@ -39,6 +39,25 @@ Real Chromium screenshots from the [browser regression suite](scripts/browser_sm
 
 ## Features
 
+### Streamlined studio workflow
+
+**Compose** now exposes the essential path first: **Starting point → Key & scale
+→ Pattern or melody action → Sound → Character → Generate**. The bottom action
+stays visible as you scroll. **Fine-tune expression** holds the exact tension
+and detail sliders; presets still set those values directly. **Phrase
+selection** and **Advanced harmony/melody options** expand only when editing a
+source melody. Once the source has generated accompaniment, **Compare takes**
+reveals the original, alternate takes, and saved favorites. **Song structure**
+appears when a 4/8-bar idea can be expanded or when a song already has sections.
+Every feature is still available—specialist controls are simply hidden until
+they are relevant.
+
+The header's **Project** menu groups MIDI import and native project open/save,
+while **Export MIDI** remains one click away. Above the piano roll, **Fit** is
+immediately available; **View** contains optional playback-follow and zoom
+controls. The five editing tools remain in their familiar toolbar with the
+same B/V/S/C/H shortcuts.
+
 ### Algorithmic MIDI Generation
 
 Generate chord progressions from musical parameters:
@@ -334,7 +353,7 @@ checklist are documented in [Sound Design Engineering](docs/SOUND_DESIGN.md).
 
 ### Native MIDI Spark projects and song form
 
-Use **More actions → Save MIDI Spark project** to download a versioned
+Use **Project → Save MIDI Spark project** to download a versioned
 `.midispark` file, and **Open MIDI Spark project** (or drag-and-drop the file)
 to restore the editable studio. Unlike a conventional MIDI file, this archive
 retains original track IDs/programs/channels, generated-part ownership,
@@ -362,7 +381,7 @@ MIDI exports keep the playable notes but not the custom metadata.
 
 ### MIDI Import & Export
 
-* Drag & drop `.mid`/`.midi` files onto the app (or use **Load MIDI**)
+* Drag & drop `.mid`/`.midi` files onto the app (or choose **Project → Import MIDI**)
 * Import honors the file's own PPQ and first tempo, merges melodic tracks and
   skips percussion. The estimated key is ranked from pitch-class profiles,
   duration and tonic evidence; ambiguous passages are labeled uncertain and
