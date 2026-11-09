@@ -1325,12 +1325,22 @@ export default function App() {
             lockedChordCount={lockedChordCount} onUnlockAllChords={handleUnlockAllChords}
             harmonyGuides={harmonyGuides} availableHarmonyChords={harmonyChordChoices}
             onAddHarmonyGuide={handleAddHarmonyGuide} onRemoveHarmonyGuide={handleRemoveHarmonyGuide}
-            canExploreTakes={canExploreTakes} takeViews={validTakeBatch?.takes.map((take, i) => ({
-              label: "Take " + (i + 1), changedRegions: take.changedRegions,
-              chordSummary: take.chordSummary,
-            })) ?? []}
-            previewTakeIndex={validTakeBatch ? previewTakeIndex : null}
+            canExploreTakes={canExploreTakes}
+            takeViews={progression && effectiveMelodySourceTrackIndex !== null
+              ? takeChoices.map(({ take, savedId }, i) => {
+                const savedCount = takeChoices.filter(choice => !!choice.savedId).length;
+                return {
+                  label: savedId ? "Favorite " + (i + 1) : "Take " + (i - savedCount + 1),
+                  savedId,
+                  comparison: describeHarmonyDifference(progression, take.progression,
+                    effectiveMelodySourceTrackIndex),
+                  chordSummary: take.chordSummary,
+                };
+              }) : []}
+            previewTakeIndex={takeChoices.length ? previewTakeIndex : null}
             onExploreTakes={handleExploreHarmonyTakes} onSelectTake={handleSelectHarmonyTake}
+            onAuditionTake={handleAuditionHarmonyTake} onSaveTake={handleSaveHarmonyTake}
+            onRemoveSavedTake={handleRemoveHarmonyFavorite}
             onAcceptTake={handleAcceptHarmonyTake} onDiscardTakes={handleDiscardHarmonyTakes}
             accompanimentDensity={accompanimentDensity} onAccompanimentDensityChange={setAccompanimentDensity}
             harmonicPacing={harmonicPacing} onHarmonicPacingChange={setHarmonicPacing}
