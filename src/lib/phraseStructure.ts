@@ -83,7 +83,7 @@ export function analyzePhraseStructure(
   }
   const echoes: PhraseEcho[] = [];
   for (let j = 1; j < cells.length; j++) {
-    let strongest: PhraseEcho | null = null;
+    let strongest: Omit<PhraseEcho, "regionPairs"> | null = null;
     for (let i = 0; i < j; i++) {
       const match = compareCells(cells[i].attacks, cells[j].attacks);
       if (!match) continue;
