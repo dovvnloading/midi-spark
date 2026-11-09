@@ -1,11 +1,11 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { Layers, PanelLeftClose, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { PanelLeftClose, X } from "lucide-react";
 
 export type InspectorTab = "compose" | "transform" | "tracks";
 const tabs = [
-  { id: "compose", label: "Compose", Icon: Sparkles },
-  { id: "transform", label: "Transform", Icon: SlidersHorizontal },
-  { id: "tracks", label: "Tracks", Icon: Layers },
+  { id: "compose", label: "Compose" },
+  { id: "transform", label: "Transform" },
+  { id: "tracks", label: "Tracks" },
 ] as const;
 
 interface Props {
@@ -56,10 +56,7 @@ export function Inspector({ tab, onTabChange, mobileOpen, onClose, onToggle, wid
         }
       }}>
       <div className="inspector-heading">
-        <div className="inspector-heading-copy">
-          <span className="inspector-overline"><span aria-hidden="true" className="inspector-live-dot" /> YOUR WORKSPACE</span>
-          <strong>Studio controls</strong>
-        </div>
+        <div className="inspector-heading-copy"><strong>Workspace</strong></div>
         <button type="button" className="icon-button inspector-collapse" aria-label="Collapse sidebar"
           title="Hide studio controls" onClick={onToggle}><PanelLeftClose size={17} /></button>
         <button type="button" className="icon-button inspector-close" aria-label="Close inspector"
@@ -79,7 +76,7 @@ export function Inspector({ tab, onTabChange, mobileOpen, onClose, onToggle, wid
               event.preventDefault();
               onTabChange(tabs[next].id);
               document.getElementById("tab-" + tabs[next].id)?.focus();
-            }}><item.Icon size={15} strokeWidth={1.8} aria-hidden="true" /><span>{item.label}</span></button>)}
+            }}><span>{item.label}</span></button>)}
         </div>
       </div>
       {tabs.map(item => <div key={item.id} role="tabpanel" id={"panel-" + item.id}
