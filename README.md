@@ -112,7 +112,17 @@ around a phrase instead of generating an unrelated progression:
    search to find a compatible chord path, then produces a register-aware
    **Generated Bass** and **Generated Harmony** track. Source notes keep their
    exact pitches, positions, durations, velocities, and track assignment.
-5. **Try another harmonization.** Only the generated tracks for that source are
+5. **Compare before committing.** After the first harmonization, use **Take Lab →
+   Explore 3 takes** to generate structurally distinct alternatives against the
+   same unchanged project and current chord locks/guides. Click **Original** or
+   a numbered **Take** to inspect its notes in the piano roll, and press the
+   normal Play button to audition it with the same tempo, loop and mixer.
+   Previewed piano rolls are read-only, and neither autosave nor standard MIDI
+   export is changed until **Accept selected take** commits one undoable edit.
+   **Clear takes** returns to the working arrangement without any commit.
+   Candidate lists are session-only previews, not saved across reloads; when
+   constraints leave no meaningful variation the app reports that honestly.
+6. **Try another harmonization.** Only the generated tracks for that source are
    replaced. Their IDs, channels, and mixer selections are retained, and Undo
    restores the previous result. Other user-owned tracks remain untouched.
    **Duplicate a generated track in Tracks** before regenerating if you want

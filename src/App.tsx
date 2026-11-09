@@ -27,6 +27,7 @@ import { availableHarmonyChords, generateFromMelody, isAdaptiveTrack, type Accom
 import { generateMotif, type ContinuationBars } from "./lib/motif";
 import { toggleChordRegionLock, unlockChordRegions } from "./lib/chordLocks";
 import { addHarmonyGuide, removeHarmonyGuide } from "./lib/harmonyGuide";
+import { generateHarmonyTakes, type HarmonyTake } from "./lib/harmonyTakes";
 import type { MelodySourceScope } from "./lib/melodyScope";
 import { MAX_BPM, MIN_BPM, clamp } from "./lib/constants";
 import { normalizeLoopRange, sequenceEndQuarters, type LoopRange } from "./lib/timeline";
@@ -64,6 +65,12 @@ import { PianoRoll } from "./components/PianoRoll";
 import { ShortcutHelp } from "./components/ShortcutHelp";
 import { StatusToast, type Notice, type NoticeKind } from "./components/StatusToast";
 import { ReplaceProjectDialog } from "./components/ReplaceProjectDialog";
+
+interface HarmonyTakeBatch {
+  base: ProgressionData;
+  sourceTrackIndex: number;
+  takes: HarmonyTake[];
+}
 
 type PendingReplacement =
   | {kind: "import"; filename: string; parsed: ProgressionData; fileBpm: number | null}
@@ -122,6 +129,10 @@ export default function App() {
   const [selectedNoteIndices, setSelectedNoteIndices] = useState<Set<number>>(
     new Set(),
   );
+  // Candidate takes are ephemeral and reference their exact editable base.
+  // Preview never enters history, autosave or MIDI export until acceptance.
+  const [takeBatch, setTakeBatch] = useState<HarmonyTakeBatch | null>(null);
+  const [previewTakeIndex, setPreviewTakeIndex] = useState<number | null>(null);
   const [focusedTrack, setFocusedTrack] = useState<number | null>(null);
   const [trackOverrides, setTrackOverrides] = useState<TrackMix>(
     savedSession?.trackMix ?? {},
@@ -153,6 +164,17 @@ export default function App() {
       ? [{ index, guide }] : []), [progression, effectiveMelodySourceTrackIndex]);
   const harmonyChordChoices = useMemo(() => availableHarmonyChords(root, mode, dissonance),
     [root, mode, dissonance]);
+  const canExploreTakes = effectiveMelodySourceTrackIndex !== null &&
+    (progression?.tracks?.filter(track => track.sourceTrackIndex === effectiveMelodySourceTrackIndex &&
+      (track.generatedRole === "bass" || track.generatedRole === "harmony")).length ?? 0) === 2;
+  const validTakeBatch = melodySourceMode === "follow" && melodyTask === "harmonize" &&
+    takeBatch?.base === progression && takeBatch.sourceTrackIndex === effectiveMelodySourceTrackIndex
+    ? takeBatch : null;
+  const previewTake = validTakeBatch && previewTakeIndex !== null
+    ? validTakeBatch.takes[previewTakeIndex] ?? null : null;
+  const displayProgression = previewTake?.progression ?? progression;
+  const displayRoot = previewTake?.root ?? root;
+  const displayMode = previewTake?.mode ?? mode;
   const trackMix = useMemo(
     () => reconcileTrackMix(progression, trackOverrides, synthType),
     [progression, trackOverrides, synthType],
@@ -223,7 +245,7 @@ export default function App() {
   const playRequest = useRef(0);
   const startingAudio = useRef(false);
   const sequenceEndRef = useRef(0);
-  useEffect(() => { sequenceEndRef.current = progression ? sequenceEndQuarters(progression) : 0; }, [progression]);
+  useEffect(() => { sequenceEndRef.current = displayProgression ? sequenceEndQuarters(displayProgression) : 0; }, [displayProgression]);
   // Shrinking the musical pattern cannot leave a saved custom loop out of bounds.
   useEffect(() => {
     if (!progression || !loopRegion) return;
@@ -333,10 +355,10 @@ export default function App() {
   // Keep the audio engine in sync with edits (including live drag previews),
   // BPM changes, and loop toggles while the transport is running.
   useEffect(() => {
-    if (playbackState !== "stopped" && progression) {
-      updateProgressionLive(livePreview ?? progression, bpm, isLooping, loopRegion);
+    if (playbackState !== "stopped" && displayProgression) {
+      updateProgressionLive(livePreview ?? displayProgression, bpm, isLooping, loopRegion);
     }
-  }, [progression, livePreview, bpm, playbackState, isLooping, loopRegion]);
+  }, [displayProgression, livePreview, bpm, playbackState, isLooping, loopRegion]);
 
   // ----- Transport -----
 
@@ -348,7 +370,7 @@ export default function App() {
       setPlaybackState("playing");
       return;
     }
-    if (playbackStateRef.current === "playing" || !progression?.notes.length || startingAudio.current) return;
+    if (playbackStateRef.current === "playing" || !displayProgression?.notes.length || startingAudio.current) return;
     const request = ++playRequest.current;
     startingAudio.current = true;
     try {
@@ -361,7 +383,7 @@ export default function App() {
       startingAudio.current = false;
     }
     if (request !== playRequest.current) return;
-    const endTick = sequenceEndQuarters(progression);
+    const endTick = sequenceEndQuarters(displayProgression);
     let startTick = currentTick;
     const range = normalizeLoopRange(loopRegion, endTick);
     if (isLoopingRef.current && (startTick < range.start || startTick >= range.end)) {
@@ -375,7 +397,7 @@ export default function App() {
     playbackStateRef.current = "playing";
     isPlayingRef.current = true;
     playProgression(
-      progression,
+      displayProgression,
       bpm,
       {
         onTick: (tick) => {
@@ -394,7 +416,7 @@ export default function App() {
       isLoopingRef.current,
       loopRegion,
     );
-  }, [progression, bpm, currentTick, loopRegion, notify]);
+  }, [displayProgression, bpm, currentTick, loopRegion, notify]);
 
   const handlePause = useCallback(() => {
     if (playbackStateRef.current !== "playing") return;
@@ -583,6 +605,72 @@ export default function App() {
     notify("Removed the chord guide. Undo restores it.", "info");
   }, [progression, effectiveMelodySourceTrackIndex, commit, notify]);
 
+  const handleExploreHarmonyTakes = useCallback(() => {
+    if (!progression || effectiveMelodySourceTrackIndex === null || !canExploreTakes) {
+      notify("Harmonize the selected melody once before comparing takes.", "error");
+      return;
+    }
+    const options = {
+      sourceTrackIndex: effectiveMelodySourceTrackIndex,
+      root, mode, tension: dissonance, harmonicFit, harmonyExploration,
+      phraseCoherence, density: accompanimentDensity, keyStrategy: melodyKeyStrategy,
+      harmonicPacing,
+      sourceScope: melodyPhraseScope,
+      sourceNoteIndices: [...selectedNoteIndices],
+      sourceLoopRange: loopRegion,
+    };
+    // A new click brings spontaneous material; each candidate itself has a
+    // fully reproducible seed, and all are computed against the same base.
+    const baseSeed = Math.floor(Math.random() * 0x100000000);
+    const seeds = Array.from({ length: 18 }, (_, i) =>
+      (baseSeed + Math.imul(i + 1, 0x9e3779b9)) >>> 0);
+    const result = generateHarmonyTakes(progression, options, seeds, 3);
+    if (!result.ok) { notify(result.reason, "error"); return; }
+    handleStop();
+    setLivePreview(null);
+    setTakeBatch({ base: progression, sourceTrackIndex: effectiveMelodySourceTrackIndex,
+      takes: result.takes });
+    setPreviewTakeIndex(0);
+    setFitRequest(n => n + 1);
+    notify("Found " + result.takes.length +
+      " structurally distinct harmony takes. Previewing Take 1; your original is untouched.", "success");
+  }, [progression, effectiveMelodySourceTrackIndex, canExploreTakes, root, mode, dissonance,
+    harmonicFit, harmonyExploration, phraseCoherence, accompanimentDensity,
+    melodyKeyStrategy, harmonicPacing, melodyPhraseScope, selectedNoteIndices,
+    loopRegion, handleStop, notify]);
+
+  const handleSelectHarmonyTake = useCallback((index: number | null) => {
+    if (!validTakeBatch || (index !== null &&
+      (!Number.isInteger(index) || index < 0 || index >= validTakeBatch.takes.length))) return;
+    handleStop();
+    setLivePreview(null);
+    setPreviewTakeIndex(index);
+    setFitRequest(n => n + 1);
+  }, [validTakeBatch, handleStop]);
+
+  const handleAcceptHarmonyTake = useCallback(() => {
+    if (!previewTake || !validTakeBatch) return;
+    handleStop();
+    commit(previewTake.progression);
+    if (melodyKeyStrategy === "detect") {
+      setRoot(previewTake.root);
+      setMode(previewTake.mode);
+    }
+    setTakeBatch(null);
+    setPreviewTakeIndex(null);
+    setSelectedNoteIndices(new Set());
+    setFitRequest(n => n + 1);
+    notify("Accepted the harmony take as one undoable edit. Your melody and track routing are preserved.", "success");
+  }, [previewTake, validTakeBatch, melodyKeyStrategy, handleStop, commit, notify]);
+
+  const handleDiscardHarmonyTakes = useCallback(() => {
+    handleStop();
+    setLivePreview(null);
+    setTakeBatch(null);
+    setPreviewTakeIndex(null);
+    notify("Discarded take previews. Your original working arrangement is unchanged.", "info");
+  }, [handleStop, notify]);
+
   /** New compositions are deliberately separate from melody-conditioned
    * generation: only this path can replace the entire project. */
   const generateScratch = useCallback(() => {
@@ -608,6 +696,10 @@ export default function App() {
     synthType, commit, notify, handleStop]);
 
   const handleGenerate = useCallback(() => {
+    if (previewTake) {
+      notify("Accept the preview or return to Original before regenerating.", "info");
+      return;
+    }
     if (melodySourceMode === "follow") {
       if (!progression || effectiveMelodySourceTrackIndex === null) {
         notify("Draw or import a melody, then choose its track.", "error");
@@ -717,7 +809,7 @@ export default function App() {
   }, [root, mode, dissonance, synthType, commit, notify, handleStop,
     progression, effectiveMelodySourceTrackIndex, melodySourceMode, harmonicFit, accompanimentDensity, melodyKeyStrategy,
     melodyTask, motifCreativity, continuationBars, trackMix, harmonicPacing,
-    harmonyExploration, phraseCoherence, melodyPhraseScope, selectedNoteIndices, loopRegion, generateScratch, hasExistingContent]);
+    harmonyExploration, phraseCoherence, melodyPhraseScope, selectedNoteIndices, loopRegion, generateScratch, hasExistingContent, previewTake]);
 
   const handleGenerateVariations = useCallback(() => {
     if (melodySourceMode === "follow") {
@@ -981,6 +1073,19 @@ export default function App() {
     // Keyboard navigation in menus and buttons takes priority over editor hotkeys.
     if (target?.closest('button, summary, a[href], [role="tab"], [role="button"], [role="listbox"], [role="slider"], [role="spinbutton"], [role="menuitem"]') &&
         !target.closest('[data-testid="piano-note"]')) return;
+    // When auditioning, the score is a read-only candidate. Keep Space as
+    // transport, Escape as Return to Original, but never dispatch editing,
+    // history or regeneration shortcuts against the saved base score.
+    if (previewTake) {
+      if (e.key === "Escape") {
+        e.preventDefault(); handleSelectHarmonyTake(null); return;
+      }
+      if (e.code !== "Space") {
+        if (e.ctrlKey || e.metaKey || e.key === "Delete" || e.key === "Backspace")
+          e.preventDefault();
+        return;
+      }
+    }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "g") {
       e.preventDefault(); if (!e.repeat) handleGenerate(); return;
     }
@@ -1098,15 +1203,20 @@ export default function App() {
     setSelectedNoteIndices(new Set()); setTrackOverrides({}); setFocusedTrack(null); setMelodySourceTrackIndex(null); setLoopRegion(null);
     setToolMode("draw"); setScrollAnchorKey(k => k + 1); setFitRequest(k => k + 1); setMobileInspectorOpen(false);
   };
-  const hasNotes = !!progression?.notes.length;
+  const hasNotes = !!displayProgression?.notes.length;
   const unsupportedMeters = progression ? unsupportedSourceMeters(progression) : [];
   const displayedSynth = tracks.length === 1 ? trackMix[tracks[0].index]?.synthType ?? synthType : synthType;
   return (
     <div className={"workbench" + (!desktopInspectorOpen ? " inspector-collapsed" : "")} style={{ "--inspector-width": inspectorWidth + "px" } as CSSProperties} onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
       {isDraggingMidi && <div className="file-drop-overlay"><Upload size={36} /><h2>Drop your MIDI here</h2><p>Your current pattern is recoverable with Undo.</p></div>}
-      <TransportBar isPlaying={isPlaying} isPaused={playbackState === "paused"} canPlay={hasNotes} canUndo={canUndo} canRedo={canRedo} isLooping={isLooping} bpm={bpm} currentTick={currentTick}
+      <TransportBar isPlaying={isPlaying} isPaused={playbackState === "paused"} canPlay={hasNotes}
+        canUndo={canUndo && !previewTake} canRedo={canRedo && !previewTake}
+        isLooping={isLooping} bpm={bpm} currentTick={currentTick}
         onPlay={handlePlay} onPause={handlePause} onStop={handleStop} onUndo={undo} onRedo={redo} onToggleLoop={toggleLooping} onBpmChange={setBpm}
-        onLoadFile={loadMidiFile} onExport={handleExport} onClearSavedSession={handleClearSavedSession} onOpenShortcuts={() => setShortcutsOpen(true)} onToggleInspector={toggleInspector} />
+        onLoadFile={loadMidiFile} onExport={() => previewTake
+          ? notify("Accept the auditioned take before exporting its MIDI; this project is still unchanged.", "info")
+          : handleExport()}
+        onClearSavedSession={handleClearSavedSession} onOpenShortcuts={() => setShortcutsOpen(true)} onToggleInspector={toggleInspector} />
       <div className="workspace">
         <Inspector tab={inspectorTab} onTabChange={setInspectorTab} mobileOpen={mobileInspectorOpen} onClose={() => setMobileInspectorOpen(false)}
           onToggle={toggleInspector} width={inspectorWidth} onResize={setInspectorWidth}
@@ -1125,6 +1235,13 @@ export default function App() {
             lockedChordCount={lockedChordCount} onUnlockAllChords={handleUnlockAllChords}
             harmonyGuides={harmonyGuides} availableHarmonyChords={harmonyChordChoices}
             onAddHarmonyGuide={handleAddHarmonyGuide} onRemoveHarmonyGuide={handleRemoveHarmonyGuide}
+            canExploreTakes={canExploreTakes} takeViews={validTakeBatch?.takes.map((take, i) => ({
+              label: "Take " + (i + 1), changedRegions: take.changedRegions,
+              chordSummary: take.chordSummary,
+            })) ?? []}
+            previewTakeIndex={validTakeBatch ? previewTakeIndex : null}
+            onExploreTakes={handleExploreHarmonyTakes} onSelectTake={handleSelectHarmonyTake}
+            onAcceptTake={handleAcceptHarmonyTake} onDiscardTakes={handleDiscardHarmonyTakes}
             accompanimentDensity={accompanimentDensity} onAccompanimentDensityChange={setAccompanimentDensity}
             harmonicPacing={harmonicPacing} onHarmonicPacingChange={setHarmonicPacing}
             melodyKeyStrategy={melodyKeyStrategy} onMelodyKeyStrategyChange={setMelodyKeyStrategy}
@@ -1147,9 +1264,13 @@ export default function App() {
             onRenameTrack={handleRenameTrack} onDuplicateTrack={handleDuplicateTrack} onDeleteTrack={handleDeleteTrack}
             onPreviewError={message => notify(message, "error")} />}
         />
-        <main className="editor-main" aria-label="MIDI editor">
+        <main className={"editor-main" + (previewTake ? " take-preview-active" : "")}
+          inert={!!previewTake} aria-label="MIDI editor">
           <div className="editor-context"><div className="editor-title"><Music2 size={16} /><h1>Piano roll</h1><span className="context-separator">/</span>
-            <span>{progression ? root + " " + mode : "New session"}</span></div>
+            <span>{displayProgression ? displayRoot + " " + displayMode : "New session"}</span>
+            {previewTake && <span className="take-preview-label" aria-hidden="true">
+              Auditioning Take {(previewTakeIndex ?? 0) + 1} · Read only
+            </span>}</div>
             <div className="editor-context-right">{progression && <><span className="pattern-length">{progression.totalBars} bars</span>
               <select aria-label="Edit track" value={visibleFocusedTrack ?? "all"} onChange={event => handleFocusTrack(event.target.value === "all" ? null : Number(event.target.value))}>
                 <option value="all">All tracks</option>{tracks.map(t => <option key={t.index} value={t.index}>{t.name}</option>)}
@@ -1173,8 +1294,10 @@ export default function App() {
             followPlayback={followPlayback} inspectorOpen={desktopInspectorOpen} onToolModeChange={setToolMode} onStampTypeChange={setStampType}
             onNoteLengthChange={setNoteLength} onSnapResolutionChange={setSnapResolution} onZoomChange={setZoomX}
             onToggleFollow={() => setFollowPlayback(f => !f)} onFit={() => setFitRequest(k => k + 1)} onToggleInspector={toggleInspector} />
-          <PianoRoll progression={progression} focusedTrack={visibleFocusedTrack} root={root} mode={mode} statusLabel={scopeLabel}
-            onGenerate={handleGenerate} onStartBlank={startBlank} onLoadFile={loadMidiFile} selectedIndices={selectedNoteIndices}
+          <PianoRoll progression={displayProgression} focusedTrack={visibleFocusedTrack}
+            root={displayRoot} mode={displayMode} statusLabel={scopeLabel}
+            onGenerate={handleGenerate} onStartBlank={startBlank} onLoadFile={loadMidiFile}
+            selectedIndices={previewTake ? new Set<number>() : selectedNoteIndices}
             toolMode={toolMode} stampType={stampType} noteLength={noteLength} snapResolution={snapResolution} zoomX={zoomX}
             fitRequest={fitRequest} isPlaying={isPlaying} currentTick={currentTick} followPlayback={followPlayback}
             isLooping={isLooping} loopRegion={loopRegion} onLoopRegionChange={handleLoopRegionChange}

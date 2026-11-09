@@ -31,7 +31,8 @@
 
 ## M2 — Auditionable alternatives with informed selection
 
-- Keep multiple chord/texture candidates as editable snapshots, not a destructive "generate again" cycle.
+- **Implemented first increment:** Take Lab generates up to three distinct harmonization snapshots from one immutable source. It previews each through the normal playback transport and read-only piano roll, retains the original, and accepts one as a single undoable edit. No preview leaks into autosave or MIDI export.
+- **Next:** persist optional approved snapshots, make candidate explanations more musical and show pinned passages in a side-by-side overview.
 - A/B or A/B/C audition at the same BPM/loop point; label changes in chord roots, pacing and density without presenting invented "quality" probabilities.
 - Let the user pin parts of one take and regenerate only the others. Preserve good takes across exploratory calls.
 
