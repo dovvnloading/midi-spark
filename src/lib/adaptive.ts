@@ -123,6 +123,12 @@ function chordCandidates(root: string, mode: "major" | "minor", tension: number)
   return candidates;
 }
 
+/** The exact chord vocabulary used by the current key/mode/tension solver.
+ * Exposed to the editor so a bar guide can never offer a guessed chord. */
+export function availableHarmonyChords(root: string, mode: "major" | "minor", tension: number): string[] {
+  return chordCandidates(root, mode, tension).map(candidate => candidate.name);
+}
+
 /** Weight notes independently within each harmonic window. Sustains contribute
  * to both adjacent windows; only local passing tones are down-weighted. */
 function melodyWindows(notes: readonly NoteEvent[], bars: number, divisions: 1 | 2 = 1): WeightedNote[][] {
@@ -207,9 +213,9 @@ function planHarmonicRegions(
  * Reject malformed or overlapping locks rather than quietly discarding them. */
 function honorLockedRegions(
   source: readonly NoteEvent[], bars: number, planned: readonly HarmonicRegion[],
-  locked: readonly ChordEvent[],
+  locked: readonly ChordEvent[], pinnedBars: ReadonlySet<number> = new Set(),
 ): { ok: true; regions: HarmonicRegion[] } | { ok: false; reason: string } {
-  if (locked.length === 0) return { ok: true, regions: [...planned] };
+  if (locked.length === 0 && pinnedBars.size === 0) return { ok: true, regions: [...planned] };
   const shape = new Map<number, 2 | 4>();
   const ordered = [...locked].sort((a, b) => a.timeStart - b.timeStart);
   const close = (a: number, b: number) => Math.abs(a - b) < 1 / 64;
@@ -230,6 +236,13 @@ function honorLockedRegions(
       return { ok: false, reason: "Locked chord windows overlap. Unlock one before regenerating." };
     }
     shape.set(bar, kind);
+  }
+  for (const bar of pinnedBars) {
+    if (shape.get(bar) === 2) {
+      return { ok: false, reason: "Bar " + (bar + 1) +
+        " has a locked half-bar chord. Unlock it before pinning a full-bar chord." };
+    }
+    shape.set(bar, 4);
   }
   const whole = melodyWindows(source, bars);
   const halves = melodyWindows(source, bars, 2);
@@ -290,6 +303,7 @@ function chooseHarmony(
   fit: number, tension: number, random: RandomSource,
   previousChords: readonly { name: string; timeStart: number }[] = [],
   requiredChords: readonly (number | null)[] = [],
+  forbiddenChords: readonly ReadonlySet<number>[] = [],
 ): ChordCandidate[] {
   const rows: { score: number; prev: number }[][] = [];
   const freedom = (1 - clamp(fit, 0, 100) / 100) * 0.46 + 0.035;
@@ -298,7 +312,8 @@ function chooseHarmony(
     const row: { score: number; prev: number }[] = [];
     const lastAtStart = previousChords.find(chord => Math.abs(chord.timeStart - region.timeStart) < 1 / 64);
     for (let j = 0; j < candidates.length; j++) {
-      if (requiredChords[segment] != null && requiredChords[segment] !== j) {
+      if ((requiredChords[segment] != null && requiredChords[segment] !== j) ||
+        forbiddenChords[segment]?.has(j)) {
         row.push({ score: -Infinity, prev: -1 });
         continue;
       }
@@ -387,6 +402,7 @@ function chooseDiverseHarmony(
   leftContext: ChordCandidate | null = null, rightContext: ChordCandidate | null = null,
   structure: PhraseStructure | null = null, coherence = 0,
   requiredChords: readonly (number | null)[] = [],
+  forbiddenChords: readonly ReadonlySet<number>[] = [],
 ): { harmony: ChordCandidate[]; alternativesConsidered: number;
      chordFitRetained: number; changedChordRegions: number } {
   const beamWidth = 12;
@@ -397,7 +413,8 @@ function chooseDiverseHarmony(
     const region = regions[segment];
     const row: HarmonyPathNode[][] = [];
     for (let j = 0; j < candidates.length; j++) {
-      if (requiredChords[segment] != null && requiredChords[segment] !== j) {
+      if ((requiredChords[segment] != null && requiredChords[segment] !== j) ||
+        forbiddenChords[segment]?.has(j)) {
         row.push([]);
         continue;
       }
@@ -786,8 +803,18 @@ export function generateFromMelody(
     chord.generatedSourceTrackIndex === trackIndex && chord.locked &&
     (!target || (chord.timeStart < target.end &&
       chord.timeStart + chord.duration > target.start)));
+  const guides = input.harmonyConstraints?.filter(guide => guide.sourceTrackIndex === trackIndex) ?? [];
+  for (const guide of guides) {
+    if (!Number.isInteger(guide.bar) || guide.bar < 0 || guide.bar >= bars ||
+      !["require", "avoid"].includes(guide.kind) || typeof guide.chord !== "string") {
+      return { ok: false, reason: "A chord guide has invalid timing or settings. Remove it before regenerating." };
+    }
+  }
+  const activeGuides = guides.filter(guide => !target ||
+    (guide.bar * 4 >= target.start && guide.bar * 4 < target.end));
+  const pinnedBars = new Set(activeGuides.filter(guide => guide.kind === "require").map(guide => guide.bar));
   const planned = planHarmonicRegions(source, bars, pacing, candidates, options.harmonicFit, options.tension);
-  const honored = honorLockedRegions(source, bars, planned, lockedChords);
+  const honored = honorLockedRegions(source, bars, planned, lockedChords, pinnedBars);
   if (!honored.ok) return honored;
   const regions = honored.regions.filter(region => !target ||
     (region.timeStart >= target.start && region.timeStart + region.duration <= target.end));
@@ -795,17 +822,54 @@ export function generateFromMelody(
     return {ok: false, reason: "The chosen phrase is too short for a harmonic window."};
   }
   const requiredChords: Array<number | null> = [];
+  const forbiddenChords: Array<ReadonlySet<number>> = [];
   for (const region of regions) {
+    const bar = Math.floor(region.timeStart / 4);
+    const barGuides = activeGuides.filter(guide => guide.bar === bar);
+    const pins = barGuides.filter(guide => guide.kind === "require");
+    const pinnedNames = new Set(pins.map(guide => guide.chord));
+    if (pinnedNames.size > 1) {
+      return { ok: false, reason: "Bar " + (bar + 1) + " has multiple conflicting pinned chords." };
+    }
+    const pinnedName = pins[0]?.chord;
+    const pinnedIndex = pinnedName === undefined ? null :
+      candidates.findIndex(candidate => candidate.name === pinnedName);
+    if (pinnedIndex === -1) {
+      return { ok: false, reason: "Pinned chord " + pinnedName +
+        " is not available in the current key or chord tension. Change the settings or remove the guide." };
+    }
+    const excluded = new Set<number>();
+    for (const guide of barGuides.filter(item => item.kind === "avoid")) {
+      const index = candidates.findIndex(candidate => candidate.name === guide.chord);
+      if (index < 0) {
+        return { ok: false, reason: "Excluded chord " + guide.chord +
+          " is not in the current key/tension vocabulary. Change the settings or remove the guide." };
+      }
+      excluded.add(index);
+    }
     const locked = lockedChords.find(chord =>
       Math.abs(chord.timeStart - region.timeStart) < 1 / 64 &&
       Math.abs(chord.duration - region.duration) < 1 / 64);
-    if (!locked) { requiredChords.push(null); continue; }
-    const index = candidates.findIndex(candidate => candidate.name === locked.name);
-    if (index < 0) {
-      return { ok: false, reason: "Locked chord " + locked.name +
+    const lockedIndex = locked ? candidates.findIndex(candidate => candidate.name === locked.name) : null;
+    if (lockedIndex === -1) {
+      return { ok: false, reason: "Locked chord " + locked?.name +
         " is not available in this key/tension. Change the settings or unlock it." };
     }
-    requiredChords.push(index);
+    if (lockedIndex !== null && pinnedIndex !== null && lockedIndex !== pinnedIndex) {
+      return { ok: false, reason: "Pinned chord " + pinnedName +
+        " conflicts with a locked chord in bar " + (bar + 1) + ". Unlock it first." };
+    }
+    const required = lockedIndex ?? pinnedIndex;
+    if (required !== null && excluded.has(required)) {
+      return { ok: false, reason: "Bar " + (bar + 1) +
+        " both requires and excludes the same chord. Remove a conflicting guide." };
+    }
+    if (required === null && excluded.size === candidates.length) {
+      return { ok: false, reason: "Every available chord is excluded in bar " +
+        (bar + 1) + ". Remove an exclusion before regenerating." };
+    }
+    requiredChords.push(required);
+    forbiddenChords.push(excluded);
   }
   if (lockedChords.some(chord => !regions.some(region =>
     Math.abs(chord.timeStart - region.timeStart) < 1 / 64 &&
@@ -843,10 +907,11 @@ export function generateFromMelody(
   const explored = exploration > 0
     ? chooseDiverseHarmony(candidates, regions, options.harmonicFit, options.tension, random,
       exploration, previousChords, matchContext(beforeRegion?.name), matchContext(afterRegion?.name),
-      structure, coherence, requiredChords)
+      structure, coherence, requiredChords, forbiddenChords)
     : null;
   const selectedHarmony = explored?.harmony ??
-    chooseHarmony(candidates, regions, options.harmonicFit, options.tension, random, previousChords, requiredChords);
+    chooseHarmony(candidates, regions, options.harmonicFit, options.tension, random,
+      previousChords, requiredChords, forbiddenChords);
   const refined = mergeRedundantHalfBars(regions, selectedHarmony, pacing, lockedStarts);
 
   let working = input;

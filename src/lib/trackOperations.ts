@@ -111,6 +111,8 @@ export function deleteTrack(data: ProgressionData, index: number): ProgressionDa
       return detached;
     }),
     chords: data.chords.filter(chord => chord.generatedSourceTrackIndex !== index),
+    ...(data.harmonyConstraints ? { harmonyConstraints: data.harmonyConstraints.filter(guide =>
+      guide.sourceTrackIndex !== index) } : {}),
     nextTrackIndex: nextTrackIndex(data),
   };
 }

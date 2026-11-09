@@ -29,6 +29,16 @@ export interface ChordEvent {
   locked?: boolean;
 }
 
+/** An explicit, musician-authored bar constraint. These guide the solver,
+ * unlike chord locks they do not preserve existing accompaniment note events. */
+export interface HarmonyConstraint {
+  sourceTrackIndex: number;
+  /** Zero-based 4/4 editor bar, independent of generated chord segmentation. */
+  bar: number;
+  kind: "require" | "avoid";
+  chord: string;
+}
+
 export interface TrackMetadata {
   index: number;
   name: string;
@@ -44,6 +54,8 @@ export interface TrackMetadata {
 export interface ProgressionData {
   notes: NoteEvent[];
   chords: ChordEvent[];
+  /** Optional native-project constraints. Standard MIDI has no corresponding metadata. */
+  harmonyConstraints?: HarmonyConstraint[];
   totalBars: number;
   /** Original melodic-track headers; generated sessions may omit these. */
   tracks?: TrackMetadata[];
