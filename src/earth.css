@@ -639,3 +639,19 @@ body { background: var(--app-bg); }
   margin: 8px 0 12px; padding: 6px 8px;
   background: #434f4a; color: #e1e8df;
 }
+
+/* Narrow editors must keep a usable 300px+ note canvas. Fit and View have
+ * accessible names, so their labels can become icons on cramped widths,
+ * keeping both alongside the drawing tools instead of causing an extra row. */
+@container (max-width: 650px) {
+  .editor-toolbar .view-controls { gap: 3px; margin-left: auto; }
+  .editor-toolbar .view-controls .fit-button,
+  .editor-toolbar .view-controls .canvas-view-trigger {
+    width: 40px; min-width: 40px; height: 40px;
+    padding: 0; display: inline-flex;
+    align-items: center; justify-content: center;
+  }
+  .editor-toolbar .view-controls .fit-button > span,
+  .editor-toolbar .view-controls .canvas-view-trigger > span { display: none; }
+  .editor-toolbar .view-controls .canvas-view-trigger svg { width: 17px; height: 17px; }
+}
