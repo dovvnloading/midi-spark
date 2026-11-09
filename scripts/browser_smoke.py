@@ -609,6 +609,51 @@ with sync_playwright() as p:
   'Keys','Bass','Empty pad','Generated Bass','Generated Harmony']
  record('Melody-aware layers export and re-import as standard multi-track MIDI')
  adaptive.close()
+ # User-authored chord guides are hard search constraints, not decorative tags.
+ guide_page=b.new_page(viewport={'width':1280,'height':800})
+ guide_page.on('pageerror',lambda error:errors.append(str(error)))
+ guide_page.goto(args.url)
+ import_fixture(guide_page)
+ guide_source=snap(guide_page)['progression']
+ guide_page.get_by_role('tab',name='Compose',exact=True).click()
+ guide_page.get_by_role('button',name='Follow melody',exact=True).click()
+ guide_page.locator('.melody-advanced > summary').click()
+ guide_page.get_by_role('combobox',name='Source melody track',exact=True).select_option('0')
+ guide_page.get_by_role('combobox',name='Guide bar').select_option('2')
+ guide_page.get_by_role('combobox',name='Guide chord').select_option('G')
+ guide_page.get_by_role('button',name='Pin chord',exact=True).click()
+ guide_page.get_by_role('combobox',name='Guide chord').select_option('C')
+ guide_page.get_by_role('button',name='Avoid chord',exact=True).click()
+ guide_page.wait_for_timeout(550)
+ guided_project=snap(guide_page)['progression']
+ assert guided_project['harmonyConstraints']==[
+  {'sourceTrackIndex':0,'bar':1,'kind':'require','chord':'G'},
+  {'sourceTrackIndex':0,'bar':1,'kind':'avoid','chord':'C'},
+ ] or sorted(guided_project['harmonyConstraints'],key=lambda g:g['kind'])==sorted([
+  {'sourceTrackIndex':0,'bar':1,'kind':'require','chord':'G'},
+  {'sourceTrackIndex':0,'bar':1,'kind':'avoid','chord':'C'},
+ ],key=lambda g:g['kind'])
+ guide_page.get_by_role('button',name='Harmonize melody',exact=False).click()
+ guide_page.wait_for_timeout(650)
+ guided_result=snap(guide_page)['progression']
+ guided_chords=[c for c in guided_result['chords'] if c.get('generatedSourceTrackIndex')==0]
+ assert [c['name'] for c in guided_chords if 4<=c['timeStart']<8]==['G']
+ assert next(c for c in guided_chords if c['timeStart']==4)['duration']==4
+ assert guided_result['notes'][:len(guide_source['notes'])]==guide_source['notes']
+ guide_page.reload();guide_page.wait_for_timeout(650)
+ restored_guide=snap(guide_page)['progression']
+ assert restored_guide['harmonyConstraints']==guided_project['harmonyConstraints']
+ guide_page.locator('.melody-advanced > summary').click()
+ guide_page.get_by_role('button',name='Remove pinned G from bar 2').click()
+ guide_page.get_by_role('button',name='Harmonize melody',exact=False).click()
+ guide_page.wait_for_timeout(650)
+ excluded_result=snap(guide_page)['progression']
+ assert all(c['name']!='C' for c in excluded_result['chords'] if
+  c.get('generatedSourceTrackIndex')==0 and 4<=c['timeStart']<8)
+ assert len(excluded_result['harmonyConstraints'])==1
+ assert excluded_result['harmonyConstraints'][0]['kind']=='avoid'
+ record('Chord guide pins full bars, excludes chords, persists, and regenerates safely')
+ guide_page.close()
  # Melody continuation and variation are separate, user-protecting operations.
  motif_page=b.new_page(viewport={'width':1280,'height':800})
  motif_page.on('pageerror',lambda error:errors.append(str(error)))
