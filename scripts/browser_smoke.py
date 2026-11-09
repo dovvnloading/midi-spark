@@ -491,6 +491,12 @@ with sync_playwright() as p:
    assert box and box['x']>=0 and box['x']+box['width']<=width+.5, (width,name,box)
   canvas=page.get_by_role('region',name='Piano roll canvas').bounding_box()
   assert canvas['height']>=300, (width,canvas)
+  if height <= 700:
+   # On exceptionally short phones verbose tool guidance yields to the
+   # note canvas, while direct tool controls remain named and accessible.
+   assert not page.locator('.active-tool-readout').is_visible()
+   for tool in ['Draw','Select','Slice','Hand','Stamp']:
+    expect(page.get_by_role('button',name=tool+' tool',exact=True)).to_be_visible()
   metrics.append({'viewport':[width,height], 'canvas':canvas})
   page.screenshot(path=str(OUTPUT/f'workbench-{width}.png'))
   record(f'{width}×{height}: no clipped primary controls; canvas remains usable')
