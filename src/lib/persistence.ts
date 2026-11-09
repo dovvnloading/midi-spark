@@ -1,4 +1,4 @@
-import { ProgressionData, NoteEvent, ChordEvent, TrackMetadata, HarmonyConstraint } from "./theory";
+import { ProgressionData, NoteEvent, ChordEvent, TrackMetadata, HarmonyConstraint, type ArrangementSection } from "./theory";
 import type { TrackMix } from "./tracks";
 import type { LoopRange } from "./timeline";
 import type { SynthType } from "./audio";
@@ -90,6 +90,16 @@ function isHarmonyConstraint(v: unknown): v is HarmonyConstraint {
     typeof c.chord === "string" && c.chord.length > 0 && c.chord.length <= 64;
 }
 
+function isArrangementSection(v: unknown): v is ArrangementSection {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return false;
+  const s = v as Record<string, unknown>;
+  return ["A", "A′", "B", "A (return)", "B (return)"].includes(String(s.label)) &&
+    ["theme", "variation", "contrast", "reprise"].includes(String(s.role)) &&
+    Number.isInteger(s.startBar) && (s.startBar as number) >= 0 &&
+    Number.isInteger(s.bars) && (s.bars as number) >= 1 && (s.bars as number) <= 16 &&
+    (s.startBar as number) + (s.bars as number) <= 64;
+}
+
 function isTrackMetadata(v: unknown): v is TrackMetadata {
   if (typeof v !== "object" || v === null) return false;
   const t = v as Record<string, unknown>;
@@ -136,6 +146,15 @@ function isProgressionData(v: unknown): v is ProgressionData {
     p.notes.every(isNoteEvent) &&
     Array.isArray(p.chords) &&
     p.chords.every(isChordEvent) &&
+    (p.arrangementSections === undefined ||
+      (Array.isArray(p.arrangementSections) && p.arrangementSections.length <= 16 &&
+        p.arrangementSections.every(isArrangementSection) &&
+        p.arrangementSections.every((section, index) => index === 0
+          ? section.startBar === 0 : section.startBar ===
+            (p.arrangementSections as ArrangementSection[])[index - 1].startBar +
+            (p.arrangementSections as ArrangementSection[])[index - 1].bars) &&
+        (!p.arrangementSections.length ||
+          p.arrangementSections.at(-1).startBar + p.arrangementSections.at(-1).bars === p.totalBars))) &&
     (p.harmonyConstraints === undefined ||
       (Array.isArray(p.harmonyConstraints) && p.harmonyConstraints.length <= 512 &&
         p.harmonyConstraints.every(isHarmonyConstraint))) &&
@@ -178,7 +197,8 @@ function isSavedHarmonyTakeBank(v: unknown): v is SavedHarmonyTakeBank {
     new Set(bank.favorites.map(take => (take as SavedHarmonyFavorite).id)).size === bank.favorites.length;
 }
 
-function isValidSession(v: unknown): v is SavedSession {
+/** Shared strict schema check for browser autosaves and native project archives. */
+export function isValidSession(v: unknown): v is SavedSession {
   if (typeof v !== "object" || v === null) return false;
   const s = v as Record<string, unknown>;
   return (
