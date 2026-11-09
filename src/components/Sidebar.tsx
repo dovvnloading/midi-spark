@@ -2,12 +2,14 @@ import { ArrowUpRight, AudioLines, Info, Layers, Music2, Shuffle, SlidersHorizon
 import { CustomDropdown } from "./CustomDropdown";
 import { SoundPicker } from "./SoundPicker";
 import { CustomSlider } from "./CustomSlider";
+import { HarmonyGuideEditor } from "./HarmonyGuideEditor";
 import { ROOT_NOTES } from "../lib/constants";
 import type { SynthType } from "../lib/audio";
 import type { AccompanimentDensity, MelodyKeyStrategy, HarmonicPacing } from "../lib/adaptive";
 import type { ContinuationBars } from "../lib/motif";
 import type { MelodySourceScope } from "../lib/melodyScope";
 import type { LoopRange } from "../lib/timeline";
+import type { HarmonyConstraint } from "../lib/theory";
 
 export interface SidebarProps {
   root: string; mode: "major" | "minor"; dissonance: number; complexity: number; bars: number; canVary: boolean;
@@ -30,6 +32,10 @@ export interface SidebarProps {
   onPhraseCoherenceChange: (value: number) => void;
   lockedChordCount: number;
   onUnlockAllChords: () => void;
+  harmonyGuides: { index: number; guide: HarmonyConstraint }[];
+  availableHarmonyChords: string[];
+  onAddHarmonyGuide: (bar: number, chord: string, kind: HarmonyConstraint["kind"]) => void;
+  onRemoveHarmonyGuide: (index: number) => void;
   accompanimentDensity: AccompanimentDensity;
   harmonicPacing: HarmonicPacing;
   onHarmonicPacingChange: (value: HarmonicPacing) => void;
@@ -249,6 +255,10 @@ export function Sidebar(p: SidebarProps) {
               Generate again to explore only the unlocked regions. Lock changes are undoable.</p>
             {p.lockedChordCount > 0 && <button type="button" className="text-button"
               onClick={p.onUnlockAllChords}>Unlock all {p.lockedChordCount} chord regions</button>}
+            <HarmonyGuideEditor sourceTrackIndex={p.melodySourceTrackIndex}
+              totalBars={p.melodyBarCount} availableChords={p.availableHarmonyChords}
+              keyStrategy={p.melodyKeyStrategy} guides={p.harmonyGuides}
+              onAddGuide={p.onAddHarmonyGuide} onRemoveGuide={p.onRemoveHarmonyGuide} />
             <div className="field-heading"><h4>Chord changes</h4></div>
             <div className="generation-mode melody-task" role="group" aria-label="Harmonic pacing">
               <button type="button" aria-pressed={p.harmonicPacing === "bar"}
