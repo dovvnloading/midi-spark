@@ -703,7 +703,7 @@ with sync_playwright() as p:
  generated_indices={t['index'] for t in take_base['tracks'] if t.get('generatedRole') in ('bass','harmony')}
  assert all(n['trackIndex'] in generated_indices for n in fav['notes'])
  assert all(c['generatedSourceTrackIndex']==0 for c in fav['chords'])
- expect(take_page.get_by_role('button',name='Favorite 1',exact=False)).to_have_attribute('aria-pressed','true')
+ expect(take_page.locator('.take-choice').filter(has_text='Favorite 1')).to_have_attribute('aria-pressed','true')
  # One-click listening should start the matching score at the same loop anchor.
  take_page.get_by_role('button',name='Play option 1').click()
  take_page.wait_for_timeout(400)
@@ -718,8 +718,8 @@ with sync_playwright() as p:
  take_page.reload(); take_page.wait_for_timeout(700)
  assert snap(take_page)['progression']==take_base
  assert len(snap(take_page)['savedHarmonyTakes']['favorites'])==1
- expect(take_page.get_by_role('button',name='Favorite 1',exact=False)).to_be_visible()
- take_page.get_by_role('button',name='Favorite 1',exact=False).click()
+ expect(take_page.locator('.take-choice').filter(has_text='Favorite 1')).to_be_visible()
+ take_page.locator('.take-choice').filter(has_text='Favorite 1').click()
  assert take_page.locator('.editor-main').evaluate('(el)=>el.inert') is True
  take_page.get_by_role('button',name='Accept selected take',exact=True).click()
  take_page.wait_for_timeout(650)
