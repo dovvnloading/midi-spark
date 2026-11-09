@@ -844,3 +844,26 @@ button:disabled { opacity: .42; }
   font-size: 11px; color: #d0e4ce; }
 .harmony-guide-item > span { min-width: 0; overflow-wrap: anywhere; }
 .harmony-guide-item > .text-button { flex: none; }
+
+/* Non-destructive harmony take audition. Previewed notes are visible but inert;
+ * the dedicated Take Lab and global transport remain fully interactive. */
+.harmony-take-lab { margin-top: 14px; padding: 12px; border: 1px solid #4a5e4a;
+  background: #223028; border-radius: 9px; }
+.harmony-take-lab .field-heading { margin-top: 0; }
+.harmony-take-lab .field-heading h4 { display: inline-flex; align-items: center; gap: 6px; }
+.harmony-take-lab .take-explore { margin-top: 10px; }
+.take-choices { display: flex; flex-direction: column; gap: 6px; margin-top: 11px; }
+.take-choice { display: flex; flex-direction: column; gap: 4px; text-align: left;
+  width: 100%; min-width: 0; padding: 8px 10px; border-radius: 7px;
+  border: 1px solid #455b4c; background: #293b30; color: #e0eade; }
+.take-choice strong { font-size: 12px; font-weight: 650; }
+.take-choice small { color: #b6c8b8; font-size: 10px; line-height: 1.45;
+  overflow-wrap: anywhere; }
+.take-choice:hover { background: #36513e; }
+.take-choice[aria-pressed="true"] { border-color: #c1dfa0; box-shadow: inset 3px 0 #c1dfa0;
+  background: #385342; }
+.take-actions { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin-top: 8px; }
+.take-actions .primary-button { flex: 1; }
+.editor-main.take-preview-active { box-shadow: inset 0 3px #b7d58c; }
+.take-preview-label { font-size: 10px; font-weight: 650; color: #f7df9b;
+  border: 1px solid #7b6844; border-radius: 5px; padding: 5px 7px; }
