@@ -29,6 +29,7 @@ export interface SavedSession {
   melodyPhraseScope?: MelodySourceScope;
   harmonicFit?: number;
   harmonyExploration?: number;
+  phraseCoherence?: number;
   accompanimentDensity?: AccompanimentDensity;
   harmonicPacing?: HarmonicPacing;
   melodyKeyStrategy?: MelodyKeyStrategy;
@@ -150,6 +151,8 @@ function isValidSession(v: unknown): v is SavedSession {
     (s.harmonicFit === undefined || (isFiniteNumber(s.harmonicFit) && s.harmonicFit >= 0 && s.harmonicFit <= 100)) &&
     (s.harmonyExploration === undefined || (isFiniteNumber(s.harmonyExploration) &&
       s.harmonyExploration >= 0 && s.harmonyExploration <= 100)) &&
+    (s.phraseCoherence === undefined || (isFiniteNumber(s.phraseCoherence) &&
+      s.phraseCoherence >= 0 && s.phraseCoherence <= 100)) &&
     (s.accompanimentDensity === undefined || ["sparse", "balanced", "active"].includes(String(s.accompanimentDensity))) &&
     (s.harmonicPacing === undefined || s.harmonicPacing === "bar" ||
       s.harmonicPacing === "adaptive" || s.harmonicPacing === "half-bar") &&
