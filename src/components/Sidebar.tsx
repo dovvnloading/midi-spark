@@ -42,6 +42,9 @@ export interface SidebarProps {
   previewTakeIndex: number | null;
   onExploreTakes: () => void;
   onSelectTake: (index: number | null) => void;
+  onAuditionTake: (index: number | null) => void;
+  onSaveTake: () => void;
+  onRemoveSavedTake: (id: string) => void;
   onAcceptTake: () => void;
   onDiscardTakes: () => void;
   accompanimentDensity: AccompanimentDensity;
@@ -206,8 +209,9 @@ export function Sidebar(p: SidebarProps) {
             </div>
             <HarmonyTakeLab enabled={p.canExploreTakes} takes={p.takeViews}
               previewIndex={p.previewTakeIndex} onExplore={p.onExploreTakes}
-              onSelect={p.onSelectTake} onAccept={p.onAcceptTake}
-              onDiscard={p.onDiscardTakes} />
+              onSelect={p.onSelectTake} onAudition={p.onAuditionTake}
+              onSave={p.onSaveTake} onRemoveSaved={p.onRemoveSavedTake}
+              onAccept={p.onAcceptTake} onDiscard={p.onDiscardTakes} />
 
             </> : <>
             <div className="expression-control">
