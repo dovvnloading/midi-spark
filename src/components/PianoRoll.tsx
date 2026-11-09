@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { Note } from "@tonaljs/tonal";
-import { Sparkles, Pencil, LockKeyhole, LockOpen } from "lucide-react";
+import { Pencil, LockKeyhole, LockOpen } from "lucide-react";
 import { ensureBarsCoverNotes } from "../lib/transforms";
 import { ProgressionData, NoteEvent, getScaleChromas } from "../lib/theory";
 import { initAudio, playNote } from "../lib/audio";
@@ -934,7 +934,7 @@ export function PianoRoll({
               <h2>Your next idea starts here.</h2>
               <p>Generate a progression, draw something new,<br />or drop a MIDI file to make it your own.</p>
               <div className="empty-actions">
-                <button className="primary-button" onClick={onGenerate}><Sparkles size={15} />Generate pattern</button>
+                <button className="primary-button" onClick={onGenerate}>Generate pattern</button>
                 <button className="secondary-button" onClick={onStartBlank}><Pencil size={14} />Start blank</button>
               </div>
               <input type="file" ref={emptyImportRef} accept=".mid,.midi" className="hidden" aria-label="Import MIDI into empty project" onChange={event => {
