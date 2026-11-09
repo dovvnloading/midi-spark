@@ -540,3 +540,58 @@ body { background: var(--app-bg); }
 @media (prefers-reduced-motion: reduce) {
   .compose-disclosure > summary::after { transition: none; }
 }
+
+/* Final shell simplification: one understandable Project menu and a compact
+ * canvas View menu, both keyboard/escape operable. */
+.project-menu-trigger {
+  display: inline-flex; min-height: 35px; padding: 0 10px;
+  align-items: center; gap: 6px; cursor: pointer; white-space: nowrap;
+  font-size: 12px; font-weight: 660;
+}
+.project-menu[open] .project-menu-trigger {
+  background: #626b68; border-color: #b3bdb3;
+}
+.project-menu-trigger > svg { flex: 0 0 auto; }
+.project-menu-content { min-width: 248px; }
+.editor-toolbar { position: relative; z-index: 12; overflow: visible; }
+.view-controls { gap: 5px; }
+.canvas-view-menu { position: relative; }
+.canvas-view-menu > summary { list-style: none; }
+.canvas-view-menu > summary::-webkit-details-marker { display: none; }
+.canvas-view-trigger {
+  height: 35px; display: inline-flex; align-items: center;
+  gap: 6px; padding: 0 10px; background: #d7dbd4;
+  color: #303934; border: 1px solid #747e76; font-size: 11px;
+}
+.canvas-view-trigger:hover, .canvas-view-menu[open] > summary {
+  background: #c7cdc3; color: #232e27; border-color: #5d6c5e;
+}
+.canvas-view-menu-content {
+  position: absolute; top: calc(100% + 7px); right: 0;
+  display: flex; flex-direction: column; gap: 3px;
+  width: 175px; padding: 6px; z-index: 90;
+  border: 1px solid #8b958a; border-radius: 9px;
+  background: #edefe9; color: #2e3830;
+  box-shadow: 0 12px 28px #2026243b;
+}
+.canvas-view-menu-content button {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 37px; width: 100%; padding: 7px 9px;
+  text-align: left; background: transparent;
+  border: 1px solid transparent; border-radius: 6px;
+  color: #28352e; font-size: 12px; font-weight: 620;
+}
+.canvas-view-menu-content button:hover, .canvas-view-menu-content button:focus-visible {
+  background: #d6ddd3; border-color: #a7b5a4;
+}
+.canvas-view-menu-content button[aria-pressed="true"] {
+  background: #5e715e; color: #ffffff;
+}
+.pattern-empty { padding-top: 18px; }
+.pattern-empty h2 { font-size: clamp(22px, 3vw, 29px); margin-bottom: 7px; }
+.pattern-empty .empty-actions { margin-top: 18px; }
+@media (max-width: 430px) {
+  .project-menu-trigger { min-width: 37px; padding: 0 8px; }
+  .project-menu-trigger span, .project-menu-trigger > svg:last-child { display: none; }
+  .canvas-view-trigger { padding: 0 8px; }
+}
