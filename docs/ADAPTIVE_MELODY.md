@@ -102,6 +102,26 @@ the k-best sampler without changing imported melody notes, ownership or
 zero-exploration/zero-coherence behavior. The scores are heuristic, not a
 learned form model or proof of perceptual improvement.
 
+**Composer-authored chord guide (M1):** Advanced harmony now exposes a
+bar-level editor for placing **required** chords or per-bar **excluded** chords
+before the next generation. The chord picker uses the exact vocabulary of
+Compose's current root/mode/tension; if automatic melody-key detection chooses
+a different key, the solver explains incompatible guides instead of silently
+substituting a chord. Guides carry a source track, zero-based bar, chord symbol
+and kind, are undoable, persist in the browser session, and are separate from
+MIDI export. A required whole-bar chord forces a four-beat region even when
+two-per-bar pacing is selected, and disallows other chord states in both
+Viterbi and diverse k-best search. Exclusions remove the selected state from
+all regions in that bar. The original search still supplies globally coherent
+surrounding chords, now considering transitions into/out of the pinned chord.
+Requirements and exclusions that conflict, exclude every candidate, or refer
+to a chord unavailable at the detected/current tension produce a readable
+no-mutation error. A conflicting locked half-bar cannot be overwritten by a
+new full-bar pin. Scoped infill only uses guides for the affected bars and
+preserves the original source notes and backing outside the selected region.
+**Unlike a locked chord, a guide never freezes prior bass/harmony notes**:
+only the harmonic choice is constrained, leaving texture and voicing editable.
+
 **Hard chord-region locks (M1):** a user can lock any generated chord from
 its chord lane. The lock belongs to the exact source track, start and duration
 and is persisted in browser sessions. For bar and half-bar chord windows, the
