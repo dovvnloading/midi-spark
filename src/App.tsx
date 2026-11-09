@@ -27,7 +27,9 @@ import { availableHarmonyChords, generateFromMelody, isAdaptiveTrack, type Accom
 import { generateMotif, type ContinuationBars } from "./lib/motif";
 import { toggleChordRegionLock, unlockChordRegions } from "./lib/chordLocks";
 import { addHarmonyGuide, removeHarmonyGuide } from "./lib/harmonyGuide";
-import { generateHarmonyTakes, type HarmonyTake } from "./lib/harmonyTakes";
+import { describeHarmonyDifference, generateHarmonyTakes, harmonyStructureSignature, type HarmonyTake } from "./lib/harmonyTakes";
+import { isCompatibleTakeBank, removeHarmonyFavorite, restoreHarmonyFavorite,
+  saveHarmonyFavorite, type SavedHarmonyTakeBank } from "./lib/takeLibrary";
 import type { MelodySourceScope } from "./lib/melodyScope";
 import { MAX_BPM, MIN_BPM, clamp } from "./lib/constants";
 import { normalizeLoopRange, sequenceEndQuarters, type LoopRange } from "./lib/timeline";
@@ -132,6 +134,8 @@ export default function App() {
   // Candidate takes are ephemeral and reference their exact editable base.
   // Preview never enters history, autosave or MIDI export until acceptance.
   const [takeBatch, setTakeBatch] = useState<HarmonyTakeBatch | null>(null);
+  const [savedTakeBank, setSavedTakeBank] = useState<SavedHarmonyTakeBank | null>(
+    savedSession?.savedHarmonyTakes ?? null);
   const [previewTakeIndex, setPreviewTakeIndex] = useState<number | null>(null);
   const [focusedTrack, setFocusedTrack] = useState<number | null>(null);
   const [trackOverrides, setTrackOverrides] = useState<TrackMix>(
@@ -167,11 +171,34 @@ export default function App() {
   const canExploreTakes = effectiveMelodySourceTrackIndex !== null &&
     (progression?.tracks?.filter(track => track.sourceTrackIndex === effectiveMelodySourceTrackIndex &&
       (track.generatedRole === "bass" || track.generatedRole === "harmony")).length ?? 0) === 2;
-  const validTakeBatch = melodySourceMode === "follow" && melodyTask === "harmonize" &&
+  const comparingHarmony = melodySourceMode === "follow" && melodyTask === "harmonize";
+  const validTakeBatch = comparingHarmony &&
     takeBatch?.base === progression && takeBatch.sourceTrackIndex === effectiveMelodySourceTrackIndex
     ? takeBatch : null;
-  const previewTake = validTakeBatch && previewTakeIndex !== null
-    ? validTakeBatch.takes[previewTakeIndex] ?? null : null;
+  // Only restore favorites for precisely the arrangement they were saved
+  // against. Any source edit, lock, guide or generated-note edit invalidates them.
+  const validSavedTakeBank = comparingHarmony &&
+    isCompatibleTakeBank(progression, effectiveMelodySourceTrackIndex, savedTakeBank)
+    ? savedTakeBank : null;
+  const takeChoices = useMemo(() => {
+    if (!progression || effectiveMelodySourceTrackIndex === null || !comparingHarmony) return [];
+    const choices: { take: HarmonyTake; savedId: string | null }[] = [];
+    const known = new Set<string>();
+    if (validSavedTakeBank) {
+      for (const favorite of validSavedTakeBank.favorites) {
+        const restored = restoreHarmonyFavorite(progression, validSavedTakeBank, favorite);
+        if (!restored) continue;
+        const signature = harmonyStructureSignature(restored.progression, effectiveMelodySourceTrackIndex);
+        if (!known.has(signature)) { choices.push({ take: restored, savedId: favorite.id }); known.add(signature); }
+      }
+    }
+    for (const take of validTakeBatch?.takes ?? []) {
+      const signature = harmonyStructureSignature(take.progression, effectiveMelodySourceTrackIndex);
+      if (!known.has(signature)) { choices.push({ take, savedId: null }); known.add(signature); }
+    }
+    return choices;
+  }, [progression, effectiveMelodySourceTrackIndex, comparingHarmony, validSavedTakeBank, validTakeBatch]);
+  const previewTake = previewTakeIndex === null ? null : takeChoices[previewTakeIndex]?.take ?? null;
   const displayProgression = previewTake?.progression ?? progression;
   const displayRoot = previewTake?.root ?? root;
   const displayMode = previewTake?.mode ?? mode;
@@ -318,6 +345,7 @@ export default function App() {
         trackMix,
         isLooping,
         loopRegion,
+        ...(validSavedTakeBank ? { savedHarmonyTakes: validSavedTakeBank } : {}),
       });
       setSaveState(saved ? "saved" : "unavailable");
     }, 400);
@@ -350,6 +378,7 @@ export default function App() {
     trackMix,
     isLooping,
     loopRegion,
+    validSavedTakeBank,
   ]);
 
   // Keep the audio engine in sync with edits (including live drag previews),
