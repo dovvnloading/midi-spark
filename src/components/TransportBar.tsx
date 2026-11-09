@@ -84,14 +84,14 @@ export function TransportBar(p: TransportBarProps) {
           <p>Clearing autosave keeps this session open.</p>
         </div>
       </details>
+      <input type="file" accept=".mid,.midi" ref={fileRef} className="hidden" aria-label="Import MIDI file" onChange={event => {
+        const file = event.target.files?.[0]; if (file) p.onLoadFile(file); event.target.value = "";
+      }} />
       <input type="file" accept=".midispark,application/json" ref={projectRef}
         className="hidden" aria-label="Open MIDI Spark project file" onChange={event => {
           const file = event.target.files?.[0]; if (file) p.onLoadProject(file);
           event.target.value = "";
         }} />
-      <input type="file" accept=".mid,.midi" ref={fileRef} className="hidden" aria-label="Import MIDI file" onChange={event => {
-        const file = event.target.files?.[0]; if (file) p.onLoadFile(file); event.target.value = "";
-      }} />
     </div>
   </header>;
 }
