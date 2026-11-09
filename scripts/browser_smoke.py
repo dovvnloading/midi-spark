@@ -124,6 +124,8 @@ with sync_playwright() as p:
  tempo.focus();tempo.press('ControlOrMeta+A');page.keyboard.type('120');tempo.press('Enter')
  assert tempo.input_value()=='120'
  record('Tempo accepts multi-digit keyboard drafts, Enter commit, Escape cancel and range clamp')
+ # Presets drive the same underlying sliders even while fine-tuning is folded.
+ open_composer_group(page,'.expression-disclosure')
  # New composer shortcuts should update both fine-tuning controls without generating notes.
  page.get_by_role('button',name='Groove',exact=True).click()
  assert page.get_by_role('slider',name='Chord tension').input_value()=='34'
