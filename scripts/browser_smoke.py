@@ -42,6 +42,27 @@ with sync_playwright() as p:
  page=b.new_page(viewport={'width':1440,'height':900},device_scale_factor=1,has_touch=True)
  errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  page.goto(args.url);page.evaluate('document.fonts.ready')
+ # Slate & Earth deliberately makes the editor light neutral gray while
+ # retaining warm stone accents and an accessible dark graphite inspector.
+ palette=page.evaluate("""() => {
+  const rgb=(selector)=>Array.from(getComputedStyle(document.querySelector(selector))
+    .backgroundColor.match(/\\d+/g) || []).slice(0,3).map(Number);
+  return {
+    editor:rgb('.editor-main'),
+    piano:rgb('.piano-editor'),
+    toolbar:rgb('.editor-toolbar'),
+    canvasText:getComputedStyle(document.querySelector('.editor-main')).color,
+    accent:getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
+    button:getComputedStyle(document.querySelector('.generate-button')).backgroundImage
+  };
+ }""")
+ assert min(palette['editor'])>185 and max(palette['editor'])-min(palette['editor'])<14, palette
+ assert min(palette['piano'])>175 and max(palette['piano'])-min(palette['piano'])<14, palette
+ assert min(palette['toolbar'])>190 and max(palette['toolbar'])-min(palette['toolbar'])<14, palette
+ assert 'rgb(40, 46, 44)' in palette['canvasText'], palette
+ assert palette['accent']=='#cfac88', palette
+ assert 'linear-gradient' in palette['button']
+ record('Slate & Earth: light neutral-gray editor with graphite ink and warm clay actions')
  # One vector ident must be used for browser tab, boot screen and studio header.
  # Generation actions have no decorative sparkle (or replacement) icon.
  icon_href=page.locator('link[rel="icon"]').get_attribute('href')
@@ -163,6 +184,9 @@ with sync_playwright() as p:
  x,y=grid_point(page,60,1)
  page.mouse.move(x,y);page.mouse.down();page.mouse.move(x+80,y,steps=5);page.wait_for_timeout(80);page.mouse.up()
  assert page.get_by_test_id('piano-note').count()==1
+ assert page.locator('.piano-key-white').first.evaluate("(el) => getComputedStyle(el).backgroundColor")=='rgb(236, 238, 233)'
+ assert page.locator('.piano-key-black').first.evaluate("(el) => getComputedStyle(el).backgroundColor")=='rgb(70, 76, 74)'
+ record('Light piano keys retain distinct dark/white-note surfaces')
  record('Mouse draw commits one note without waiting for audio startup')
  # Merely selecting a note must not add a redundant undo operation.
  page.get_by_role('button',name='Select tool').click()
