@@ -1,4 +1,4 @@
-import { ArrowUpRight, AudioLines, Info, Layers, Music2, Shuffle, SlidersHorizontal } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { CustomDropdown } from "./CustomDropdown";
 import { SoundPicker } from "./SoundPicker";
 import { CustomSlider } from "./CustomSlider";
