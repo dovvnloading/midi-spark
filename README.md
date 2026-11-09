@@ -81,9 +81,15 @@ around a phrase instead of generating an unrelated progression:
    **Harmony exploration** controls a quality-bounded, diversity-aware global
    chord search: low values prefer near-best paths; higher values consider
    more harmonically distinct possibilities without ignoring melody fit.
-   Set it to **0** for the original Viterbi-based search. The engine follows
-   clear offbeat emphasis and favors arpeggio motion opposite a rising or
-   falling lead, while retaining seeded alternatives.
+   Set it to **0** for the original Viterbi-based search. **Phrase coherence**
+   (0–100%, under Advanced harmony) rewards reusing a related chord-root arc
+   when a two-bar melodic idea returns, including transposed returns, and
+   favors tonic cadences when the melody itself suggests resolution. It only
+   reranks near-best chord paths that already pass the melody-fit safeguards;
+   set it to 0 for unconstrained alternatives. Phrase coherence applies when
+   harmony exploration is above 0. The engine follows clear offbeat emphasis
+   and favors arpeggio motion opposite a rising or falling lead, while
+   retaining seeded alternatives.
 3. **Choose the key strategy.** Use the root and mode from Compose, or select
    **Detect melody**. When key detection is uncertain, the app keeps the Compose
    key rather than presenting a guess as certain.

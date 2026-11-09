@@ -26,6 +26,8 @@ export interface SidebarProps {
   harmonicFit: number;
   harmonyExploration: number;
   onHarmonyExplorationChange: (value: number) => void;
+  phraseCoherence: number;
+  onPhraseCoherenceChange: (value: number) => void;
   accompanimentDensity: AccompanimentDensity;
   harmonicPacing: HarmonicPacing;
   onHarmonicPacingChange: (value: HarmonicPacing) => void;
@@ -214,7 +216,7 @@ export function Sidebar(p: SidebarProps) {
               <summary>
                 <strong>Advanced {p.melodyTask === "harmonize" ? "harmony" : "melody"} options</strong>
                 <span>{p.melodyTask === "harmonize"
-                  ? p.harmonicPacing + " pacing · " + p.accompanimentDensity + " motion · " + p.harmonyExploration + "% explore"
+                  ? p.harmonicPacing + " pacing · " + p.accompanimentDensity + " motion · " + p.harmonyExploration + "% explore · " + p.phraseCoherence + "% form"
                   : "Key: " + (p.melodyKeyStrategy === "detect" ? "detect melody" : "Compose key")}</span>
               </summary>
               <div className="melody-advanced-content">
@@ -227,6 +229,16 @@ export function Sidebar(p: SidebarProps) {
               <div className="range-captions"><span>Closest path</span><span>More alternatives</span></div>
               <p className="generation-hint">Find different near-best chord paths without forcing
                 arbitrary dissonance. Zero uses the original harmonic search.</p>
+            </div>
+            <div className="expression-control">
+              <div className="field-heading"><h4>Phrase coherence</h4>
+                <output>{p.phraseCoherence}<span>%</span></output></div>
+              <CustomSlider value={p.phraseCoherence} min={0} max={100}
+                onChange={p.onPhraseCoherenceChange} label="Phrase coherence" />
+              <div className="range-captions"><span>Free harmonization</span><span>Thematic callbacks</span></div>
+              <p className="generation-hint">When exploration is above zero, repeated or transposed
+                melodic ideas can share a chord-root arc. Melody-supported endings favor resolution.
+                Only near-best, melody-compatible chord paths are considered.</p>
             </div>
             <div className="field-heading"><h4>Chord changes</h4></div>
             <div className="generation-mode melody-task" role="group" aria-label="Harmonic pacing">
