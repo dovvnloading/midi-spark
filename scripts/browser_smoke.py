@@ -171,7 +171,7 @@ with sync_playwright() as p:
   assert page.get_by_role('button',name='Project menu',exact=True).evaluate(
     '(el)=>document.activeElement===el')
   if drawer:
-   page.get_by_role('button',name='Close inspector',exact=True).click()
+   page.locator('.inspector-close').click()
    page.wait_for_timeout(300)
   page.get_by_role('button',name='Canvas view options',exact=True).click()
   view_panel=page.locator('.floating-menu-panel.canvas-view-menu-content')
