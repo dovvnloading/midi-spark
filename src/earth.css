@@ -337,6 +337,7 @@ body { background: var(--app-bg); }
 }
 .piano-key.octave-key { color: #263b31 !important; border-top-color: #8a988c; }
 .piano-key.piano-key-black.octave-key { color: #f3f3ec !important; }
+.velocity-grid { background-color: #c4c9c2 !important; border-top-color: #9ca59a; }
 .velocity-label { color: #444e46; }
 .editor-footnote {
   background: #d3d6d0; border-top-color: #a6afa6; color: #39433d;
