@@ -4,6 +4,7 @@ import {
   generateSequence,
   ProgressionData,
   NoteEvent,
+  type HarmonyConstraint,
   applyVariationToProgression,
   applySwing,
   analyzeKeyFromProgression,
@@ -21,10 +22,11 @@ import {
   SynthType,
 } from "./lib/audio";
 import { exportToMidiBlob, parseMidiFile, unsupportedSourceMeters } from "./lib/midi";
-import { generateFromMelody, isAdaptiveTrack, type AccompanimentDensity, type MelodyKeyStrategy,
+import { availableHarmonyChords, generateFromMelody, isAdaptiveTrack, type AccompanimentDensity, type MelodyKeyStrategy,
   type HarmonicPacing } from "./lib/adaptive";
 import { generateMotif, type ContinuationBars } from "./lib/motif";
 import { toggleChordRegionLock, unlockChordRegions } from "./lib/chordLocks";
+import { addHarmonyGuide, removeHarmonyGuide } from "./lib/harmonyGuide";
 import type { MelodySourceScope } from "./lib/melodyScope";
 import { MAX_BPM, MIN_BPM, clamp } from "./lib/constants";
 import { normalizeLoopRange, sequenceEndQuarters, type LoopRange } from "./lib/timeline";
@@ -146,6 +148,11 @@ export default function App() {
     trackIndexOf(progression.notes[index]) === effectiveMelodySourceTrackIndex).length;
   const lockedChordCount = progression?.chords.filter(chord =>
     chord.locked && chord.generatedSourceTrackIndex === effectiveMelodySourceTrackIndex).length ?? 0;
+  const harmonyGuides = useMemo(() => (progression?.harmonyConstraints ?? [])
+    .flatMap((guide, index) => guide.sourceTrackIndex === effectiveMelodySourceTrackIndex
+      ? [{ index, guide }] : []), [progression, effectiveMelodySourceTrackIndex]);
+  const harmonyChordChoices = useMemo(() => availableHarmonyChords(root, mode, dissonance),
+    [root, mode, dissonance]);
   const trackMix = useMemo(
     () => reconcileTrackMix(progression, trackOverrides, synthType),
     [progression, trackOverrides, synthType],
@@ -550,6 +557,31 @@ export default function App() {
     commit(prev => prev ? unlockChordRegions(prev, sourceIndex) : prev);
     notify("Unlocked " + lockedChordCount + " chord regions. Undo restores them.", "info");
   }, [effectiveMelodySourceTrackIndex, lockedChordCount, commit, notify]);
+
+  const handleAddHarmonyGuide = useCallback((bar: number, chord: string, kind: HarmonyConstraint["kind"]) => {
+    if (!progression || effectiveMelodySourceTrackIndex === null) {
+      notify("Choose a source melody track before adding a chord guide.", "error");
+      return;
+    }
+    const edit = addHarmonyGuide(progression, {
+      sourceTrackIndex: effectiveMelodySourceTrackIndex, bar, kind, chord,
+    });
+    if (!edit.ok) { notify(edit.reason, "error"); return; }
+    if (edit.progression === progression) {
+      notify("That chord guide is already in place.", "info");
+      return;
+    }
+    commit(edit.progression);
+    notify((kind === "require" ? "Pinned " : "Excluded ") + chord +
+      " in bar " + (bar + 1) + ". Generate again to apply. Undo restores the guide.", "success");
+  }, [progression, effectiveMelodySourceTrackIndex, commit, notify]);
+
+  const handleRemoveHarmonyGuide = useCallback((index: number) => {
+    const guide = progression?.harmonyConstraints?.[index];
+    if (!progression || !guide || guide.sourceTrackIndex !== effectiveMelodySourceTrackIndex) return;
+    commit(removeHarmonyGuide(progression, index));
+    notify("Removed the chord guide. Undo restores it.", "info");
+  }, [progression, effectiveMelodySourceTrackIndex, commit, notify]);
 
   /** New compositions are deliberately separate from melody-conditioned
    * generation: only this path can replace the entire project. */
@@ -1091,6 +1123,8 @@ export default function App() {
             harmonyExploration={harmonyExploration} onHarmonyExplorationChange={setHarmonyExploration}
             phraseCoherence={phraseCoherence} onPhraseCoherenceChange={setPhraseCoherence}
             lockedChordCount={lockedChordCount} onUnlockAllChords={handleUnlockAllChords}
+            harmonyGuides={harmonyGuides} availableHarmonyChords={harmonyChordChoices}
+            onAddHarmonyGuide={handleAddHarmonyGuide} onRemoveHarmonyGuide={handleRemoveHarmonyGuide}
             accompanimentDensity={accompanimentDensity} onAccompanimentDensityChange={setAccompanimentDensity}
             harmonicPacing={harmonicPacing} onHarmonicPacingChange={setHarmonicPacing}
             melodyKeyStrategy={melodyKeyStrategy} onMelodyKeyStrategyChange={setMelodyKeyStrategy}
