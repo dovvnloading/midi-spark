@@ -1,4 +1,4 @@
-import { ProgressionData, NoteEvent, ChordEvent, TrackMetadata } from "./theory";
+import { ProgressionData, NoteEvent, ChordEvent, TrackMetadata, HarmonyConstraint } from "./theory";
 import type { TrackMix } from "./tracks";
 import type { LoopRange } from "./timeline";
 import type { SynthType } from "./audio";
@@ -78,6 +78,15 @@ function isChordEvent(v: unknown): v is ChordEvent {
   );
 }
 
+function isHarmonyConstraint(v: unknown): v is HarmonyConstraint {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return false;
+  const c = v as Record<string, unknown>;
+  return Number.isInteger(c.sourceTrackIndex) && (c.sourceTrackIndex as number) >= 0 &&
+    Number.isInteger(c.bar) && (c.bar as number) >= 0 && (c.bar as number) < 64 &&
+    (c.kind === "require" || c.kind === "avoid") &&
+    typeof c.chord === "string" && c.chord.length > 0 && c.chord.length <= 64;
+}
+
 function isTrackMetadata(v: unknown): v is TrackMetadata {
   if (typeof v !== "object" || v === null) return false;
   const t = v as Record<string, unknown>;
@@ -124,6 +133,9 @@ function isProgressionData(v: unknown): v is ProgressionData {
     p.notes.every(isNoteEvent) &&
     Array.isArray(p.chords) &&
     p.chords.every(isChordEvent) &&
+    (p.harmonyConstraints === undefined ||
+      (Array.isArray(p.harmonyConstraints) && p.harmonyConstraints.length <= 512 &&
+        p.harmonyConstraints.every(isHarmonyConstraint))) &&
     isFiniteNumber(p.totalBars) &&
     (p.nextTrackIndex === undefined || (Number.isInteger(p.nextTrackIndex) && (p.nextTrackIndex as number) >= 0)) &&
     (p.tracks === undefined || (Array.isArray(p.tracks) && p.tracks.every(isTrackMetadata))) &&
