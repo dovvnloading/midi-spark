@@ -93,17 +93,24 @@ export function FloatingMenu({
       dismissRef.current();
     };
 
+    const onScroll = (event: Event) => {
+      // Scrolling the menu itself must not reset its scrollTop by temporarily
+      // removing max-height during positioning.
+      if (event.target instanceof Node && (event.target === panel ||
+        panel.contains(event.target))) return;
+      position();
+    };
     document.addEventListener("pointerdown", outside, true);
     document.addEventListener("focusin", focusOutside);
     window.addEventListener("resize", position);
     // Capture scrolling in the piano roll and nested side panels, not only
     // the document-level scroll event.
-    window.addEventListener("scroll", position, true);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       document.removeEventListener("pointerdown", outside, true);
       document.removeEventListener("focusin", focusOutside);
       window.removeEventListener("resize", position);
-      window.removeEventListener("scroll", position, true);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [anchorRef]);
 
