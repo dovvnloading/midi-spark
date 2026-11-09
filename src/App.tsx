@@ -396,15 +396,11 @@ export default function App() {
 
   // ----- Transport -----
 
-  const handlePlay = useCallback(async () => {
-    if (playbackStateRef.current === "paused") {
-      resumeAudio();
-      playbackStateRef.current = "playing";
-      isPlayingRef.current = true;
-      setPlaybackState("playing");
-      return;
-    }
-    if (playbackStateRef.current === "playing" || !displayProgression?.notes.length || startingAudio.current) return;
+  /** Shared browser-audio startup: normal Play and one-click A/B listening
+   * use the same callbacks, BPM, mixer and loop transport. An explicit score
+   * parameter prevents React state batching from auditioning the old take. */
+  const startScorePlayback = useCallback(async (score: ProgressionData, requestedTick: number) => {
+    if (!score.notes.length) return;
     const request = ++playRequest.current;
     startingAudio.current = true;
     try {
@@ -417,8 +413,8 @@ export default function App() {
       startingAudio.current = false;
     }
     if (request !== playRequest.current) return;
-    const endTick = sequenceEndQuarters(displayProgression);
-    let startTick = currentTick;
+    const endTick = sequenceEndQuarters(score);
+    let startTick = requestedTick;
     const range = normalizeLoopRange(loopRegion, endTick);
     if (isLoopingRef.current && (startTick < range.start || startTick >= range.end)) {
       startTick = range.start;
@@ -430,27 +426,34 @@ export default function App() {
     setPlaybackState("playing");
     playbackStateRef.current = "playing";
     isPlayingRef.current = true;
-    playProgression(
-      displayProgression,
-      bpm,
-      {
-        onTick: (tick) => {
-          if (!isScrubbingRef.current) {
-            setCurrentTick(isLoopingRef.current && sequenceEndRef.current > 0 ? tick % sequenceEndRef.current : tick);
-          }
-        },
-        onEnded: () => {
-          setPlaybackState("stopped");
-          playbackStateRef.current = "stopped";
-          isPlayingRef.current = false;
-          setCurrentTick(0);
-        },
+    playProgression(score, bpm, {
+      onTick: (tick) => {
+        if (!isScrubbingRef.current) {
+          setCurrentTick(isLoopingRef.current && sequenceEndRef.current > 0
+            ? tick % sequenceEndRef.current : tick);
+        }
       },
-      startTick,
-      isLoopingRef.current,
-      loopRegion,
-    );
-  }, [displayProgression, bpm, currentTick, loopRegion, notify]);
+      onEnded: () => {
+        setPlaybackState("stopped");
+        playbackStateRef.current = "stopped";
+        isPlayingRef.current = false;
+        setCurrentTick(0);
+      },
+    }, startTick, isLoopingRef.current, loopRegion);
+  }, [bpm, loopRegion, notify]);
+
+  const handlePlay = useCallback(async () => {
+    if (playbackStateRef.current === "paused") {
+      resumeAudio();
+      playbackStateRef.current = "playing";
+      isPlayingRef.current = true;
+      setPlaybackState("playing");
+      return;
+    }
+    if (playbackStateRef.current === "playing" || !displayProgression?.notes.length ||
+      startingAudio.current) return;
+    await startScorePlayback(displayProgression, currentTick);
+  }, [displayProgression, currentTick, startScorePlayback]);
 
   const handlePause = useCallback(() => {
     if (playbackStateRef.current !== "playing") return;
@@ -468,6 +471,23 @@ export default function App() {
     setCurrentTick(0);
     stopAudio();
   }, []);
+
+  /** One click switches and starts the selected source at a *common*
+   * comparison anchor. Stop cancels old scheduled notes first so a slower
+   * initialization from an earlier click cannot start the wrong take. */
+  const handleAuditionHarmonyTake = useCallback((index: number | null) => {
+    if (index !== null && (!Number.isInteger(index) || index < 0 || index >= takeChoices.length)) return;
+    const score = index === null ? progression : takeChoices[index]?.take.progression;
+    if (!score?.notes.length) return;
+    handleStop();
+    setLivePreview(null);
+    setPreviewTakeIndex(index);
+    setFitRequest(n => n + 1);
+    const range = normalizeLoopRange(loopRegion, sequenceEndQuarters(score));
+    const anchor = isLoopingRef.current ? range.start : 0;
+    setCurrentTick(anchor);
+    void startScorePlayback(score, anchor);
+  }, [takeChoices, progression, handleStop, loopRegion, startScorePlayback]);
 
   const toggleLooping = useCallback(() => {
     setIsLooping((prev) => {
