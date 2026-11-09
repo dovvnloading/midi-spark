@@ -660,30 +660,66 @@ export default function App() {
       (baseSeed + Math.imul(i + 1, 0x9e3779b9)) >>> 0);
     const result = generateHarmonyTakes(progression, options, seeds, 3);
     if (!result.ok) { notify(result.reason, "error"); return; }
+    const signatures = new Set((validSavedTakeBank?.favorites ?? []).flatMap(favorite => {
+      const take = validSavedTakeBank && restoreHarmonyFavorite(progression, validSavedTakeBank, favorite);
+      return take ? [harmonyStructureSignature(take.progression, effectiveMelodySourceTrackIndex)] : [];
+    }));
+    const fresh = result.takes.filter(take =>
+      !signatures.has(harmonyStructureSignature(take.progression, effectiveMelodySourceTrackIndex)));
+    if (!fresh.length) {
+      notify("No new take beyond your saved favorites. Try another exploration or loosen chord constraints.", "info");
+      return;
+    }
     handleStop();
     setLivePreview(null);
     setTakeBatch({ base: progression, sourceTrackIndex: effectiveMelodySourceTrackIndex,
-      takes: result.takes });
-    setPreviewTakeIndex(0);
+      takes: fresh });
+    setPreviewTakeIndex(validSavedTakeBank?.favorites.length ?? 0);
     setFitRequest(n => n + 1);
-    notify("Found " + result.takes.length +
-      " structurally distinct harmony takes. Previewing Take 1; your original is untouched.", "success");
+    notify("Found " + fresh.length +
+      " new harmony takes. Your original and saved favorites remain untouched.", "success");
   }, [progression, effectiveMelodySourceTrackIndex, canExploreTakes, root, mode, dissonance,
     harmonicFit, harmonyExploration, phraseCoherence, accompanimentDensity,
     melodyKeyStrategy, harmonicPacing, melodyPhraseScope, selectedNoteIndices,
-    loopRegion, handleStop, notify]);
+    loopRegion, handleStop, notify, validSavedTakeBank]);
 
   const handleSelectHarmonyTake = useCallback((index: number | null) => {
-    if (!validTakeBatch || (index !== null &&
-      (!Number.isInteger(index) || index < 0 || index >= validTakeBatch.takes.length))) return;
+    if ((index !== null && (!Number.isInteger(index) || index < 0 ||
+      index >= takeChoices.length)) || (!takeChoices.length && index !== null)) return;
     handleStop();
     setLivePreview(null);
     setPreviewTakeIndex(index);
     setFitRequest(n => n + 1);
-  }, [validTakeBatch, handleStop]);
+  }, [takeChoices, handleStop]);
+
+  const handleSaveHarmonyTake = useCallback(() => {
+    if (!previewTake || !progression || effectiveMelodySourceTrackIndex === null) return;
+    const result = saveHarmonyFavorite(progression, effectiveMelodySourceTrackIndex,
+      previewTake, validSavedTakeBank);
+    if (!result.ok) { notify(result.reason, "error"); return; }
+    if (result.alreadySaved) {
+      notify("This musical take is already in your saved favorites.", "info");
+      return;
+    }
+    const favoriteIndex = result.bank.favorites.findIndex(favorite => favorite.id === result.id);
+    handleStop();
+    setSavedTakeBank(result.bank);
+    setPreviewTakeIndex(favoriteIndex);
+    notify("Saved take favorite for this arrangement. Browser autosave will retain it across reloads.", "success");
+  }, [previewTake, progression, effectiveMelodySourceTrackIndex,
+    validSavedTakeBank, handleStop, notify]);
+
+  const handleRemoveHarmonyFavorite = useCallback((id: string) => {
+    if (!validSavedTakeBank || !validSavedTakeBank.favorites.some(favorite => favorite.id === id)) return;
+    handleStop();
+    setSavedTakeBank(removeHarmonyFavorite(validSavedTakeBank, id));
+    setPreviewTakeIndex(null);
+    setFitRequest(n => n + 1);
+    notify("Removed the saved favorite. The original arrangement was not changed.", "info");
+  }, [validSavedTakeBank, handleStop, notify]);
 
   const handleAcceptHarmonyTake = useCallback(() => {
-    if (!previewTake || !validTakeBatch) return;
+    if (!previewTake || !progression) return;
     handleStop();
     commit(previewTake.progression);
     if (melodyKeyStrategy === "detect") {
@@ -695,14 +731,14 @@ export default function App() {
     setSelectedNoteIndices(new Set());
     setFitRequest(n => n + 1);
     notify("Accepted the harmony take as one undoable edit. Your melody and track routing are preserved.", "success");
-  }, [previewTake, validTakeBatch, melodyKeyStrategy, handleStop, commit, notify]);
+  }, [previewTake, progression, melodyKeyStrategy, handleStop, commit, notify]);
 
   const handleDiscardHarmonyTakes = useCallback(() => {
     handleStop();
     setLivePreview(null);
     setTakeBatch(null);
     setPreviewTakeIndex(null);
-    notify("Discarded take previews. Your original working arrangement is unchanged.", "info");
+    notify("Cleared unsaved previews. The original and saved favorites remain unchanged.", "info");
   }, [handleStop, notify]);
 
   /** New compositions are deliberately separate from melody-conditioned
