@@ -443,8 +443,8 @@ body { background: var(--app-bg); }
 .compose-panel .inspector-content { padding: 16px 17px 25px; }
 .compose-compact-intro { margin: 0 0 18px; }
 .compose-intro-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
-.compose-intro-label .eyebrow { font-size: 10px; color: #e2cfb6; }
-.compose-intro-label .panel-version { font-size: 10px; color: #c7d0c7; }
+.compose-intro-label .eyebrow { font-size: 11px; color: #e2cfb6; }
+.compose-intro-label .panel-version { font-size: 11px; color: #c7d0c7; }
 .compose-compact-intro h2 { margin: 0; color: #f3f3ed; font-size: 20px; font-weight: 680; letter-spacing: -.65px; }
 .compose-compact-intro p { margin: 5px 0 0; font-size: 12px; color: #d7ddd7; text-transform: capitalize; }
 .compose-compact-intro p span { margin-inline: 4px; color: #c7ad8d; }
