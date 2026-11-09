@@ -70,7 +70,7 @@ export function TransportBar(p: TransportBarProps) {
       <span className="control-divider history-divider" />
        <button className="primary-button export-button" onClick={p.onExport} disabled={!p.canPlay} aria-label="Export MIDI" title="Export editable MIDI notes and General MIDI programs; browser synth sounds are not embedded"><Download size={15} /><span>Export MIDI</span></button>
       <details className="project-menu" ref={moreRef} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}>
-        <summary className="secondary-button project-menu-trigger" aria-label="Project menu">
+        <summary role="button" className="secondary-button project-menu-trigger" aria-label="Project menu">
           <FolderOpen size={16} aria-hidden="true" /><span>Project</span>
           <ChevronDown size={13} aria-hidden="true" />
         </summary>
