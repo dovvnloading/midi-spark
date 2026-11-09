@@ -1021,7 +1021,7 @@ export function PianoRoll({
               <div className="flex relative">
                 {/* Left Sticky Keyboard */}
                 <div
-                  className="sticky left-0 z-40 bg-[#26312c] border-r border-[var(--border-strong)] flex-shrink-0"
+                  className="sticky left-0 z-40 bg-[#c5c8c2] border-r border-[var(--border-strong)] flex-shrink-0"
                   style={{
                     width: `${KEYBOARD_WIDTH}px`,
                     height: `${(MIDI_RANGE * rowHeight)}px`,
@@ -1048,7 +1048,7 @@ export function PianoRoll({
                           if (name) playNote(name);
                         }}
                         className={`piano-key absolute w-full border-b border-[var(--border-color)] flex items-center justify-end pr-1 text-[8px] font-mono hover:brightness-125 cursor-pointer active:brightness-90
-                        ${isBlack ? "bg-[#19211f] text-[var(--text-muted)]" : "bg-[var(--piano-white)] text-[var(--text-main)]"}
+                        ${isBlack ? "piano-key-black bg-[#19211f] text-[var(--text-muted)]" : "piano-key-white bg-[var(--piano-white)] text-[var(--text-main)]"}
                         ${isC ? "octave-key font-bold text-[var(--accent)] border-t border-[var(--border-color)]" : ""}
                         ${isInScale ? "shadow-[inset_0_0_0_999px_rgba(94,124,246,0.08)]" : ""}`}
                         style={{
@@ -1111,10 +1111,10 @@ export function PianoRoll({
                   {/* Playhead */}
                   {progression && (
                     <div
-                      className="absolute top-0 bottom-0 w-0 border-l-[2px] border-[#dde2b0] z-30 pointer-events-none"
+                      className="absolute top-0 bottom-0 w-0 border-l-[2px] border-[#8e6e53] z-30 pointer-events-none"
                       style={{ left: `${currentTick * zoomX}px` }}
                     >
-                      <div className="absolute top-0 left-[-6px] w-[13px] h-[13px] bg-[#dde2b0] rounded-b-sm"></div>
+                      <div className="absolute top-0 left-[-6px] w-[13px] h-[13px] bg-[#8e6e53] rounded-b-sm"></div>
                     </div>
                   )}
 
@@ -1237,12 +1237,12 @@ export function PianoRoll({
                           className={`piano-note absolute inset-[1px] rounded-[3px] border transition-colors duration-100 overflow-hidden
                             ${
                               isPlayingNote
-                                ? "bg-[#d3e8a0] border-[#f0f7d4] z-30"
+                                ? "bg-[#bc986d] border-[#e0c6a3] z-30"
                                 : isSelected
                                   ? "piano-note-selected bg-[#8d8eb9] border-[#c1c2e2] z-20"
                                   : hasTrackColors && n.trackIndex !== undefined
                                     ? `${getTrackColorClasses(n.trackIndex)} group-hover:brightness-110`
-                                    : "bg-[#9bc496] border-[#bdd8ac] group-hover:brightness-110"
+                                    : "bg-[#849e80] border-[#547052] group-hover:brightness-110"
                             }
                           `}
                         >
@@ -1281,7 +1281,7 @@ export function PianoRoll({
               {/* Velocity Lane */}
               <div className="flex sticky bottom-0 z-40">
                 <div
-                  className="sticky left-0 z-40 bg-[#26312c] border-t border-r border-[var(--border-strong)] flex-shrink-0 flex items-center justify-center"
+                  className="sticky left-0 z-40 bg-[#c5c8c2] border-t border-r border-[var(--border-strong)] flex-shrink-0 flex items-center justify-center"
                   style={{
                     width: `${KEYBOARD_WIDTH}px`,
                     height: `${VELOCITY_LANE_HEIGHT}px`,
@@ -1292,7 +1292,7 @@ export function PianoRoll({
                   </span>
                 </div>
                 <div
-                  className="relative bg-[var(--piano-black)] border-t border-[var(--border-color)] flex-1"
+                  className="velocity-grid relative bg-[var(--piano-black)] border-t border-[var(--border-color)] flex-1"
                   style={{
                     minWidth: `${contentWidth}px`,
                     height: `${VELOCITY_LANE_HEIGHT}px`,
@@ -1355,7 +1355,7 @@ export function PianoRoll({
                                   ? "bg-violet-500 border-violet-400"
                                   : hasTrackColors && n.trackIndex !== undefined
                                     ? `${getTrackColorClasses(n.trackIndex)} group-hover:brightness-110`
-                                    : "bg-[#9bc496] border-[#bdd8ac] group-hover:brightness-110"
+                                    : "bg-[#849e80] border-[#547052] group-hover:brightness-110"
                             }
                           `}
                           style={{ height: `${barHeight}px` }}

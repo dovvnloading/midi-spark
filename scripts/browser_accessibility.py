@@ -31,11 +31,21 @@ COLOR_JS = r"""(rules) => {
   const mix = (a,b) => [a[0]*a[3]+b[0]*(1-a[3]),
                          a[1]*a[3]+b[1]*(1-a[3]),
                          a[2]*a[3]+b[2]*(1-a[3]),1];
+  // Approximate the visually opaque first color stop for CSS gradients.
+  // Without this, the charcoal inspector looks "transparent" in the DOM
+  // and is incorrectly assessed against the light-gray workbench below.
   const bg = el => {
     const layers=[];
-    for(let n=el;n instanceof HTMLElement;n=n.parentElement)
-      layers.push(parse(getComputedStyle(n).backgroundColor));
-    return layers.reverse().reduce((a,b)=>mix(b,a),[20,22,24,1]);
+    for(let n=el;n instanceof HTMLElement;n=n.parentElement){
+      const cs=getComputedStyle(n);
+      const solid=parse(cs.backgroundColor);
+      const stop=cs.backgroundImage.match(/rgba?\(([^)]+)\)/);
+      layers.push({solid,gradient:stop?parse(stop[0]):null});
+    }
+    return layers.reverse().reduce((behind,layer)=>{
+      const base=mix(layer.solid,behind);
+      return layer.gradient ? mix(layer.gradient,base) : base;
+    },[20,22,24,1]);
   };
   const linear = n => {n/=255;return n<=.04045?n/12.92:((n+.055)/1.055)**2.4};
   const lum = c => .2126*linear(c[0])+.7152*linear(c[1])+.0722*linear(c[2]);
@@ -72,7 +82,9 @@ BORDER_JS = r"""(rules) => {
     const backdrop = document.querySelector(rule.backdrop);
     if (!el || !backdrop) return {...rule,missing:true};
     const edge = color(getComputedStyle(el).borderTopColor);
-    const surface = color(getComputedStyle(backdrop).backgroundColor);
+    const backdropCss=getComputedStyle(backdrop);
+    const stop=backdropCss.backgroundImage.match(/rgba?\(([^)]+)\)/);
+    const surface = color(stop ? stop[0] : backdropCss.backgroundColor);
     const a = lum(edge), b = lum(surface);
     return {...rule,ratio:Math.round(100*(Math.max(a,b)+.05)/(Math.min(a,b)+.05))/100,
             edge, surface};

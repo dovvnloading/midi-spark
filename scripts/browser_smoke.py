@@ -42,6 +42,27 @@ with sync_playwright() as p:
  page=b.new_page(viewport={'width':1440,'height':900},device_scale_factor=1,has_touch=True)
  errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  page.goto(args.url);page.evaluate('document.fonts.ready')
+ # Slate & Earth deliberately makes the editor light neutral gray while
+ # retaining warm stone accents and an accessible dark graphite inspector.
+ palette=page.evaluate("""() => {
+  const rgb=(selector)=>Array.from(getComputedStyle(document.querySelector(selector))
+    .backgroundColor.match(/\\d+/g) || []).slice(0,3).map(Number);
+  return {
+    editor:rgb('.editor-main'),
+    piano:rgb('.piano-editor'),
+    toolbar:rgb('.editor-toolbar'),
+    canvasText:getComputedStyle(document.querySelector('.editor-main')).color,
+    accent:getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
+    button:getComputedStyle(document.querySelector('.generate-button')).backgroundImage
+  };
+ }""")
+ assert min(palette['editor'])>185 and max(palette['editor'])-min(palette['editor'])<14, palette
+ assert min(palette['piano'])>175 and max(palette['piano'])-min(palette['piano'])<14, palette
+ assert min(palette['toolbar'])>190 and max(palette['toolbar'])-min(palette['toolbar'])<14, palette
+ assert 'rgb(40, 46, 44)' in palette['canvasText'], palette
+ assert palette['accent']=='#cfac88', palette
+ assert 'linear-gradient' in palette['button']
+ record('Slate & Earth: light neutral-gray editor with graphite ink and warm clay actions')
  # One vector ident must be used for browser tab, boot screen and studio header.
  # Generation actions have no decorative sparkle (or replacement) icon.
  icon_href=page.locator('link[rel="icon"]').get_attribute('href')
@@ -163,6 +184,9 @@ with sync_playwright() as p:
  x,y=grid_point(page,60,1)
  page.mouse.move(x,y);page.mouse.down();page.mouse.move(x+80,y,steps=5);page.wait_for_timeout(80);page.mouse.up()
  assert page.get_by_test_id('piano-note').count()==1
+ assert page.locator('.piano-key-white').first.evaluate("(el) => getComputedStyle(el).backgroundColor")=='rgb(236, 238, 233)'
+ assert page.locator('.piano-key-black').first.evaluate("(el) => getComputedStyle(el).backgroundColor")=='rgb(70, 76, 74)'
+ record('Light piano keys retain distinct dark/white-note surfaces')
  record('Mouse draw commits one note without waiting for audio startup')
  # Merely selecting a note must not add a redundant undo operation.
  page.get_by_role('button',name='Select tool').click()
@@ -1079,8 +1103,8 @@ with sync_playwright() as p:
  expect(melody_mobile.get_by_role('button',name='Continue melody',exact=False)).to_be_visible()
  record('390px melody workflow exposes task essentials and expandable advanced settings')
  melody_mobile.close()
- # Sample computed operational text, rather than assuming token declarations
- # are enough. Conservative background #303e37 is lighter than studio panels.
+ # Measure each label against the rendered neutral/earth surface it sits
+ # on, not a hard-coded dark-green backdrop from the previous theme.
  reading=b.new_page(viewport={'width':1440,'height':900},has_touch=True)
  reading.on('pageerror',lambda error:errors.append(str(error)))
  reading.goto(args.url)
@@ -1096,13 +1120,29 @@ with sync_playwright() as p:
   ];
   const linear=c=>{c=c/255;return c<=.04045?c/12.92:Math.pow((c+.055)/1.055,2.4)};
   const luminance=a=>.2126*linear(a[0])+.7152*linear(a[1])+.0722*linear(a[2]);
-  const background=luminance([48,62,55]);
+  const parse=value=>{
+    const match=value.match(/rgba?\(([^)]+)\)/);
+    return match?match[1].split(/[ ,/]+/).filter(Boolean).map(Number):null;
+  };
+  const surface=element=>{
+    for(let el=element;el instanceof HTMLElement;el=el.parentElement){
+      const css=getComputedStyle(el);
+      const solid=parse(css.backgroundColor);
+      if(solid && (solid[3]??1)>=0.98)return solid.slice(0,3);
+      // The inspector uses a subtle charcoal gradient: take its lighter
+      // first color stop as the conservative contrast background.
+      const gradient=parse(css.backgroundImage);
+      if(gradient && (gradient[3]??1)>=0.98)return gradient.slice(0,3);
+    }
+    return [215,217,213];
+  };
   return tests.map(([selector,minSize])=>{
    const el=document.querySelector(selector);
    if(!el)return {selector,missing:true};
-   const style=getComputedStyle(el),foreground=style.color.match(/[0-9.]+/g).slice(0,3).map(Number);
-   const fg=luminance(foreground);
-   return {selector,minSize,fontSize:parseFloat(style.fontSize),contrast:(Math.max(fg,background)+.05)/(Math.min(fg,background)+.05)};
+   const style=getComputedStyle(el),foreground=parse(style.color).slice(0,3);
+   const bg=surface(el), fg=luminance(foreground), backdrop=luminance(bg);
+   return {selector,minSize,fontSize:parseFloat(style.fontSize),background:bg,
+     contrast:(Math.max(fg,backdrop)+.05)/(Math.min(fg,backdrop)+.05)};
   });
  }""")
  assert all(not s.get('missing') and s['fontSize']>=s['minSize'] and s['contrast']>=4.5 for s in samples),samples
