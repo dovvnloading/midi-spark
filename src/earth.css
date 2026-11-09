@@ -430,3 +430,238 @@ body { background: var(--app-bg); }
   .inspector-close { background: #505a56; border-color: #98a99a; color: #f1f2ed; }
   .transport { border-top-color: #909a94; }
 }
+
+/* Focused creation workflow: hierarchy, not stacked feature advertisements.
+ * These are layout refinements only; section-specific musical controls remain
+ * fully keyboard accessible inside native expandable disclosures. */
+.inspector-heading { min-height: 54px; padding: 11px 17px; }
+.inspector-heading-copy { gap: 2px; }
+.inspector-heading-copy strong { font-size: 14px; }
+.inspector-overline { font-size: 9px; letter-spacing: 1px; }
+.inspector-tabs-row { height: 50px; padding: 6px 12px; }
+.inspector-tabs button { font-size: 12px; gap: 6px; }
+.compose-panel .inspector-content { padding: 16px 17px 25px; }
+.compose-compact-intro { margin: 0 0 18px; }
+.compose-intro-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+.compose-intro-label .eyebrow { font-size: 11px; color: #e2cfb6; }
+.compose-intro-label .panel-version { font-size: 11px; color: #c7d0c7; }
+.compose-compact-intro h2 { margin: 0; color: #f3f3ed; font-size: 20px; font-weight: 680; letter-spacing: -.65px; }
+.compose-compact-intro p { margin: 5px 0 0; font-size: 12px; color: #d7ddd7; text-transform: capitalize; }
+.compose-compact-intro p span { margin-inline: 4px; color: #c7ad8d; }
+
+.compose-panel .compose-section { padding-bottom: 14px; margin-bottom: 14px; }
+.compose-panel .section-heading { margin-bottom: 9px; }
+.compose-panel .section-heading h3 { font-size: 13px; color: #f2f2ed; }
+.compose-panel .field-heading { margin-bottom: 7px; }
+.compose-panel .field-heading h4 { font-size: 12px; }
+.compose-panel .field-control { gap: 5px; }
+.compose-panel .field-control > span { color: #e4e8df; font-size: 12px; }
+.compose-panel .select-field select { height: 39px; }
+.compose-panel .generation-mode button { min-height: 37px; }
+.compose-panel .segmented button { height: 36px; }
+.compose-panel .generation-hint { margin: 5px 0 0; }
+.compose-panel .sound-picker-trigger { min-height: 45px; }
+.compose-panel .sound-section { padding-bottom: 14px; margin-bottom: 14px; }
+.compose-panel .feel-presets button { min-height: 36px; }
+.compose-panel .arrangement-label { margin-top: 13px; margin-bottom: 8px; }
+.compose-panel .range-captions { margin-top: 1px; }
+
+.follow-workflow-section .melody-adaptive-controls { gap: 10px; padding-top: 0; }
+.follow-workflow-section .melody-step-heading { margin: 4px 0 0; color: #eceee7; }
+.follow-workflow-section .melody-step-heading h4 { font-size: 12px; font-weight: 650; }
+.follow-workflow-section .melody-task-help {
+  margin: -4px 0 1px; padding: 0; border: 0;
+  background: transparent; color: #d6dcd3;
+}
+.follow-workflow-section .field-heading output { margin-left: auto; color: #ede7d9; }
+.follow-workflow-section .expression-control .field-heading { margin-bottom: 0; }
+.follow-workflow-section .expression-control .range-field { margin-top: 1px; }
+
+/* Consistent, understated progressive disclosures for optional workflows. */
+.compose-disclosure {
+  margin: 0 0 9px; border: 1px solid #859089;
+  background: #41494a; border-radius: 9px; overflow: clip;
+}
+.compose-disclosure > summary {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; list-style: none; cursor: pointer; min-height: 47px;
+  padding: 9px 34px 9px 12px; position: relative; color: #f1f2ec;
+}
+.compose-disclosure > summary::-webkit-details-marker { display: none; }
+.compose-disclosure > summary::after {
+  content: ""; position: absolute; right: 15px; top: calc(50% - 4px);
+  width: 7px; height: 7px; border-right: 1.5px solid #d1d9cf;
+  border-bottom: 1.5px solid #d1d9cf; transform: rotate(45deg);
+  transition: transform .15s ease;
+}
+.compose-disclosure[open] > summary::after { transform: rotate(225deg) translate(-3px, -3px); }
+.compose-disclosure > summary:focus-visible { outline: 2px solid #e3c29f; outline-offset: -3px; border-radius: 8px; }
+.compose-disclosure > summary > span { font-size: 12px; font-weight: 670; }
+.compose-disclosure > summary small { flex: 0 1 auto; min-width: 0; font-size: 10px; font-weight: 480; color: #d0d8d0; text-align: right; overflow-wrap: anywhere; }
+.compose-disclosure[open] { background: #444c4d; border-color: #b0aaa0; }
+.compose-disclosure-body { padding: 11px 12px 13px; border-top: 1px solid #77817a; }
+.compose-disclosure-body .field-heading h4 { font-size: 12px; }
+.compose-disclosure-body .expression-control + .expression-control { margin-top: 16px; }
+.compose-disclosure-body .generation-hint { color: #d5dbd3; }
+.compose-disclosure-body .harmony-take-lab { margin-top: 0; background: #454f4a; }
+.compose-disclosure-body .take-choices { margin-top: 8px; }
+.compose-disclosure-body .song-form-build { margin-top: 12px; }
+.compose-disclosure-body .song-form-sections { margin-top: 12px; }
+.compose-disclosure-body .source-loop-editor { margin-top: 7px; }
+.follow-workflow-section .melody-advanced { margin-top: 0; background: #41494a; }
+.follow-workflow-section .melody-advanced > summary { min-height: 48px; padding: 9px 32px 9px 12px; gap: 3px; }
+.follow-workflow-section .melody-advanced > summary span { line-height: 1.35; color: #d4dad0; }
+.follow-workflow-section .melody-advanced-content { padding: 11px 12px 13px; gap: 13px; }
+.follow-workflow-section .melody-advanced-content .generation-hint { margin-top: 4px; }
+
+/* The primary action stays obvious; omit duplicate status copy and disabled
+ * "try another" actions until they are actually applicable. */
+.compose-actions {
+  padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+  border-top-color: #969d96;
+}
+.generate-button { height: 44px; }
+.variation-button {
+  margin-top: 7px; min-height: 30px; padding: 6px;
+  background: transparent; border: 0; color: #e3e7dc;
+}
+.variation-button:hover:not(:disabled) { background: #535f59; color: #ffffff; }
+
+/* Keep text, not pictograms, as the primary navigation language. */
+.inspector-tabs button svg { opacity: .68; }
+@media (max-width: 760px) {
+  .inspector-heading { min-height: 52px; padding: 10px 16px; }
+  .inspector-tabs-row { height: 48px; padding: 6px 10px; }
+  .compose-panel .inspector-content { padding: 14px 16px 22px; }
+  .compose-compact-intro { margin-bottom: 14px; }
+  .compose-panel .compose-section { padding-bottom: 12px; margin-bottom: 12px; }
+  .compose-actions { padding: 10px 16px max(12px, env(safe-area-inset-bottom)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .compose-disclosure > summary::after { transition: none; }
+}
+
+/* Final shell simplification: one understandable Project menu and a compact
+ * canvas View menu, both keyboard/escape operable. */
+.project-menu-trigger {
+  display: inline-flex; min-height: 35px; padding: 0 10px;
+  align-items: center; gap: 6px; cursor: pointer; white-space: nowrap;
+  font-size: 12px; font-weight: 660;
+}
+.project-menu[open] .project-menu-trigger {
+  background: #626b68; border-color: #b3bdb3;
+}
+.project-menu-trigger > svg { flex: 0 0 auto; }
+.project-menu-content { min-width: 248px; }
+.editor-toolbar { position: relative; z-index: 12; overflow: visible; }
+.view-controls { gap: 5px; }
+.canvas-view-menu { position: relative; }
+.canvas-view-menu > summary { list-style: none; }
+.canvas-view-menu > summary::-webkit-details-marker { display: none; }
+.canvas-view-trigger {
+  height: 35px; display: inline-flex; align-items: center;
+  gap: 6px; padding: 0 10px; background: #d7dbd4;
+  color: #303934; border: 1px solid #747e76; font-size: 11px;
+}
+.canvas-view-trigger:hover, .canvas-view-menu[open] > summary {
+  background: #c7cdc3; color: #232e27; border-color: #5d6c5e;
+}
+.canvas-view-menu-content {
+  position: absolute; top: calc(100% + 7px); right: 0;
+  display: flex; flex-direction: column; gap: 3px;
+  width: 175px; padding: 6px; z-index: 90;
+  border: 1px solid #8b958a; border-radius: 9px;
+  background: #edefe9; color: #2e3830;
+  box-shadow: 0 12px 28px #2026243b;
+}
+.canvas-view-menu-content button {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 37px; width: 100%; padding: 7px 9px;
+  text-align: left; background: transparent;
+  border: 1px solid transparent; border-radius: 6px;
+  color: #28352e; font-size: 12px; font-weight: 620;
+}
+.canvas-view-menu-content button:hover, .canvas-view-menu-content button:focus-visible {
+  background: #d6ddd3; border-color: #a7b5a4;
+}
+.canvas-view-menu-content button[aria-pressed="true"] {
+  background: #5e715e; color: #ffffff;
+}
+.pattern-empty { padding-top: 18px; }
+.pattern-empty h2 { font-size: clamp(22px, 3vw, 29px); margin-bottom: 7px; }
+.pattern-empty .empty-actions { margin-top: 18px; }
+@media (max-width: 430px) {
+  .project-menu-trigger { min-width: 37px; padding: 0 8px; }
+  .project-menu-trigger span, .project-menu-trigger > svg:last-child { display: none; }
+  .canvas-view-trigger { padding: 0 8px; }
+}
+
+/* Note Lab and Tracks use the same progressive hierarchy as Compose. */
+.tool-panel-intro { margin-bottom: 14px; }
+.tool-panel-intro .eyebrow { display: block; color: #e0cbaa; font-size: 10px; margin-bottom: 5px; }
+.tool-panel-intro h2 { color: #f1f2ec; margin: 0; font-size: 18px; line-height: 1.2; letter-spacing: -.55px; }
+.transform-panel .scope-pill { margin-bottom: 16px; padding: 10px; }
+.transform-panel .field-section { padding-bottom: 16px; margin-bottom: 16px; }
+.transform-panel .field-section h3 { color: #f3f4ed; font-size: 13px; margin-bottom: 9px; }
+.transform-more-disclosure { margin-top: 3px; }
+.transform-more-disclosure .field-section { margin-bottom: 14px; padding-bottom: 14px; }
+.transform-more-disclosure .field-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.transform-more-disclosure .secondary-button.wide { margin-top: 9px; }
+
+.track-panel .track-add { margin-bottom: 10px; }
+.track-panel .track-show-all { justify-content: space-between; min-height: 36px; margin-bottom: 8px; }
+.track-panel .track-list { display: grid; gap: 9px; }
+.track-panel .track-strip {
+  margin: 0; padding: 11px; border-radius: 10px;
+  background: #454d4d; border-color: #859187;
+}
+.track-panel .track-strip.focused { margin: 0; padding: 11px; }
+.track-panel .track-strip-heading { gap: 7px; margin: 0; }
+.track-panel .track-name-button { min-height: 34px; }
+.track-panel .track-name-button strong { font-size: 12px; }
+.track-panel .track-toggles { flex: 0 0 auto; }
+.track-panel .track-settings-disclosure {
+  margin: 9px 0 0; border-color: #79867e;
+  background: #3e4647;
+}
+.track-panel .track-settings-disclosure > summary {
+  min-height: 37px; padding: 8px 32px 8px 10px;
+}
+.track-panel .track-settings-disclosure > summary > span { font-size: 11px; }
+.track-panel .track-settings-disclosure > summary small { font-size: 10px; }
+.track-panel .track-settings-disclosure .compose-disclosure-body { padding: 10px; }
+.track-panel .track-settings-disclosure .track-management {
+  margin: 15px 0 0; padding: 10px 0 0;
+  border-top: 1px solid #69796e;
+}
+.track-panel .track-settings-disclosure .field-heading { margin-top: 12px; }
+.track-panel .track-settings-disclosure .track-midi-export-note {
+  margin: 8px 0 12px; padding: 6px 8px;
+  background: #434f4a; color: #e1e8df;
+}
+
+/* Narrow editors must keep a usable 300px+ note canvas. Fit and View have
+ * accessible names, so their labels can become icons on cramped widths,
+ * keeping both alongside the drawing tools instead of causing an extra row. */
+@container (max-width: 650px) {
+  .editor-toolbar .view-controls { gap: 3px; margin-left: auto; }
+  .editor-toolbar .view-controls .fit-button,
+  .editor-toolbar .view-controls .canvas-view-trigger {
+    width: 40px; min-width: 40px; height: 40px;
+    padding: 0; display: inline-flex;
+    align-items: center; justify-content: center;
+  }
+  .editor-toolbar .view-controls .fit-button > span,
+  .editor-toolbar .view-controls .canvas-view-trigger > span { display: none; }
+  .editor-toolbar .view-controls .canvas-view-trigger svg { width: 17px; height: 17px; }
+  .editor-toolbar .view-controls .canvas-view-trigger > svg:last-child { display: none; }
+}
+
+
+/* Short phones: prioritize the playable note grid over the optional verbose
+ * tool hint. All five tools still expose names through their buttons, and the
+ * hint remains visible at standard-height mobile/tablet sizes. */
+@media (max-width: 760px) and (max-height: 700px) {
+  .editor-main .active-tool-readout { display: none; }
+  .editor-toolbar { row-gap: 4px; }
+}

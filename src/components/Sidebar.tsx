@@ -1,4 +1,4 @@
-import { ArrowUpRight, AudioLines, Info, Layers, Music2, Shuffle, SlidersHorizontal } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { CustomDropdown } from "./CustomDropdown";
 import { SoundPicker } from "./SoundPicker";
 import { CustomSlider } from "./CustomSlider";
@@ -83,59 +83,119 @@ const FEEL_PRESETS = [
   { label: "Explore", tension: 74, detail: 76, description: "Adventurous harmony and intricate rhythm" },
 ] as const;
 
-/** The composition surface: explore first, fine-tune next, generate last. */
+/** One clear primary workflow. Specialist controls stay intact behind
+ * native, keyboard-accessible disclosures; users never have to wade through
+ * generation internals before finding the basic Create action. */
 export function Sidebar(p: SidebarProps) {
   const shortcut = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ G" : "Ctrl G";
+  const isFollow = p.melodySourceMode === "follow";
+  const isHarmonizing = isFollow && p.melodyTask === "harmonize";
+  const hasTakes = isHarmonizing && (p.canExploreTakes || p.takeViews.length > 0);
+  const canShowForm = p.canBuildSongForm || p.arrangementSections.length > 0;
+  const activeLength = isFollow ? p.melodyBarCount : p.bars;
+
   return (
     <div className="compose-panel">
       <div className="inspector-content compose-content">
-        <div className="panel-intro compose-intro">
-          <div className="panel-kicker">
-            <span className="eyebrow">IDEA ENGINE</span>
+        <header className="compose-compact-intro">
+          <div className="compose-intro-label">
+            <span className="eyebrow">COMPOSE</span>
             <span className="panel-version">01 / CREATE</span>
           </div>
-          <h2>Find your next<br /><em>musical idea.</em></h2>
-          <p>{p.melodySourceMode === "follow"
-            ? "Bring a melody. Build everything around it."
-            : "Start with a key, shape the feeling, and make it yours."}</p>
-        </div>
-
-        <div className="composition-summary" aria-label={"Current setup: " + p.root + " " + p.mode + ", " +
-          (p.melodySourceMode === "follow" ? (p.melodyBarCount ?? 0) + " melody bars" : p.bars + " bars")}>
-          <span className="composition-summary-icon"><Music2 size={17} strokeWidth={1.8} /></span>
-          <span className="composition-summary-copy">
-            <small>YOUR STARTING POINT</small>
-            <strong>{p.root} {p.mode} <span>·</span>
-              {p.melodySourceMode === "follow" ? (p.melodyBarCount === null ? "Draw a melody" : p.melodyBarCount + " bars") : p.bars + " bars"}</strong>
-          </span>
-          <span className="composition-summary-status" aria-hidden="true" />
-        </div>
+          <h2>Make music.</h2>
+          <p>{p.root} {p.mode} <span aria-hidden="true">·</span>{" "}
+            {activeLength === null ? "Draw or import a melody" : activeLength + " bars"}</p>
+        </header>
 
         <section className="field-section compose-section melody-source-section">
           <div className="section-heading">
-            <span className="section-heading-icon"><Music2 size={15} /></span>
             <h3>Starting point</h3>
-            <span className="section-index">MELODY-AWARE</span>
           </div>
           <div className="generation-mode" role="group" aria-label="Generation starting point">
-            <button type="button" aria-pressed={p.melodySourceMode === "scratch"}
+            <button type="button" aria-pressed={!isFollow}
               onClick={() => p.onMelodySourceModeChange("scratch")}>From scratch</button>
-            <button type="button" aria-pressed={p.melodySourceMode === "follow"}
+            <button type="button" aria-pressed={isFollow}
               onClick={() => p.onMelodySourceModeChange("follow")}>Follow melody</button>
           </div>
-          {p.melodySourceMode === "follow" && <div className="melody-adaptive-controls">
-            <div className="melody-step-heading"><span aria-hidden="true">1</span><h4>Choose source</h4></div>
-            {p.melodyTracks.length > 0 ? <label className="field-control">
-              <span>Source melody track</span>
-              <CustomDropdown ariaLabel="Source melody track" value={p.melodySourceTrackIndex ?? ""}
-                options={p.melodyTracks.map(track => ({
-                  label: track.name + " · " + track.noteCount + " notes", value: track.index,
-                }))}
-                onChange={value => p.onMelodySourceTrackChange(Number(value))} />
-            </label> : <p className="generation-hint" role="status">
-              Draw notes in the piano roll, or import a MIDI file, to choose a melody.
-            </p>}
-            <div className="field-heading"><h4>Source phrase</h4></div>
+        </section>
+
+        <section className="field-section compose-section compact-key-section">
+          <div className="section-heading"><h3>Key &amp; scale</h3></div>
+          <div className="field-pair labeled-field-pair">
+            <label className="field-control">
+              <span>Root note</span>
+              <CustomDropdown ariaLabel="Root key" value={p.root}
+                onChange={value => p.onRootChange(String(value))} options={[...ROOT_NOTES]} />
+            </label>
+            <label className="field-control">
+              <span>Scale</span>
+              <CustomDropdown ariaLabel="Scale mode" value={p.mode}
+                onChange={value => p.onModeChange(value as "major" | "minor")}
+                options={[{ label: "Major", value: "major" }, { label: "Minor", value: "minor" }]} />
+            </label>
+          </div>
+        </section>
+
+        {isFollow && <section className="field-section compose-section follow-workflow-section">
+          <div className="section-heading"><h3>Work with melody</h3></div>
+          <div className="melody-adaptive-controls">
+            <div className="melody-step-heading"><h4>Source</h4></div>
+            {p.melodyTracks.length > 0
+              ? <label className="field-control">
+                <span>Source melody track</span>
+                <CustomDropdown ariaLabel="Source melody track" value={p.melodySourceTrackIndex ?? ""}
+                  options={p.melodyTracks.map(track => ({
+                    label: track.name + " · " + track.noteCount + " notes", value: track.index,
+                  }))}
+                  onChange={value => p.onMelodySourceTrackChange(Number(value))} />
+              </label>
+              : <p className="generation-hint" role="status">
+                Draw notes in the piano roll or import MIDI to choose a melody.
+              </p>}
+
+            <div className="melody-step-heading"><h4>Action</h4></div>
+            <div className="generation-mode melody-task" role="group" aria-label="Melody operation">
+              <button type="button" aria-pressed={p.melodyTask === "harmonize"}
+                onClick={() => p.onMelodyTaskChange("harmonize")}>Harmonize</button>
+              <button type="button" aria-pressed={p.melodyTask === "continue"}
+                onClick={() => p.onMelodyTaskChange("continue")}>Continue</button>
+              <button type="button" aria-pressed={p.melodyTask === "reimagine"}
+                onClick={() => p.onMelodyTaskChange("reimagine")}>Reimagine</button>
+            </div>
+            <p className="generation-hint melody-task-help" role="status">
+              {p.melodyTask === "harmonize" ? "Add bass and harmony around your original melody."
+                : p.melodyTask === "continue" ? "Write the next phrase without changing the source."
+                  : "Create a separate alternate lead for comparison."}
+            </p>
+            <div className="melody-step-heading"><h4>{p.melodyTask === "harmonize" ? "Harmonic fit" : "Creative distance"}</h4></div>
+            <div className="expression-control">
+              <div className="field-heading">
+                <output>{p.melodyTask === "harmonize" ? p.harmonicFit : p.motifCreativity}<span>%</span></output>
+              </div>
+              {p.melodyTask === "harmonize"
+                ? <CustomSlider value={p.harmonicFit} min={0} max={100}
+                  onChange={p.onHarmonicFitChange} label="Harmonic fit to melody" />
+                : <CustomSlider value={p.motifCreativity} min={0} max={100}
+                  onChange={p.onMotifCreativityChange} label="Melodic creative distance" />}
+              <div className="range-captions"><span>{p.melodyTask === "harmonize" ? "Exploratory" : "Recognizable"}</span>
+                <span>{p.melodyTask === "harmonize" ? "Close fit" : "Adventurous"}</span></div>
+            </div>
+            {p.melodyTask === "continue" && <div className="continuation-length">
+              <div className="field-heading"><h4>Additional bars</h4></div>
+              <div className="generation-mode melody-bar-count" role="group" aria-label="Continuation length">
+                {([1, 2, 4, 8] as const).map(count =>
+                  <button key={count} type="button" aria-pressed={p.continuationBars === count}
+                    onClick={() => p.onContinuationBarsChange(count)}>{count}</button>)}
+              </div>
+            </div>}
+
+            <details className="compose-disclosure melody-scope-disclosure">
+              <summary><span>Phrase selection</span><small>
+                {p.melodyPhraseScope === "track" ? "Full track" :
+                  p.melodyPhraseScope === "selected" ? "Selected notes" : "Loop range"}
+              </small></summary>
+              <div className="compose-disclosure-body">
+                <div className="field-heading"><h4>Phrase source</h4></div>
             <div className="generation-mode melody-task" role="group" aria-label="Melody source phrase">
               <button type="button" aria-pressed={p.melodyPhraseScope === "track"}
                 onClick={() => p.onMelodyPhraseScopeChange("track")}>Full track</button>
@@ -190,60 +250,9 @@ export function Sidebar(p: SidebarProps) {
                   Adjust the ruler handles for finer timing.</p>
               </div>;
             })()}
-            <div className="melody-step-heading"><span aria-hidden="true">2</span><h4>Choose action</h4></div>
-            <div className="generation-mode melody-task" role="group" aria-label="Melody operation">
-              <button type="button" aria-pressed={p.melodyTask === "harmonize"}
-                onClick={() => p.onMelodyTaskChange("harmonize")}>Harmonize</button>
-              <button type="button" aria-pressed={p.melodyTask === "continue"}
-                onClick={() => p.onMelodyTaskChange("continue")}>Continue</button>
-              <button type="button" aria-pressed={p.melodyTask === "reimagine"}
-                onClick={() => p.onMelodyTaskChange("reimagine")}>Reimagine</button>
-            </div>
-            <p className="generation-hint melody-task-help" role="status">
-              {p.melodyTask === "harmonize"
-                ? "Build backing parts that follow your melody. The source notes stay untouched."
-                : p.melodyTask === "continue"
-                  ? "Extend the chosen phrase on a separate track, leaving the original unchanged."
-                  : "Create a new interpretation on a separate track, soloed for comparison."}
-            </p>
-            <div className="melody-step-heading"><span aria-hidden="true">3</span><h4>Tune result</h4></div>
-            {p.melodyTask === "harmonize" ? <>
-            <div className="expression-control">
-              <div className="field-heading"><h4>Harmonic fit</h4>
-                <output>{p.harmonicFit}<span>%</span></output></div>
-              <CustomSlider value={p.harmonicFit} min={0} max={100}
-                onChange={p.onHarmonicFitChange} label="Harmonic fit to melody" />
-              <div className="range-captions"><span>Exploratory</span><span>Close fit</span></div>
-            </div>
-            <HarmonyTakeLab enabled={p.canExploreTakes} takes={p.takeViews}
-              previewIndex={p.previewTakeIndex} onExplore={p.onExploreTakes}
-              onSelect={p.onSelectTake} onAudition={p.onAuditionTake}
-              onSave={p.onSaveTake} onRemoveSaved={p.onRemoveSavedTake}
-              onAccept={p.onAcceptTake} onDiscard={p.onDiscardTakes} />
-
-            </> : <>
-            <div className="expression-control">
-              <div className="field-heading"><h4>Creative distance</h4>
-                <output>{p.motifCreativity}<span>%</span></output></div>
-              <CustomSlider value={p.motifCreativity} min={0} max={100}
-                onChange={p.onMotifCreativityChange} label="Melodic creative distance" />
-              <div className="range-captions"><span>Recognizable</span><span>Adventurous</span></div>
-            </div>
-            {p.melodyTask === "continue" && <>
-              <div className="field-heading"><h4>Additional bars</h4></div>
-              <div className="generation-mode melody-bar-count" role="group" aria-label="Continuation length">
-                {([1, 2, 4, 8] as const).map(count =>
-                  <button key={count} type="button" aria-pressed={p.continuationBars === count}
-                    onClick={() => p.onContinuationBarsChange(count)}>{count}</button>)}
               </div>
-              <p className="generation-hint">MIDI Spark uses the chosen phrase as a motif, then
-                places the answer after the end of your original melody track—never on top of later notes.
-                Source notes remain exactly as drawn.</p>
-            </>}
-            {p.melodyTask === "reimagine" && <p className="generation-hint">
-              Create an alternate lead on a separate track. Its first and final notes
-              remain recognizable, and it is soloed for easy A/B listening.</p>}
-            </>}
+            </details>
+
             <details className="melody-advanced">
               <summary>
                 <strong>Advanced {p.melodyTask === "harmonize" ? "harmony" : "melody"} options</strong>
@@ -317,162 +326,139 @@ export function Sidebar(p: SidebarProps) {
             </p>}
               </div>
             </details>
-          </div>}
-        </section>
-
-        <section className="field-section compose-section">
-          <div className="section-heading">
-            <span className="section-heading-icon"><Music2 size={15} /></span>
-            <h3>Harmony</h3>
-            <span className="section-index">01</span>
           </div>
-          <div className="field-pair labeled-field-pair">
-            <label className="field-control">
-              <span>Root note</span>
-              <CustomDropdown ariaLabel="Root key" value={p.root} onChange={value => p.onRootChange(String(value))} options={[...ROOT_NOTES]} />
-            </label>
-            <label className="field-control">
-              <span>Scale</span>
-              <CustomDropdown ariaLabel="Scale mode" value={p.mode} onChange={value => p.onModeChange(value as "major" | "minor")} options={[{ label: "Major", value: "major" }, { label: "Minor", value: "minor" }]} />
-            </label>
-          </div>
-        </section>
-
-        <section className="field-section compose-section sound-section">
-          <div className="section-heading">
-            <span className="section-heading-icon"><AudioLines size={15} /></span>
-            <h3>{p.multiTrack ? "Instruments" : "Preview sound"}</h3>
-            <span className="section-index">02</span>
-          </div>
-          {p.multiTrack
-            ? <button className="secondary-button wide track-studio-link" onClick={p.onOpenTracks}>Open track mixer <ArrowUpRight size={15} /></button>
-            : <SoundPicker label="Preview sound" value={p.synthType} onChange={p.onSynthChange} onPreviewError={p.onPreviewError} />}
-          <p className="browser-sound-export-hint">Browser playback sound only.
-            MIDI export contains notes and General MIDI programs, not this synth patch.</p>
-        </section>
-
-        {(p.melodySourceMode === "scratch" || p.melodyTask === "harmonize") && <section className="field-section compose-section expression-section">
-          <div className="section-heading">
-            <span className="section-heading-icon"><SlidersHorizontal size={15} /></span>
-            <h3>Expression</h3>
-            <span className="section-index">03</span>
-          </div>
-          <div className="expression-control">
-            <div className="field-heading"><h4>Chord tension</h4><output>{p.dissonance}<span>%</span></output></div>
-            <CustomSlider value={p.dissonance} min={0} max={100} onChange={p.onDissonanceChange} label="Chord tension" />
-            <div className="range-captions"><span>Familiar</span><span>Unexpected</span></div>
-          </div>
-          {p.melodySourceMode === "scratch" && <>
-          <div className="expression-control">
-            <div className="field-heading"><h4>Rhythmic detail</h4><output>{p.complexity}<span>%</span></output></div>
-            <CustomSlider value={p.complexity} min={0} max={100} onChange={p.onComplexityChange} label="Rhythmic detail" />
-            <div className="range-captions"><span>Spacious</span><span>Intricate</span></div>
-          </div>
-          <div className="quick-directions-heading"><span>QUICK DIRECTIONS</span><span>One click to explore</span></div>
-          <div className="feel-presets" role="group" aria-label="Quick expression presets">
-            {FEEL_PRESETS.map(preset => (
-              <button key={preset.label} type="button"
-                title={preset.description}
-                aria-pressed={p.dissonance === preset.tension && p.complexity === preset.detail}
-                onClick={() => {
-                  p.onDissonanceChange(preset.tension);
-                  p.onComplexityChange(preset.detail);
-                }}>{preset.label}</button>
-            ))}
-          </div>
-          </>}
         </section>}
 
-        {p.melodySourceMode === "scratch" && <section className="field-section compose-section arrangement-section">
-          <div className="section-heading">
-            <span className="section-heading-icon"><Layers size={15} /></span>
-            <h3>Arrangement</h3>
-            <span className="section-index">04</span>
-          </div>
-          <div className="field-heading"><h4>Pattern length</h4><span className="field-hint">BARS</span></div>
+        {!isFollow && <section className="field-section compose-section compact-pattern-section">
+          <div className="section-heading"><h3>Pattern</h3></div>
+          <div className="field-heading"><h4>Length</h4><span className="field-hint">BARS</span></div>
           <div className="segmented" role="group" aria-label="Pattern length">
-            {[4, 8, 12, 16].map(length => <button type="button" key={length} aria-pressed={p.bars === length}
-              onClick={() => p.onBarsChange(length)}>{length}</button>)}
+            {[4, 8, 12, 16].map(length => <button type="button" key={length}
+              aria-pressed={p.bars === length} onClick={() => p.onBarsChange(length)}>{length}</button>)}
           </div>
-          <div className="field-heading arrangement-label"><h4>Generation layers</h4><span className="field-hint">PARTS</span></div>
+          <div className="field-heading arrangement-label"><h4>Parts</h4></div>
           <div className="generation-mode" role="group" aria-label="Generation layers">
             <button type="button" aria-pressed={p.generationMode === "single"}
               onClick={() => p.onGenerationModeChange("single")}>Single track</button>
             <button type="button" aria-pressed={p.generationMode === "layers"}
               onClick={() => p.onGenerationModeChange("layers")}>Bass + Harmony</button>
           </div>
-          <p className="generation-hint">Two layers create separate, editable bass and harmony parts.</p>
         </section>}
 
-        <section className="field-section compose-section song-form-section">
+        <section className="field-section compose-section sound-section">
           <div className="section-heading">
-            <span className="section-heading-icon"><Layers size={15} /></span>
-            <h3>Song structure</h3>
-            <span className="section-index">FORM</span>
+            <h3>{p.multiTrack ? "Instruments" : "Sound"}</h3>
           </div>
-          <p className="generation-hint">Grow a 4- or 8-bar musical idea into
-            a 16- or 32-bar composition. Keep the original phrase, introduce
-            a thematic variation, explore a contrasting bridge, then return.
-            The bridge can receive fresh melody-aware backing.</p>
-          <div className="field-heading"><h4>Section plan</h4></div>
-          <div className="generation-mode" role="group" aria-label="Song form">
-            <button type="button" aria-pressed={p.songForm === "AABA"}
-              onClick={() => p.onSongFormChange("AABA")}>A–A′–B–A</button>
-            <button type="button" aria-pressed={p.songForm === "ABAB"}
-              onClick={() => p.onSongFormChange("ABAB")}>A–B–A′–B</button>
-          </div>
-          <div className="expression-control">
-            <div className="field-heading"><h4>Section contrast</h4>
-              <output>{p.formContrast}<span>%</span></output></div>
-            <CustomSlider value={p.formContrast} min={0} max={100}
-              onChange={p.onFormContrastChange} label="Section contrast" />
-            <div className="range-captions"><span>Subtle development</span><span>Stronger contrast</span></div>
-          </div>
-          <button className="secondary-button wide song-form-build" type="button"
-            disabled={!p.canBuildSongForm} onClick={p.onBuildSongForm}>
-            Build {p.melodyBarCount && [4, 8].includes(p.melodyBarCount)
-              ? p.melodyBarCount * 4 : 16}-bar song form
-          </button>
-          {!p.canBuildSongForm && p.arrangementSections.length === 0 &&
-            <p className="generation-hint">Start with a 4- or 8-bar pattern to enable
-              one-click song-form generation. Import or draw a melody first.</p>}
-          {p.arrangementSections.length > 0 && <ol className="song-form-sections"
-            aria-label="Current arrangement sections">
-            {p.arrangementSections.map((section, i) => <li key={i}>
-              <strong>{section.label}</strong>
-              <span>Bars {section.startBar + 1}–{section.startBar + section.bars}
-                {" · "}{section.role}</span>
-            </li>)}
-          </ol>}
+          {p.multiTrack
+            ? <button type="button" className="secondary-button wide track-studio-link"
+              onClick={p.onOpenTracks}>Open track mixer <ArrowUpRight size={15} aria-hidden="true" /></button>
+            : <SoundPicker label="Preview sound" value={p.synthType}
+              onChange={p.onSynthChange} onPreviewError={p.onPreviewError} />}
         </section>
+
+        {!isFollow && <section className="field-section compose-section compact-feel-section">
+          <div className="section-heading"><h3>Character</h3></div>
+          <div className="feel-presets" role="group" aria-label="Quick expression presets">
+            {FEEL_PRESETS.map(preset => <button key={preset.label} type="button"
+              title={preset.description}
+              aria-pressed={p.dissonance === preset.tension && p.complexity === preset.detail}
+              onClick={() => { p.onDissonanceChange(preset.tension); p.onComplexityChange(preset.detail); }}>
+              {preset.label}</button>)}
+          </div>
+        </section>}
+
+        {(!isFollow || isHarmonizing) && <details className="compose-disclosure expression-disclosure">
+          <summary><span>Fine-tune expression</span><small>
+            {isFollow ? "Chord tension " + p.dissonance + "%" :
+              "Tension " + p.dissonance + "% · Detail " + p.complexity + "%"}
+          </small></summary>
+          <div className="compose-disclosure-body">
+            <div className="expression-control">
+              <div className="field-heading"><h4>Chord tension</h4>
+                <output>{p.dissonance}<span>%</span></output></div>
+              <CustomSlider value={p.dissonance} min={0} max={100}
+                onChange={p.onDissonanceChange} label="Chord tension" />
+              <div className="range-captions"><span>Familiar</span><span>Unexpected</span></div>
+            </div>
+            {!isFollow && <div className="expression-control">
+              <div className="field-heading"><h4>Rhythmic detail</h4>
+                <output>{p.complexity}<span>%</span></output></div>
+              <CustomSlider value={p.complexity} min={0} max={100}
+                onChange={p.onComplexityChange} label="Rhythmic detail" />
+              <div className="range-captions"><span>Spacious</span><span>Intricate</span></div>
+            </div>}
+          </div>
+        </details>}
+
+        {hasTakes && <details className="compose-disclosure take-lab-disclosure">
+          <summary><span>Compare takes</span><small>
+            {p.takeViews.length ? p.takeViews.length + " saved / fresh" : "Explore alternatives"}
+          </small></summary>
+          <div className="compose-disclosure-body">
+            <HarmonyTakeLab enabled={p.canExploreTakes} takes={p.takeViews}
+              previewIndex={p.previewTakeIndex} onExplore={p.onExploreTakes}
+              onSelect={p.onSelectTake} onAudition={p.onAuditionTake}
+              onSave={p.onSaveTake} onRemoveSaved={p.onRemoveSavedTake}
+              onAccept={p.onAcceptTake} onDiscard={p.onDiscardTakes} />
+          </div>
+        </details>}
+
+        {canShowForm && <details className="compose-disclosure song-form-disclosure">
+          <summary><span>Song structure</span><small>
+            {p.arrangementSections.length > 0
+              ? p.arrangementSections.length + " sections · " + (p.melodyBarCount ?? 0) + " bars"
+              : "Expand a 4- or 8-bar idea"}
+          </small></summary>
+          <div className="compose-disclosure-body">
+            {p.arrangementSections.length === 0 && <p className="generation-hint">
+              Turn your idea into A–A′–B–A or A–B–A′–B, with a contrasting bridge.
+            </p>}
+            <div className="field-heading"><h4>Section plan</h4></div>
+            <div className="generation-mode" role="group" aria-label="Song form">
+              <button type="button" aria-pressed={p.songForm === "AABA"}
+                onClick={() => p.onSongFormChange("AABA")}>A–A′–B–A</button>
+              <button type="button" aria-pressed={p.songForm === "ABAB"}
+                onClick={() => p.onSongFormChange("ABAB")}>A–B–A′–B</button>
+            </div>
+            <div className="expression-control">
+              <div className="field-heading"><h4>Section contrast</h4>
+                <output>{p.formContrast}<span>%</span></output></div>
+              <CustomSlider value={p.formContrast} min={0} max={100}
+                onChange={p.onFormContrastChange} label="Section contrast" />
+            </div>
+            <button type="button" className="secondary-button wide song-form-build"
+              disabled={!p.canBuildSongForm} onClick={p.onBuildSongForm}>
+              Build {p.melodyBarCount && [4, 8].includes(p.melodyBarCount)
+                ? p.melodyBarCount * 4 : 16}-bar song form
+            </button>
+            {p.arrangementSections.length > 0 && <ol className="song-form-sections"
+              aria-label="Current arrangement sections">
+              {p.arrangementSections.map((section, i) => <li key={i}>
+                <strong>{section.label}</strong>
+                <span>Bars {section.startBar + 1}–{section.startBar + section.bars}
+                  {" · "}{section.role}</span>
+              </li>)}
+            </ol>}
+          </div>
+        </details>}
       </div>
 
       <div className="compose-actions">
-        <div className="compose-action-topline"><span><span className="ready-indicator" />
-          {p.melodySourceMode === "follow" ? "MELODY FIRST" : "READY WHEN YOU ARE"}</span>
-          <small>{p.melodySourceMode === "follow" ? "Melody length · " + p.mode : p.bars + " bars · " + p.mode}</small></div>
         <button type="button" className="primary-button generate-button"
-          disabled={p.previewTakeIndex !== null ||
-            (p.melodySourceMode === "follow" && p.melodyTracks.length === 0)}
+          disabled={p.previewTakeIndex !== null || (isFollow && p.melodyTracks.length === 0)}
           onClick={p.onGenerate} aria-keyshortcuts="Control+g Meta+g">
-          <span>{p.melodySourceMode !== "follow" ? "Generate pattern"
+          <span>{!isFollow ? "Generate pattern"
             : p.melodyTask === "harmonize" ? "Harmonize melody"
               : p.melodyTask === "continue" ? "Continue melody" : "Reimagine melody"}</span>
           <kbd>{shortcut}</kbd>
         </button>
-        <button type="button" className="text-button variation-button"
-          disabled={!p.canVary || p.previewTakeIndex !== null} onClick={p.onAddVariation}
-          title={p.canVary
-            ? p.melodySourceMode === "follow" ? "Regenerate only the selected operation's output" : "Create a rhythmic variation"
-            : "Draw or generate notes to unlock variations"}>
-          <Shuffle size={15} /><span>{p.melodySourceMode !== "follow" ? "Create a variation"
-            : p.melodyTask === "harmonize" ? "Try another harmonization"
-              : p.melodyTask === "continue" ? "Try another continuation" : "Try another reimagination"}</span><ArrowUpRight size={14} />
-        </button>
-        <p className="compose-action-note"><Info size={12} />
-          {p.melodySourceMode === "follow"
-            ? "Only the selected generated part is replaced. Your source melody stays untouched."
-            : "Generation replaces the pattern. Undo restores it."}</p>
+        {p.canVary && <button type="button" className="text-button variation-button"
+          disabled={p.previewTakeIndex !== null} onClick={p.onAddVariation}
+          title={isFollow ? "Try this melody action with fresh material" : "Make a new rhythmic variation"}>
+          {!isFollow ? "Try a variation" :
+            p.melodyTask === "harmonize" ? "Try another harmonization"
+              : p.melodyTask === "continue" ? "Try another continuation" : "Try another reimagination"}
+        </button>}
       </div>
     </div>
   );

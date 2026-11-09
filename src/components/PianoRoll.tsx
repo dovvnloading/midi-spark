@@ -929,10 +929,8 @@ export function PianoRoll({
           onContextMenu={e => e.preventDefault()}>
           {!progression ? (
             <div className="pattern-empty">
-              <div className="empty-motif" aria-hidden="true"><span /><span /><span /><span /><span /></div>
-              <span className="eyebrow">FROM A SPARK TO A SEQUENCE</span>
-              <h2>Your next idea starts here.</h2>
-              <p>Generate a progression, draw something new,<br />or drop a MIDI file to make it your own.</p>
+              <h2>Start with a pattern.</h2>
+              <p>Generate an idea, draw notes, or import MIDI.</p>
               <div className="empty-actions">
                 <button className="primary-button" onClick={onGenerate}>Generate pattern</button>
                 <button className="secondary-button" onClick={onStartBlank}><Pencil size={14} />Start blank</button>

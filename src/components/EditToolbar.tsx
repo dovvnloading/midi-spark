@@ -1,4 +1,5 @@
-import { Hand, MousePointer2, Pencil, Scissors, Stamp, ZoomIn, ZoomOut, Scan, PanelLeft, LocateFixed } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { ChevronDown, Eye, Hand, MousePointer2, Pencil, Scissors, Stamp, ZoomIn, ZoomOut, Scan, PanelLeft, LocateFixed } from "lucide-react";
 import { CustomDropdown } from "./CustomDropdown";
 import { CHORD_STAMPS, SCALE_STAMPS, SNAP_OPTIONS, NOTE_LENGTH_OPTIONS, MIN_ZOOM, MAX_ZOOM } from "../lib/constants";
 export type ToolMode = "draw" | "select" | "stamp" | "cut" | "pan";
@@ -23,6 +24,15 @@ const ACTIVE_TOOL_HELP: Record<ToolMode, string> = {
 };
 
 export function EditToolbar(p: EditToolbarProps) {
+  const viewRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const closeOutside = (event: PointerEvent) => {
+      const menu = viewRef.current;
+      if (menu?.open && event.target instanceof Node && !menu.contains(event.target)) menu.open = false;
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, []);
   return <div className="editor-toolbar" aria-label="Editing controls">
     <div className="tool-cluster"><button className="icon-button inspector-toggle" aria-label="Toggle inspector" aria-pressed={p.inspectorOpen} onClick={p.onToggleInspector} title="Inspector"><PanelLeft size={16} /></button>
       <span className="control-divider" />
@@ -42,10 +52,31 @@ export function EditToolbar(p: EditToolbarProps) {
       <span>{ACTIVE_TOOL_HELP[p.toolMode]}</span>
     </div>
     <div className="view-controls" role="group" aria-label="Canvas view">
-      <button className="icon-button follow-toggle" aria-pressed={p.followPlayback} aria-label="Follow playback" title="Follow playhead" onClick={p.onToggleFollow}><LocateFixed size={16} /></button>
-      <button className="icon-button zoom-step" aria-label="Zoom out" onClick={() => p.onZoomChange(Math.max(MIN_ZOOM, p.zoomX / 1.25))}><ZoomOut size={16} /></button>
-      <button className="icon-button zoom-step" aria-label="Zoom in" onClick={() => p.onZoomChange(Math.min(MAX_ZOOM, p.zoomX * 1.25))}><ZoomIn size={16} /></button>
-      <button className="icon-button fit-button" aria-label="Fit pattern" title="Fit pattern (F)" onClick={p.onFit}><Scan size={16} /><span>Fit</span></button>
+      <button className="icon-button fit-button" aria-label="Fit pattern" title="Fit pattern (F)"
+        onClick={p.onFit}><Scan size={16} /><span>Fit</span></button>
+      <details className="canvas-view-menu" ref={viewRef} onKeyDown={event => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          event.currentTarget.open = false;
+          event.currentTarget.querySelector("summary")?.focus();
+        }
+      }}>
+        <summary role="button" className="secondary-button canvas-view-trigger" aria-label="Canvas view options">
+          <Eye size={16} aria-hidden="true" /><span>View</span><ChevronDown size={13} aria-hidden="true" />
+        </summary>
+        <div className="canvas-view-menu-content">
+          <button type="button" aria-pressed={p.followPlayback} onClick={p.onToggleFollow}>
+            <LocateFixed size={16} aria-hidden="true" />Follow playback
+          </button>
+          <button type="button" onClick={() => p.onZoomChange(Math.max(MIN_ZOOM, p.zoomX / 1.25))}>
+            <ZoomOut size={16} aria-hidden="true" />Zoom out
+          </button>
+          <button type="button" onClick={() => p.onZoomChange(Math.min(MAX_ZOOM, p.zoomX * 1.25))}>
+            <ZoomIn size={16} aria-hidden="true" />Zoom in
+          </button>
+        </div>
+      </details>
     </div>
   </div>;
 }
