@@ -157,8 +157,14 @@ with sync_playwright() as p:
   assert_popup_topmost(page,'.floating-menu-panel.project-menu-content',
     '#studio-inspector' if drawer else '.editor-toolbar')
   assert project_panel.get_by_role('button',name='Import MIDI').is_visible()
-  assert page.evaluate("""()=>document.querySelector('.floating-menu-panel.project-menu-content')
-    .scrollHeight >= document.querySelector('.floating-menu-panel.project-menu-content').clientHeight""")
+  if h==360:
+   sizes=project_panel.evaluate('(el)=>({scroll:el.scrollHeight,visible:el.clientHeight})')
+   assert sizes['scroll']>sizes['visible']+10,sizes
+   project_panel.evaluate('(el)=>{el.scrollTop=el.scrollHeight;}')
+   page.wait_for_timeout(120)
+   assert project_panel.evaluate('(el)=>el.scrollTop')>10, 'Project menu cannot scroll on short viewport'
+   assert_popup_topmost(page,'.floating-menu-panel.project-menu-content',
+     '#studio-inspector' if drawer else '.editor-toolbar')
   if w==390: page.screenshot(path=str(OUTPUT/'project-menu-mobile-layer.png'))
   page.keyboard.press('Escape')
   expect(project_panel).not_to_be_visible()
