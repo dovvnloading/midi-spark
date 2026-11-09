@@ -38,10 +38,9 @@ button:disabled { opacity: .42; }
 .wordmark { gap: 11px; font-size: 20px; font-weight: 780; letter-spacing: -.92px; }
 .wordmark-light { font-weight: 410; color: #d2ddd5; }
 .brand-mark {
-  height: 37px; width: 37px; border-radius: 11px; color: #d3f6b6;
-  background: linear-gradient(145deg, #344a35, #202b2a 68%);
-  border: 1px solid #617856;
-  box-shadow: inset 0 1px #e9f6db16, 0 2px 14px #a1d88213;
+  display: block; flex: 0 0 auto; object-fit: contain;
+  height: 37px; width: 37px; border: 0; border-radius: 11px;
+  background: transparent; box-shadow: 0 2px 14px #a1d88213;
 }
 .edition {
   font-size: 8px; font-weight: 700; letter-spacing: 1.1px; margin-left: 9px;
