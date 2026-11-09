@@ -129,8 +129,8 @@ with sync_playwright() as playwright:
         {"selector":".compose-panel .eyebrow","minimum":11},
         {"selector":".compose-panel .section-heading h3","minimum":13},
         {"selector":".compose-panel .field-control > span","minimum":12},
-        {"selector":".compose-panel .generation-hint","minimum":12},
-        {"selector":".compose-panel .range-captions","minimum":12},
+        {"selector":".compose-compact-intro p","minimum":12},
+        {"selector":".compose-disclosure > summary > span","minimum":12},
         {"selector":".precision-controls label > span","minimum":12},
         {"selector":".editor-context-right .time-signature","minimum":12},
         {"selector":".app-status","minimum":11},
@@ -161,9 +161,13 @@ with sync_playwright() as playwright:
     zoom.goto(args.url)
     zoom.evaluate("document.fonts.ready")
     assert zoom.evaluate("document.documentElement.scrollWidth<=innerWidth+1")
-    for label in ("Import MIDI","Export MIDI","Fit pattern"):
+    for label in ("Project menu","Export MIDI","Fit pattern"):
         expect(zoom.get_by_role("button",name=label,exact=True)).to_be_visible()
-    controls=zoom.locator(".app-header button:visible").evaluate_all("""xs=>xs.map(el=>{
+    zoom.get_by_role("button",name="Project menu").click()
+    expect(zoom.get_by_role("button",name="Import MIDI")).to_be_visible()
+    zoom.get_by_role("button",name="Project menu").press("Escape")
+    expect(zoom.get_by_role("button",name="Import MIDI")).not_to_be_visible()
+    controls=zoom.locator(".app-header button:visible, .app-header summary:visible").evaluate_all("""xs=>xs.map(el=>{
       const b=el.getBoundingClientRect();
       return {name:el.getAttribute('aria-label')||el.textContent.trim(),
               x:b.left,y:b.top,w:b.width,h:b.height};
