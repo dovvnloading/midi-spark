@@ -177,9 +177,14 @@ export default function App() {
     ? takeBatch : null;
   // Only restore favorites for precisely the arrangement they were saved
   // against. Any source edit, lock, guide or generated-note edit invalidates them.
-  const validSavedTakeBank = comparingHarmony &&
-    isCompatibleTakeBank(progression, effectiveMelodySourceTrackIndex, savedTakeBank)
+  // Preserve a compatible favorite bank when switching composition tabs or
+  // source selectors. Only edits to the actual working progression stale it.
+  const persistableTakeBank = savedTakeBank &&
+    isCompatibleTakeBank(progression, savedTakeBank.sourceTrackIndex, savedTakeBank)
     ? savedTakeBank : null;
+  const validSavedTakeBank = comparingHarmony &&
+    persistableTakeBank?.sourceTrackIndex === effectiveMelodySourceTrackIndex
+    ? persistableTakeBank : null;
   const takeChoices = useMemo(() => {
     if (!progression || effectiveMelodySourceTrackIndex === null || !comparingHarmony) return [];
     const choices: { take: HarmonyTake; savedId: string | null }[] = [];
@@ -345,7 +350,7 @@ export default function App() {
         trackMix,
         isLooping,
         loopRegion,
-        ...(validSavedTakeBank ? { savedHarmonyTakes: validSavedTakeBank } : {}),
+        ...(persistableTakeBank ? { savedHarmonyTakes: persistableTakeBank } : {}),
       });
       setSaveState(saved ? "saved" : "unavailable");
     }, 400);
@@ -378,7 +383,7 @@ export default function App() {
     trackMix,
     isLooping,
     loopRegion,
-    validSavedTakeBank,
+    persistableTakeBank,
   ]);
 
   // Keep the audio engine in sync with edits (including live drag previews),
