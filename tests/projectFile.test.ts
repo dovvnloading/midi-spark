@@ -66,6 +66,12 @@ describe("native MIDI Spark project archive", () => {
       JSON.stringify({ ...example, format: "another-application" }),
       JSON.stringify({ ...example, version: 999 }),
       JSON.stringify({ ...example, session: { ...session, progression: { ...progression, notes: [{ midi: "invalid" }] } } }),
+      JSON.stringify({ ...example, session: { ...session, bpm: -20 } }),
+      JSON.stringify({ ...example, session: { ...session, root: "not a key" } }),
+      JSON.stringify({ ...example, session: { ...session, progression: { ...progression,
+        notes: [{ ...progression.notes[0], midi: 160 }] } } }),
+      JSON.stringify({ ...example, session: { ...session, progression: { ...progression,
+        notes: [{ ...progression.notes[0], timeStart: 999 }] } } }),
       " ".repeat(16 * 1024 * 1024 + 1),
     ];
     for (const input of cases) expect(parseNativeProjectText(input).ok).toBe(false);
