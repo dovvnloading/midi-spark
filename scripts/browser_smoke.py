@@ -794,6 +794,9 @@ with sync_playwright() as p:
  take_page.reload(); take_page.wait_for_timeout(700)
  assert snap(take_page)['progression']==take_base
  assert len(snap(take_page)['savedHarmonyTakes']['favorites'])==1
+ # Unsaved UI disclosure state intentionally resets after reload; the saved
+ # take itself remains in the session and is visible on opening Compare.
+ open_composer_group(take_page,'.take-lab-disclosure')
  expect(take_page.locator('.take-choice').filter(has_text='Favorite 1')).to_be_visible()
  take_page.locator('.take-choice').filter(has_text='Favorite 1').click()
  assert take_page.locator('.editor-main').evaluate('(el)=>el.inert') is True
@@ -1156,10 +1159,10 @@ with sync_playwright() as p:
  samples=reading.evaluate("""() => {
   const tests=[
    ['.compose-panel .panel-version',11],
-   ['.compose-panel .section-index',11],
-   ['.compose-panel .field-hint',11],
-   ['.compose-panel .panel-intro p',12],
-   ['.compose-panel .range-captions',12],
+   ['.compose-compact-intro .eyebrow',11],
+   ['.compose-panel .field-control > span',12],
+   ['.compose-compact-intro p',12],
+   ['.compose-disclosure > summary > span',12],
    ['.editor-footnote',12],
    ['.app-status',12]
   ];
