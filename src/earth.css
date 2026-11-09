@@ -656,3 +656,12 @@ body { background: var(--app-bg); }
   .editor-toolbar .view-controls .canvas-view-trigger svg { width: 17px; height: 17px; }
   .editor-toolbar .view-controls .canvas-view-trigger > svg:last-child { display: none; }
 }
+
+
+/* Short phones: prioritize the playable note grid over the optional verbose
+ * tool hint. All five tools still expose names through their buttons, and the
+ * hint remains visible at standard-height mobile/tablet sizes. */
+@media (max-width: 760px) and (max-height: 700px) {
+  .editor-main .active-tool-readout { display: none; }
+  .editor-toolbar { row-gap: 4px; }
+}
