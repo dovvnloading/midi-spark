@@ -166,6 +166,26 @@ No claim is made that these hand-tuned scores match the quality of a
 state-of-the-art learned harmonization model. They provide a reliable,
 inspectable no-server baseline for a controlled MIDI editor.
 
+### 3a. Take Lab — audition without replacement
+
+Once source-owned bass and harmony exist, Take Lab can generate up to three
+structurally distinct candidate takes from **one immutable base progression**.
+Each candidate has a reproducible random seed; repeated takes with identical
+pitch/timing/track patterns and chord paths are discarded, ignoring cosmetic
+velocity jitter. A bounded seed search can return fewer than three options or
+a readable no-alternatives message when locks/fit make new choices impossible.
+The selected preview is shown in the piano roll and routed through the normal
+transport with the current BPM, mixer and loop. The editor becomes inert for
+that preview, editing/undo keyboard shortcuts are blocked, and export remains
+bound to the original project until acceptance. Switching candidates stops
+old playback first to avoid lingering voices. **Preview state is ephemeral**:
+it never touches the history reducer, browser autosave or current notes.
+Accepting a candidate commits its complete, source-preserving progression once
+(and can be undone once), while Clear returns to the original with no commit.
+The app only offers Take Lab when the current source already has the two owned
+generated accompaniment tracks, keeping channel routing stable. Stale candidate
+batches are invalidated when the editable base or selected source changes.
+
 ### 4. Accompaniment
 
 Accompaniment uses one dedicated Bass track and one dedicated Harmony track.
