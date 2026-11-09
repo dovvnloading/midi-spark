@@ -17,7 +17,7 @@ export type HarmonyTakesResult =
 
 /** Compares musical structures, not cosmetic velocity jitter. Includes only
  * owned accompaniment and chord labels, never unrelated user-owned tracks. */
-function structuralSignature(data: ProgressionData, sourceIndex: number): string {
+export function harmonyStructureSignature(data: ProgressionData, sourceIndex: number): string {
   const generated = new Set(data.tracks?.filter(t =>
     t.sourceTrackIndex === sourceIndex &&
     (t.generatedRole === "bass" || t.generatedRole === "harmony"))
@@ -37,6 +37,56 @@ function chordPath(data: ProgressionData, sourceIndex: number): string[] {
   return data.chords.filter(chord => chord.generatedSourceTrackIndex === sourceIndex)
     .sort((a, b) => a.timeStart - b.timeStart)
     .map(chord => chord.name);
+}
+
+/** Descriptive, objective differences for musicians comparing two takes.
+ * These are not listener-quality scores: a busier take is not inherently better.
+ * Bar-by-bar comparison stays meaningful when a take uses half-bar changes. */
+export interface HarmonyTakeDifference {
+  changedBars: number;
+  totalBars: number;
+  examples: string[];
+  bassNoteDelta: number;
+  harmonyNoteDelta: number;
+  chordChangeDelta: number;
+}
+export function describeHarmonyDifference(
+  base: ProgressionData, candidate: ProgressionData, sourceTrackIndex: number,
+): HarmonyTakeDifference {
+  const count = Math.min(64, Math.max(base.totalBars, candidate.totalBars));
+  const labels = (progression: ProgressionData, bar: number) =>
+    progression.chords
+      .filter(chord => chord.generatedSourceTrackIndex === sourceTrackIndex &&
+        chord.timeStart < (bar + 1) * 4 && chord.timeStart + chord.duration > bar * 4)
+      .sort((a, b) => a.timeStart - b.timeStart)
+      .map(chord => chord.name).join(" / ") || "—";
+  const differences: string[] = [];
+  for (let bar = 0; bar < count; bar++) {
+    const oldLabel = labels(base, bar);
+    const nextLabel = labels(candidate, bar);
+    if (oldLabel !== nextLabel) {
+      differences.push("Bar " + (bar + 1) + ": " + oldLabel + " → " + nextLabel);
+    }
+  }
+  const partCount = (data: ProgressionData, role: "bass" | "harmony") => {
+    const index = data.tracks?.find(track =>
+      track.sourceTrackIndex === sourceTrackIndex && track.generatedRole === role)?.index;
+    return index === undefined ? 0 :
+      data.notes.filter(note => note.trackIndex === index).length;
+  };
+  const changes = (data: ProgressionData): number => {
+    const path = data.chords.filter(chord => chord.generatedSourceTrackIndex === sourceTrackIndex)
+      .sort((a, b) => a.timeStart - b.timeStart);
+    return path.reduce((sum, chord, index) =>
+      sum + (index > 0 && chord.name !== path[index - 1].name ? 1 : 0), 0);
+  };
+  return {
+    changedBars: differences.length, totalBars: count,
+    examples: differences.slice(0, 3),
+    bassNoteDelta: partCount(candidate, "bass") - partCount(base, "bass"),
+    harmonyNoteDelta: partCount(candidate, "harmony") - partCount(base, "harmony"),
+    chordChangeDelta: changes(candidate) - changes(base),
+  };
 }
 
 /** Compute a small batch against one immutable base. The UI can preview a
@@ -59,7 +109,7 @@ export function generateHarmonyTakes(
     return { ok: false, reason: "Harmonize the melody once before exploring alternate takes." };
   }
 
-  const signatures = new Set([structuralSignature(source, options.sourceTrackIndex)]);
+  const signatures = new Set([harmonyStructureSignature(source, options.sourceTrackIndex)]);
   const oldPath = chordPath(source, options.sourceTrackIndex);
   const takes: HarmonyTake[] = [];
   let seedsTried = 0;
@@ -68,7 +118,7 @@ export function generateHarmonyTakes(
     seedsTried++;
     const generatedTake = generateFromMelody(source, options, seededRandom(seed));
     if (!generatedTake.ok) return generatedTake;
-    const signature = structuralSignature(generatedTake.progression, options.sourceTrackIndex);
+    const signature = harmonyStructureSignature(generatedTake.progression, options.sourceTrackIndex);
     if (signatures.has(signature)) continue;
     signatures.add(signature);
     const nextPath = chordPath(generatedTake.progression, options.sourceTrackIndex);
