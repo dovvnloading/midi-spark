@@ -3,6 +3,7 @@ import { CustomDropdown } from "./CustomDropdown";
 import { SoundPicker } from "./SoundPicker";
 import { CustomSlider } from "./CustomSlider";
 import { HarmonyGuideEditor } from "./HarmonyGuideEditor";
+import { HarmonyTakeLab, type HarmonyTakeView } from "./HarmonyTakeLab";
 import { ROOT_NOTES } from "../lib/constants";
 import type { SynthType } from "../lib/audio";
 import type { AccompanimentDensity, MelodyKeyStrategy, HarmonicPacing } from "../lib/adaptive";
@@ -36,6 +37,13 @@ export interface SidebarProps {
   availableHarmonyChords: string[];
   onAddHarmonyGuide: (bar: number, chord: string, kind: HarmonyConstraint["kind"]) => void;
   onRemoveHarmonyGuide: (index: number) => void;
+  canExploreTakes: boolean;
+  takeViews: HarmonyTakeView[];
+  previewTakeIndex: number | null;
+  onExploreTakes: () => void;
+  onSelectTake: (index: number | null) => void;
+  onAcceptTake: () => void;
+  onDiscardTakes: () => void;
   accompanimentDensity: AccompanimentDensity;
   harmonicPacing: HarmonicPacing;
   onHarmonicPacingChange: (value: HarmonicPacing) => void;
@@ -196,6 +204,10 @@ export function Sidebar(p: SidebarProps) {
                 onChange={p.onHarmonicFitChange} label="Harmonic fit to melody" />
               <div className="range-captions"><span>Exploratory</span><span>Close fit</span></div>
             </div>
+            <HarmonyTakeLab enabled={p.canExploreTakes} takes={p.takeViews}
+              previewIndex={p.previewTakeIndex} onExplore={p.onExploreTakes}
+              onSelect={p.onSelectTake} onAccept={p.onAcceptTake}
+              onDiscard={p.onDiscardTakes} />
 
             </> : <>
             <div className="expression-control">
@@ -386,7 +398,8 @@ export function Sidebar(p: SidebarProps) {
           {p.melodySourceMode === "follow" ? "MELODY FIRST" : "READY WHEN YOU ARE"}</span>
           <small>{p.melodySourceMode === "follow" ? "Melody length · " + p.mode : p.bars + " bars · " + p.mode}</small></div>
         <button type="button" className="primary-button generate-button"
-          disabled={p.melodySourceMode === "follow" && p.melodyTracks.length === 0}
+          disabled={p.previewTakeIndex !== null ||
+            (p.melodySourceMode === "follow" && p.melodyTracks.length === 0)}
           onClick={p.onGenerate} aria-keyshortcuts="Control+g Meta+g">
           <Sparkles size={17} strokeWidth={1.9} />
           <span>{p.melodySourceMode !== "follow" ? "Generate pattern"
@@ -394,7 +407,8 @@ export function Sidebar(p: SidebarProps) {
               : p.melodyTask === "continue" ? "Continue melody" : "Reimagine melody"}</span>
           <kbd>{shortcut}</kbd>
         </button>
-        <button type="button" className="text-button variation-button" disabled={!p.canVary} onClick={p.onAddVariation}
+        <button type="button" className="text-button variation-button"
+          disabled={!p.canVary || p.previewTakeIndex !== null} onClick={p.onAddVariation}
           title={p.canVary
             ? p.melodySourceMode === "follow" ? "Regenerate only the selected operation's output" : "Create a rhythmic variation"
             : "Draw or generate notes to unlock variations"}>
