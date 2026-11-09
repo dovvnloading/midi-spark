@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ChevronDown, Hand, MousePointer2, Pencil, Scissors, Stamp, ZoomIn, ZoomOut, Scan, PanelLeft, LocateFixed } from "lucide-react";
+import { ChevronDown, Eye, Hand, MousePointer2, Pencil, Scissors, Stamp, ZoomIn, ZoomOut, Scan, PanelLeft, LocateFixed } from "lucide-react";
 import { CustomDropdown } from "./CustomDropdown";
 import { CHORD_STAMPS, SCALE_STAMPS, SNAP_OPTIONS, NOTE_LENGTH_OPTIONS, MIN_ZOOM, MAX_ZOOM } from "../lib/constants";
 export type ToolMode = "draw" | "select" | "stamp" | "cut" | "pan";
@@ -63,7 +63,7 @@ export function EditToolbar(p: EditToolbarProps) {
         }
       }}>
         <summary role="button" className="secondary-button canvas-view-trigger" aria-label="Canvas view options">
-          <span>View</span><ChevronDown size={13} aria-hidden="true" />
+          <Eye size={16} aria-hidden="true" /><span>View</span><ChevronDown size={13} aria-hidden="true" />
         </summary>
         <div className="canvas-view-menu-content">
           <button type="button" aria-pressed={p.followPlayback} onClick={p.onToggleFollow}>
