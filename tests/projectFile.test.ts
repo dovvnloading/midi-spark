@@ -84,6 +84,12 @@ describe("native MIDI Spark project archive", () => {
     expect(parseNativeProjectText(JSON.stringify(example))).toMatchObject({
       ok: false, reason: expect.stringMatching(/invalid/),
     });
+    const extended: SavedSession = { ...session, progression: {
+      ...progression, totalBars: 20,
+    } };
+    expect(parseNativeProjectText(serializeNativeProject(extended))).toEqual({
+      ok: true, session: extended,
+    });
     const sparse: SavedSession = { ...session, progression: {
       notes: [], chords: [], totalBars: 4,
     } };
