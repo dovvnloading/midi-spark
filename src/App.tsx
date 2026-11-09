@@ -167,8 +167,9 @@ export default function App() {
   const canExploreTakes = effectiveMelodySourceTrackIndex !== null &&
     (progression?.tracks?.filter(track => track.sourceTrackIndex === effectiveMelodySourceTrackIndex &&
       (track.generatedRole === "bass" || track.generatedRole === "harmony")).length ?? 0) === 2;
-  const validTakeBatch = takeBatch?.base === progression &&
-    takeBatch.sourceTrackIndex === effectiveMelodySourceTrackIndex ? takeBatch : null;
+  const validTakeBatch = melodySourceMode === "follow" && melodyTask === "harmonize" &&
+    takeBatch?.base === progression && takeBatch.sourceTrackIndex === effectiveMelodySourceTrackIndex
+    ? takeBatch : null;
   const previewTake = validTakeBatch && previewTakeIndex !== null
     ? validTakeBatch.takes[previewTakeIndex] ?? null : null;
   const displayProgression = previewTake?.progression ?? progression;
@@ -604,6 +605,72 @@ export default function App() {
     notify("Removed the chord guide. Undo restores it.", "info");
   }, [progression, effectiveMelodySourceTrackIndex, commit, notify]);
 
+  const handleExploreHarmonyTakes = useCallback(() => {
+    if (!progression || effectiveMelodySourceTrackIndex === null || !canExploreTakes) {
+      notify("Harmonize the selected melody once before comparing takes.", "error");
+      return;
+    }
+    const options = {
+      sourceTrackIndex: effectiveMelodySourceTrackIndex,
+      root, mode, tension: dissonance, harmonicFit, harmonyExploration,
+      phraseCoherence, density: accompanimentDensity, keyStrategy: melodyKeyStrategy,
+      harmonicPacing,
+      sourceScope: melodyPhraseScope,
+      sourceNoteIndices: [...selectedNoteIndices],
+      sourceLoopRange: loopRegion,
+    };
+    // A new click brings spontaneous material; each candidate itself has a
+    // fully reproducible seed, and all are computed against the same base.
+    const baseSeed = Math.floor(Math.random() * 0x100000000);
+    const seeds = Array.from({ length: 18 }, (_, i) =>
+      (baseSeed + Math.imul(i + 1, 0x9e3779b9)) >>> 0);
+    const result = generateHarmonyTakes(progression, options, seeds, 3);
+    if (!result.ok) { notify(result.reason, "error"); return; }
+    handleStop();
+    setLivePreview(null);
+    setTakeBatch({ base: progression, sourceTrackIndex: effectiveMelodySourceTrackIndex,
+      takes: result.takes });
+    setPreviewTakeIndex(0);
+    setFitRequest(n => n + 1);
+    notify("Found " + result.takes.length +
+      " structurally distinct harmony takes. Previewing Take 1; your original is untouched.", "success");
+  }, [progression, effectiveMelodySourceTrackIndex, canExploreTakes, root, mode, dissonance,
+    harmonicFit, harmonyExploration, phraseCoherence, accompanimentDensity,
+    melodyKeyStrategy, harmonicPacing, melodyPhraseScope, selectedNoteIndices,
+    loopRegion, handleStop, notify]);
+
+  const handleSelectHarmonyTake = useCallback((index: number | null) => {
+    if (!validTakeBatch || (index !== null &&
+      (!Number.isInteger(index) || index < 0 || index >= validTakeBatch.takes.length))) return;
+    handleStop();
+    setLivePreview(null);
+    setPreviewTakeIndex(index);
+    setFitRequest(n => n + 1);
+  }, [validTakeBatch, handleStop]);
+
+  const handleAcceptHarmonyTake = useCallback(() => {
+    if (!previewTake || !validTakeBatch) return;
+    handleStop();
+    commit(previewTake.progression);
+    if (melodyKeyStrategy === "detect") {
+      setRoot(previewTake.root);
+      setMode(previewTake.mode);
+    }
+    setTakeBatch(null);
+    setPreviewTakeIndex(null);
+    setSelectedNoteIndices(new Set());
+    setFitRequest(n => n + 1);
+    notify("Accepted the harmony take as one undoable edit. Your melody and track routing are preserved.", "success");
+  }, [previewTake, validTakeBatch, melodyKeyStrategy, handleStop, commit, notify]);
+
+  const handleDiscardHarmonyTakes = useCallback(() => {
+    handleStop();
+    setLivePreview(null);
+    setTakeBatch(null);
+    setPreviewTakeIndex(null);
+    notify("Discarded take previews. Your original working arrangement is unchanged.", "info");
+  }, [handleStop, notify]);
+
   /** New compositions are deliberately separate from melody-conditioned
    * generation: only this path can replace the entire project. */
   const generateScratch = useCallback(() => {
@@ -629,6 +696,10 @@ export default function App() {
     synthType, commit, notify, handleStop]);
 
   const handleGenerate = useCallback(() => {
+    if (previewTake) {
+      notify("Accept the preview or return to Original before regenerating.", "info");
+      return;
+    }
     if (melodySourceMode === "follow") {
       if (!progression || effectiveMelodySourceTrackIndex === null) {
         notify("Draw or import a melody, then choose its track.", "error");
@@ -738,7 +809,7 @@ export default function App() {
   }, [root, mode, dissonance, synthType, commit, notify, handleStop,
     progression, effectiveMelodySourceTrackIndex, melodySourceMode, harmonicFit, accompanimentDensity, melodyKeyStrategy,
     melodyTask, motifCreativity, continuationBars, trackMix, harmonicPacing,
-    harmonyExploration, phraseCoherence, melodyPhraseScope, selectedNoteIndices, loopRegion, generateScratch, hasExistingContent]);
+    harmonyExploration, phraseCoherence, melodyPhraseScope, selectedNoteIndices, loopRegion, generateScratch, hasExistingContent, previewTake]);
 
   const handleGenerateVariations = useCallback(() => {
     if (melodySourceMode === "follow") {
