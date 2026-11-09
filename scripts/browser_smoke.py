@@ -613,8 +613,10 @@ with sync_playwright() as p:
  guide_page=b.new_page(viewport={'width':1280,'height':800})
  guide_page.on('pageerror',lambda error:errors.append(str(error)))
  guide_page.goto(args.url)
- import_fixture(guide_page)
+ guide_page.get_by_role('button',name='Generate pattern',exact=True).last.click()
+ guide_page.wait_for_timeout(650)
  guide_source=snap(guide_page)['progression']
+ assert guide_source['totalBars']==4
  guide_page.get_by_role('tab',name='Compose',exact=True).click()
  guide_page.get_by_role('button',name='Follow melody',exact=True).click()
  guide_page.locator('.melody-advanced > summary').click()
@@ -626,10 +628,7 @@ with sync_playwright() as p:
  guide_page.get_by_role('button',name='Avoid chord',exact=True).click()
  guide_page.wait_for_timeout(550)
  guided_project=snap(guide_page)['progression']
- assert guided_project['harmonyConstraints']==[
-  {'sourceTrackIndex':0,'bar':1,'kind':'require','chord':'G'},
-  {'sourceTrackIndex':0,'bar':1,'kind':'avoid','chord':'C'},
- ] or sorted(guided_project['harmonyConstraints'],key=lambda g:g['kind'])==sorted([
+ assert sorted(guided_project['harmonyConstraints'],key=lambda g:g['kind'])==sorted([
   {'sourceTrackIndex':0,'bar':1,'kind':'require','chord':'G'},
   {'sourceTrackIndex':0,'bar':1,'kind':'avoid','chord':'C'},
  ],key=lambda g:g['kind'])
