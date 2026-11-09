@@ -1103,8 +1103,8 @@ with sync_playwright() as p:
  expect(melody_mobile.get_by_role('button',name='Continue melody',exact=False)).to_be_visible()
  record('390px melody workflow exposes task essentials and expandable advanced settings')
  melody_mobile.close()
- # Sample computed operational text, rather than assuming token declarations
- # are enough. Conservative background #303e37 is lighter than studio panels.
+ # Measure each label against the rendered neutral/earth surface it sits
+ # on, not a hard-coded dark-green backdrop from the previous theme.
  reading=b.new_page(viewport={'width':1440,'height':900},has_touch=True)
  reading.on('pageerror',lambda error:errors.append(str(error)))
  reading.goto(args.url)
@@ -1120,13 +1120,29 @@ with sync_playwright() as p:
   ];
   const linear=c=>{c=c/255;return c<=.04045?c/12.92:Math.pow((c+.055)/1.055,2.4)};
   const luminance=a=>.2126*linear(a[0])+.7152*linear(a[1])+.0722*linear(a[2]);
-  const background=luminance([48,62,55]);
+  const parse=value=>{
+    const match=value.match(/rgba?\(([^)]+)\)/);
+    return match?match[1].split(/[ ,/]+/).filter(Boolean).map(Number):null;
+  };
+  const surface=element=>{
+    for(let el=element;el instanceof HTMLElement;el=el.parentElement){
+      const css=getComputedStyle(el);
+      const solid=parse(css.backgroundColor);
+      if(solid && (solid[3]??1)>=0.98)return solid.slice(0,3);
+      // The inspector uses a subtle charcoal gradient: take its lighter
+      // first color stop as the conservative contrast background.
+      const gradient=parse(css.backgroundImage);
+      if(gradient && (gradient[3]??1)>=0.98)return gradient.slice(0,3);
+    }
+    return [215,217,213];
+  };
   return tests.map(([selector,minSize])=>{
    const el=document.querySelector(selector);
    if(!el)return {selector,missing:true};
-   const style=getComputedStyle(el),foreground=style.color.match(/[0-9.]+/g).slice(0,3).map(Number);
-   const fg=luminance(foreground);
-   return {selector,minSize,fontSize:parseFloat(style.fontSize),contrast:(Math.max(fg,background)+.05)/(Math.min(fg,background)+.05)};
+   const style=getComputedStyle(el),foreground=parse(style.color).slice(0,3);
+   const bg=surface(el), fg=luminance(foreground), backdrop=luminance(bg);
+   return {selector,minSize,fontSize:parseFloat(style.fontSize),background:bg,
+     contrast:(Math.max(fg,backdrop)+.05)/(Math.min(fg,backdrop)+.05)};
   });
  }""")
  assert all(not s.get('missing') and s['fontSize']>=s['minSize'] and s['contrast']>=4.5 for s in samples),samples
