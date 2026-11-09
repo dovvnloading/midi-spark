@@ -5,6 +5,7 @@ import { addTrack } from "./trackOperations";
 import { trackIndexOf } from "./tracks";
 import type { RandomSource } from "./random";
 import { resolveMelodyScope, type MelodyScopeOptions } from "./melodyScope";
+import { analyzePhraseStructure, scorePhraseStructure, type PhraseStructure } from "./phraseStructure";
 
 export type AccompanimentDensity = "sparse" | "balanced" | "active";
 export type MelodyKeyStrategy = "manual" | "detect";
@@ -25,12 +26,16 @@ export interface MelodyGenerationOptions extends MelodyScopeOptions {
   /** 0 uses the original deterministic Viterbi search; higher values explore
    * diverse near-best global paths within a bounded chord-fit loss. */
   harmonyExploration?: number;
+  /** 0 disables phrase cues. Higher values softly prefer thematic callbacks
+   * and melody-supported cadences among already credible harmony paths. */
+  phraseCoherence?: number;
 }
 
 export type MelodyGenerationResult =
   | { ok: true; progression: ProgressionData; root: string; mode: "major" | "minor";
       keyWasAmbiguous: boolean; usedDetectedKey: boolean; generatedTrackIndices: number[];
-      alternativesConsidered?: number; chordFitRetained?: number; changedChordRegions?: number }
+      alternativesConsidered?: number; chordFitRetained?: number; changedChordRegions?: number;
+      phraseEchoesConsidered?: number; phraseCadencesConsidered?: number }
   | { ok: false; reason: string };
 
 interface ChordCandidate {
@@ -329,6 +334,7 @@ function chooseDiverseHarmony(
   fit: number, tension: number, random: RandomSource,
   exploration: number, previousChords: readonly { name: string; timeStart: number; duration?: number }[],
   leftContext: ChordCandidate | null = null, rightContext: ChordCandidate | null = null,
+  structure: PhraseStructure | null = null, coherence = 0,
 ): { harmony: ChordCandidate[]; alternativesConsidered: number;
      chordFitRetained: number; changedChordRegions: number } {
   const beamWidth = 12;
@@ -393,6 +399,17 @@ function chooseDiverseHarmony(
     choice.coverage >= best.coverage - coverageBudget - 1e-8);
   const diversified: HarmonyPathChoice[] = [best];
   const remaining = credible.filter(choice => choice !== best);
+  // Form preference only reranks paths that already satisfy the *original*
+  // chord-score and melody-coverage budgets; it cannot admit bad fits.
+  const formScores = new Map<HarmonyPathChoice, number>();
+  const formPreference = (choice: HarmonyPathChoice): number => {
+    if (!structure || coherence <= 0) return 0;
+    const cached = formScores.get(choice);
+    if (cached !== undefined) return cached;
+    const score = scorePhraseStructure(choice.indices, candidates, regions, structure);
+    formScores.set(choice, score);
+    return score;
+  };
   // Farthest-first prevents a near-identical set of trivial inversions from
   // hiding musically distinct near-optimal harmonic options.
   while (diversified.length < selectionCount && remaining.length > 0) {
@@ -402,7 +419,8 @@ function chooseDiverseHarmony(
       const minimumDistance = Math.min(...diversified.map(p =>
         pathDistance(choice.indices, p.indices, candidates)));
       const scoreGap = (best.score - choice.score) / Math.max(scoreBudget, 0.01);
-      const value = 2 * minimumDistance - 0.22 * scoreGap;
+      const value = 2 * minimumDistance - 0.22 * scoreGap +
+        0.15 * coherence / 100 * formPreference(choice);
       if (minimumDistance > 0.015 && value > candidateValue) {
         candidateIndex = i; candidateValue = value;
       }
@@ -423,8 +441,11 @@ function chooseDiverseHarmony(
     ? diversified.filter(choice => changesFromPrevious(choice) > 0) : diversified;
 
   const temperature = 0.22 + 0.55 * explore;
-  const weights = candidatesToPick.map(choice => {
-    const quality = Math.exp((choice.score - best.score) / temperature);
+  const preferences = candidatesToPick.map(choice =>
+    choice.score + coherence / 100 * formPreference(choice));
+  const strongestPreference = Math.max(...preferences);
+  const weights = candidatesToPick.map((choice, i) => {
+    const quality = Math.exp((preferences[i] - strongestPreference) / temperature);
     const novelty = previousIsMeaningful
       ? 0.5 + 1.8 * changesFromPrevious(choice) / regions.length
       : 1;
@@ -679,6 +700,10 @@ export function generateFromMelody(
   if (!Number.isFinite(exploration) || exploration < 0 || exploration > 100) {
     return {ok: false, reason: "Harmony exploration must be between 0 and 100."};
   }
+  const coherence = options.phraseCoherence ?? 0;
+  if (!Number.isFinite(coherence) || coherence < 0 || coherence > 100) {
+    return {ok: false, reason: "Phrase coherence must be between 0 and 100."};
+  }
   if (!["sparse", "balanced", "active"].includes(options.density)) {
     return {ok: false, reason: "Choose a valid accompaniment density."};
   }
@@ -730,9 +755,12 @@ export function generateFromMelody(
     return chroma === null ? null :
       candidates.find(candidate => candidate.rootPc === chroma) ?? null;
   };
+  const structure = exploration > 0 && coherence > 0
+    ? analyzePhraseStructure(source, regions, Note.chroma(root) ?? 0, mode) : null;
   const explored = exploration > 0
     ? chooseDiverseHarmony(candidates, regions, options.harmonicFit, options.tension, random,
-      exploration, previousChords, matchContext(beforeRegion?.name), matchContext(afterRegion?.name))
+      exploration, previousChords, matchContext(beforeRegion?.name), matchContext(afterRegion?.name),
+      structure, coherence)
     : null;
   const selectedHarmony = explored?.harmony ??
     chooseHarmony(candidates, regions, options.harmonicFit, options.tension, random, previousChords);
@@ -778,6 +806,10 @@ export function generateFromMelody(
       alternativesConsidered: explored.alternativesConsidered,
       chordFitRetained: explored.chordFitRetained,
       changedChordRegions: explored.changedChordRegions,
+      ...(structure ? {
+        phraseEchoesConsidered: structure.echoes.length,
+        phraseCadencesConsidered: structure.endings.length,
+      } : {}),
     } : {}),
   };
 }
