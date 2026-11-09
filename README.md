@@ -96,6 +96,15 @@ around a phrase instead of generating an unrelated progression:
    Unlock a single chord, or use **Unlock all** under Advanced harmony. A locked
    half-bar keeps its two-beat window even when pacing is changed; incompatible
    key/tension settings produce a clear error rather than changing a lock.
+   The **Chord guide** in Advanced harmony also lets you **pin a new chord in
+   any bar**, before or after harmonization, or **exclude an unwanted chord**.
+   Pins force one full-bar chord even when harmonic pacing is set to two per
+   bar; exclusions filter candidate chords at every region inside the bar.
+   These constraints are exact and undoable: unsupported chords, clashes with
+   locks, and impossible exclusions yield clear errors instead of being
+   silently ignored. Guides follow their source melody track and survive
+   browser autosave. Unlike a chord padlock, a guide does not retain the
+   previous bass/harmony MIDI events when you generate again.
 3. **Choose the key strategy.** Use the root and mode from Compose, or select
    **Detect melody**. When key detection is uncertain, the app keeps the Compose
    key rather than presenting a guess as certain.
