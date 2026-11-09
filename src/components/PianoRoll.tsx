@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { Note } from "@tonaljs/tonal";
-import { Sparkles, Pencil } from "lucide-react";
+import { Sparkles, Pencil, LockKeyhole, LockOpen } from "lucide-react";
 import { ensureBarsCoverNotes } from "../lib/transforms";
 import { ProgressionData, NoteEvent, getScaleChromas } from "../lib/theory";
 import { initAudio, playNote } from "../lib/audio";
@@ -56,6 +56,7 @@ export interface PianoRollProps {
   isLooping: boolean;
   loopRegion: LoopRange | null;
   onLoopRegionChange: (range: LoopRange | null) => void;
+  onToggleChordLock: (index: number) => void;
   /** Bumped by the parent whenever a fresh sequence should re-center the view. */
   scrollAnchorKey: number;
   onSelectionChange: (indices: Set<number>) => void;
@@ -145,6 +146,7 @@ export function PianoRoll({
   isLooping,
   loopRegion,
   onLoopRegionChange,
+  onToggleChordLock,
   scrollAnchorKey,
   onSelectionChange,
   commit,
@@ -986,7 +988,26 @@ export function PianoRoll({
                     ><span aria-hidden="true" /></button>;
                   })}
                   <div className="chord-strip" aria-label="Chord progression">
-                    {progression.chords.map((chord, i) => <div key={i} className="chord-chip" style={{ left: chord.timeStart * zoomX, width: chord.duration * zoomX }}><span className="chord-dot" />{chord.name}</div>)}
+                    {progression.chords.map((chord, i) => chord.generatedSourceTrackIndex !== undefined
+                      ? <button key={i} type="button"
+                        className={"chord-chip chord-lock-toggle" + (chord.locked ? " is-locked" : "")}
+                        style={{ left: chord.timeStart * zoomX, width: chord.duration * zoomX }}
+                        data-testid={"chord-lock-" + i}
+                        aria-pressed={!!chord.locked}
+                        aria-label={(chord.locked ? "Unlock " : "Lock ") + chord.name +
+                          " at bar " + (Math.floor(chord.timeStart / 4) + 1)}
+                        title={(chord.locked ? "Unlock" : "Lock") + " chord and its generated accompaniment"}
+                        onPointerDown={event => event.stopPropagation()}
+                        onDoubleClick={event => event.stopPropagation()}
+                        onClick={event => { event.stopPropagation(); onToggleChordLock(i); }}>
+                        <span className="chord-dot" aria-hidden="true" />
+                        <span className="chord-name">{chord.name}</span>
+                        {chord.locked ? <LockKeyhole size={11} aria-hidden="true" />
+                          : <LockOpen size={11} aria-hidden="true" />}
+                      </button>
+                      : <div key={i} className="chord-chip"
+                        style={{ left: chord.timeStart * zoomX, width: chord.duration * zoomX }}>
+                        <span className="chord-dot" />{chord.name}</div>)}
                     {progression.chords.length === 0 && <span className="chord-chip" style={{ left: 0 }}>MIDI pattern</span>}
                   </div>
                 </div>
