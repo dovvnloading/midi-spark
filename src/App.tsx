@@ -212,6 +212,10 @@ export default function App() {
   const displayProgression = previewTake?.progression ?? progression;
   const displayRoot = previewTake?.root ?? root;
   const displayMode = previewTake?.mode ?? mode;
+  const canBuildSongForm = !!progression && (progression.totalBars === 4 ||
+    progression.totalBars === 8) && !progression.arrangementSections?.length &&
+    effectiveMelodySourceTrackIndex !== null && !previewTake &&
+    !(progression.sourceTimeSignatures?.some(meter => meter !== "4/4"));
   const trackMix = useMemo(
     () => reconcileTrackMix(progression, trackOverrides, synthType),
     [progression, trackOverrides, synthType],
@@ -727,6 +731,44 @@ export default function App() {
     setPreviewTakeIndex(null);
     notify("Cleared unsaved previews. The original and saved favorites remain unchanged.", "info");
   }, [handleStop, notify]);
+
+  const handleBuildSongForm = useCallback(() => {
+    if (!progression || effectiveMelodySourceTrackIndex === null || !canBuildSongForm) {
+      notify("Choose a four- or eight-bar idea without an existing song form first.", "info");
+      return;
+    }
+    const sourceTrackIndex = effectiveMelodySourceTrackIndex;
+    const harmonySettings = canExploreTakes ? {
+      sourceTrackIndex,
+      root, mode, tension: dissonance, harmonicFit, harmonyExploration,
+      phraseCoherence, density: accompanimentDensity,
+      keyStrategy: "manual" as const, harmonicPacing,
+    } : undefined;
+    const result = buildSongForm(progression, {
+      form: songForm, contrast: formContrast,
+      seed: Math.floor(Math.random() * 0x100000000),
+      sourceTrackIndex, harmonicOptions: harmonySettings,
+    });
+    if (!result.ok) { notify(result.reason, "error"); return; }
+    handleStop();
+    commit(result.progression);
+    setSavedTakeBank(null);
+    setTakeBatch(null);
+    setPreviewTakeIndex(null);
+    setSelectedNoteIndices(new Set());
+    setCurrentTick(0);
+    setLoopRegion(null);
+    setFitRequest(k => k + 1);
+    setScrollAnchorKey(k => k + 1);
+    setInspectorTab("compose");
+    setMobileInspectorOpen(false);
+    notify("Built " + result.progression.totalBars + "-bar " + songForm +
+      " form with thematic callbacks and a contrasting B section" +
+      (result.reharmonizedBridge ? " with fresh generated harmony." : "."), "success");
+  }, [progression, effectiveMelodySourceTrackIndex, canBuildSongForm,
+    canExploreTakes, root, mode, dissonance, harmonicFit, harmonyExploration,
+    phraseCoherence, accompanimentDensity, harmonicPacing,
+    songForm, formContrast, handleStop, commit, notify]);
 
   /** New compositions are deliberately separate from melody-conditioned
    * generation: only this path can replace the entire project. */
@@ -1365,6 +1407,10 @@ export default function App() {
           onToggle={toggleInspector} width={inspectorWidth} onResize={setInspectorWidth}
           compose={<Sidebar root={root} mode={mode} dissonance={dissonance} complexity={complexity} bars={bars} canVary={hasNotes}
             generationMode={generationMode} onGenerationModeChange={setGenerationMode}
+            songForm={songForm} onSongFormChange={setSongForm}
+            formContrast={formContrast} onFormContrastChange={setFormContrast}
+            canBuildSongForm={canBuildSongForm} onBuildSongForm={handleBuildSongForm}
+            arrangementSections={progression?.arrangementSections ?? []}
             melodySourceMode={melodySourceMode} onMelodySourceModeChange={setMelodySourceMode}
             melodyTracks={melodyTracks} melodyBarCount={progression?.totalBars ?? null}
             melodySourceTrackIndex={effectiveMelodySourceTrackIndex}
