@@ -1,4 +1,4 @@
-import { ArrowUpRight, AudioLines, Info, Layers, Music2, Shuffle, SlidersHorizontal, Sparkles } from "lucide-react";
+import { ArrowUpRight, AudioLines, Info, Layers, Music2, Shuffle, SlidersHorizontal } from "lucide-react";
 import { CustomDropdown } from "./CustomDropdown";
 import { SoundPicker } from "./SoundPicker";
 import { CustomSlider } from "./CustomSlider";
@@ -430,7 +430,6 @@ export function Sidebar(p: SidebarProps) {
           </div>
           <button className="secondary-button wide song-form-build" type="button"
             disabled={!p.canBuildSongForm} onClick={p.onBuildSongForm}>
-            <Sparkles size={15} aria-hidden="true" />
             Build {p.melodyBarCount && [4, 8].includes(p.melodyBarCount)
               ? p.melodyBarCount * 4 : 16}-bar song form
           </button>
@@ -456,7 +455,6 @@ export function Sidebar(p: SidebarProps) {
           disabled={p.previewTakeIndex !== null ||
             (p.melodySourceMode === "follow" && p.melodyTracks.length === 0)}
           onClick={p.onGenerate} aria-keyshortcuts="Control+g Meta+g">
-          <Sparkles size={17} strokeWidth={1.9} />
           <span>{p.melodySourceMode !== "follow" ? "Generate pattern"
             : p.melodyTask === "harmonize" ? "Harmonize melody"
               : p.melodyTask === "continue" ? "Continue melody" : "Reimagine melody"}</span>

@@ -1,5 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="7" fill="#111216"/>
-  <path d="M9 22.5V9.5l3.5 4 3.5-4v13" fill="none" stroke="#5e7cf6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M22.5 8.5l-2.4 5h3.8l-4.4 8 1.2-5.6h-3.2z" fill="#4aff9f"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>MIDI Spark</title>
+  <!-- The M monogram resolves into two ascending MIDI sequence steps.
+       No typeface, sparkles or fine lines that disappear at favicon size. -->
+  <rect width="64" height="64" rx="15" fill="#1b2b26"/>
+  <rect x="1.5" y="1.5" width="61" height="61" rx="13.5" fill="none" stroke="#638463" stroke-width="3"/>
+  <path d="M14 44V20L24 33L34 20V44" fill="none" stroke="#d8f2b5" stroke-width="5.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="41" y="31" width="6" height="13" rx="2" fill="#9dce85"/>
+  <rect x="50" y="21" width="6" height="23" rx="2" fill="#d8f2b5"/>
 </svg>
