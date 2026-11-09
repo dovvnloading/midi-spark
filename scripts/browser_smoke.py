@@ -42,6 +42,18 @@ with sync_playwright() as p:
  page=b.new_page(viewport={'width':1440,'height':900},device_scale_factor=1,has_touch=True)
  errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  page.goto(args.url);page.evaluate('document.fonts.ready')
+ # One vector ident must be used for browser tab, boot screen and studio header.
+ # Generation actions have no decorative sparkle (or replacement) icon.
+ icon_href=page.locator('link[rel="icon"]').get_attribute('href')
+ assert icon_href=='favicon.svg?v=2'
+ assert page.locator('.wordmark img.brand-mark').get_attribute('src')==icon_href
+ assert page.locator('.wordmark img.brand-mark').evaluate('(img)=>img.complete && img.naturalWidth>0')
+ assert page.request.get(args.url.rstrip('/')+'/'+icon_href).ok
+ assert page.locator('.generate-button svg').count()==0
+ assert page.locator('.empty-actions .primary-button svg').count()==0
+ assert page.locator('.song-form-build svg').count()==0
+ assert page.get_by_role('button',name='Generate pattern').count()>=1
+ record('MIDI ident matches favicon/header; all generation buttons are icon-free')
  # Primary sound choice must be visible without scrolling the desktop inspector.
  panel=page.locator('.inspector-panel:not([hidden])').bounding_box()
  trigger=page.locator('.sound-picker-trigger').first.bounding_box()
