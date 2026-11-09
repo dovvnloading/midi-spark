@@ -74,6 +74,38 @@ describe("saveSession / loadSession", () => {
     expect(loadSession()).toEqual(sampleSession);
   });
 
+  it("round-trips source-owned bar pins/exclusions and rejects malformed guides", () => {
+    const session: SavedSession = {
+      ...sampleSession,
+      progression: {
+        ...sampleProgression,
+        harmonyConstraints: [
+          { sourceTrackIndex: 0, bar: 0, kind: "require", chord: "Cmaj7" },
+          { sourceTrackIndex: 0, bar: 2, kind: "avoid", chord: "F" },
+          { sourceTrackIndex: 1, bar: 1, kind: "require", chord: "Am" },
+        ],
+      },
+    };
+    saveSession(session);
+    expect(loadSession()).toEqual(session);
+    for (const malformed of [
+      { sourceTrackIndex: 0, bar: -1, kind: "avoid", chord: "F" },
+      { sourceTrackIndex: 0, bar: 64, kind: "require", chord: "C" },
+      { sourceTrackIndex: 0, bar: 0, kind: "random", chord: "C" },
+      { sourceTrackIndex: 0, bar: 0, kind: "avoid", chord: "" },
+      { sourceTrackIndex: "0", bar: 0, kind: "require", chord: "C" },
+    ]) {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+        ...session, progression: {
+          ...session.progression, harmonyConstraints: [malformed],
+        },
+      }));
+      expect(loadSession()).toBeNull();
+    }
+    saveSession(sampleSession);
+    expect(loadSession()).toEqual(sampleSession);
+  });
+
   it("round-trips generated chord-region locks and rejects malformed lock ownership", () => {
     const withLock: SavedSession = {
       ...sampleSession,
