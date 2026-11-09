@@ -87,6 +87,7 @@ export default function App() {
   const [melodyPhraseScope, setMelodyPhraseScope] = useState<MelodySourceScope>(savedSession?.melodyPhraseScope ?? "track");
   const [harmonicFit, setHarmonicFit] = useState(savedSession?.harmonicFit ?? 82);
   const [harmonyExploration, setHarmonyExploration] = useState(savedSession?.harmonyExploration ?? 62);
+  const [phraseCoherence, setPhraseCoherence] = useState(savedSession?.phraseCoherence ?? 65);
   const [accompanimentDensity, setAccompanimentDensity] = useState<AccompanimentDensity>(savedSession?.accompanimentDensity ?? "balanced");
   const [harmonicPacing, setHarmonicPacing] = useState<HarmonicPacing>(savedSession?.harmonicPacing ?? "adaptive");
   const [melodyKeyStrategy, setMelodyKeyStrategy] = useState<MelodyKeyStrategy>(savedSession?.melodyKeyStrategy ?? "manual");
@@ -271,6 +272,7 @@ export default function App() {
         melodyPhraseScope,
         harmonicFit,
         harmonyExploration,
+        phraseCoherence,
         accompanimentDensity,
         harmonicPacing,
         melodyKeyStrategy,
@@ -302,6 +304,7 @@ export default function App() {
     melodyPhraseScope,
     harmonicFit,
     harmonyExploration,
+    phraseCoherence,
     accompanimentDensity,
     harmonicPacing,
     melodyKeyStrategy,
@@ -619,7 +622,7 @@ export default function App() {
       const result = generateFromMelody(progression, {
         ...selectionScope,
         sourceTrackIndex: effectiveMelodySourceTrackIndex,
-        root, mode, tension: dissonance, harmonicFit, harmonyExploration,
+        root, mode, tension: dissonance, harmonicFit, harmonyExploration, phraseCoherence,
         density: accompanimentDensity, keyStrategy: melodyKeyStrategy, harmonicPacing,
       });
       if (!result.ok) {
@@ -664,7 +667,7 @@ export default function App() {
   }, [root, mode, dissonance, synthType, commit, notify, handleStop,
     progression, effectiveMelodySourceTrackIndex, melodySourceMode, harmonicFit, accompanimentDensity, melodyKeyStrategy,
     melodyTask, motifCreativity, continuationBars, trackMix, harmonicPacing,
-    harmonyExploration, melodyPhraseScope, selectedNoteIndices, loopRegion, generateScratch, hasExistingContent]);
+    harmonyExploration, phraseCoherence, melodyPhraseScope, selectedNoteIndices, loopRegion, generateScratch, hasExistingContent]);
 
   const handleGenerateVariations = useCallback(() => {
     if (melodySourceMode === "follow") {
@@ -1068,6 +1071,7 @@ export default function App() {
             onMelodySourceTrackChange={setMelodySourceTrackIndex}
             harmonicFit={harmonicFit} onHarmonicFitChange={setHarmonicFit}
             harmonyExploration={harmonyExploration} onHarmonyExplorationChange={setHarmonyExploration}
+            phraseCoherence={phraseCoherence} onPhraseCoherenceChange={setPhraseCoherence}
             accompanimentDensity={accompanimentDensity} onAccompanimentDensityChange={setAccompanimentDensity}
             harmonicPacing={harmonicPacing} onHarmonicPacingChange={setHarmonicPacing}
             melodyKeyStrategy={melodyKeyStrategy} onMelodyKeyStrategyChange={setMelodyKeyStrategy}
