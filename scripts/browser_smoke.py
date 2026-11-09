@@ -41,6 +41,49 @@ def open_composer_group(page, selector):
   group.locator('summary').first.click()
  expect(group).to_have_attribute('open','')
 
+def assert_popup_topmost(page, selector, occluder=None):
+ """Check actual hit-testing and viewport coverage, not just CSS z-index."""
+ info=page.evaluate("""({selector,occluder}) => {
+  const menu=document.querySelector(selector);
+  if(!menu)return {error:'Missing overlay '+selector};
+  const box=menu.getBoundingClientRect();
+  const within=(x,y)=>{
+    const hit=document.elementFromPoint(x,y);
+    return !!hit && menu.contains(hit);
+  };
+  const samples=[.18,.5,.82].map(f=>({
+    x:Math.max(0,Math.min(innerWidth-1,box.left+box.width*.5)),
+    y:Math.max(0,Math.min(innerHeight-1,box.top+box.height*f)),
+  })).map(pt=>({...pt,onTop:within(pt.x,pt.y)}));
+  let overlap=null;
+  if(occluder){
+    const blocker=document.querySelector(occluder);
+    if(blocker){
+      const b=blocker.getBoundingClientRect();
+      const left=Math.max(box.left,b.left), right=Math.min(box.right,b.right);
+      const top=Math.max(box.top,b.top), bottom=Math.min(box.bottom,b.bottom);
+      if(right-left>5 && bottom-top>5){
+        const x=(left+right)/2,y=(top+bottom)/2;
+        overlap={x,y,onTop:within(x,y)};
+      }
+    }
+  }
+  return {
+    inBody:menu.parentElement===document.body,
+    panelZ:getComputedStyle(menu).zIndex,
+    bounds:{left:box.left,top:box.top,right:box.right,bottom:box.bottom},
+    viewport:{width:innerWidth,height:innerHeight},
+    samples,overlap,
+  };
+ }""",{'selector':selector,'occluder':occluder})
+ assert not info.get('error'),info
+ b=info['bounds'];w=info['viewport']['width'];h=info['viewport']['height']
+ assert info['inBody'] and float(info['panelZ'])>=150,info
+ assert b['left']>=7 and b['right']<=w-7 and b['top']>=7 and b['bottom']<=h-7,info
+ assert all(s['onTop'] for s in info['samples']),info
+ assert not info['overlap'] or info['overlap']['onTop'],info
+ return info
+
 def grid_point(page,midi,quarter):
  grid=page.get_by_test_id('piano-grid').bounding_box(); zoom=snap(page)['zoomX'];height=grid['height']/128
  return grid['x']+quarter*zoom,grid['y']+(127-midi+.5)*height
@@ -98,6 +141,56 @@ with sync_playwright() as p:
  page.get_by_role('button',name='Project menu').press('Escape')
  expect(page.get_by_role('button',name='Import MIDI')).not_to_be_visible()
  record('Focused composer keeps power tools folded while Project/View menus remain discoverable')
+ # Actual visual stacking/interaction at desktop, mobile and 200%-zoom-like
+ # viewports. Test over overlapping drawer/ruler pixels using elementFromPoint.
+ for w,h in ((1440,900),(720,450),(390,844),(320,740),(320,360)):
+  page.set_viewport_size({'width':w,'height':h})
+  page.wait_for_timeout(80)
+  drawer = w<=760
+  if drawer:
+   page.get_by_role('button',name='Toggle inspector',exact=True).click()
+   expect(page.locator('#studio-inspector')).to_have_class('inspector is-open')
+   page.wait_for_timeout(280)
+  page.get_by_role('button',name='Project menu',exact=True).click()
+  project_panel=page.locator('.floating-menu-panel.project-menu-content')
+  expect(project_panel).to_be_visible()
+  assert_popup_topmost(page,'.floating-menu-panel.project-menu-content',
+    '#studio-inspector' if drawer else '.editor-toolbar')
+  assert project_panel.get_by_role('button',name='Import MIDI').is_visible()
+  if h==360:
+   sizes=project_panel.evaluate('(el)=>({scroll:el.scrollHeight,visible:el.clientHeight})')
+   assert sizes['scroll']>sizes['visible']+10,sizes
+   project_panel.evaluate('(el)=>{el.scrollTop=el.scrollHeight;}')
+   page.wait_for_timeout(120)
+   assert project_panel.evaluate('(el)=>el.scrollTop')>10, 'Project menu cannot scroll on short viewport'
+   assert_popup_topmost(page,'.floating-menu-panel.project-menu-content',
+     '#studio-inspector' if drawer else '.editor-toolbar')
+  if w==390: page.screenshot(path=str(OUTPUT/'project-menu-mobile-layer.png'))
+  page.keyboard.press('Escape')
+  expect(project_panel).not_to_be_visible()
+  assert page.get_by_role('button',name='Project menu',exact=True).evaluate(
+    '(el)=>document.activeElement===el')
+  if drawer:
+   page.locator('.inspector-close').click()
+   page.wait_for_timeout(300)
+  page.get_by_role('button',name='Canvas view options',exact=True).click()
+  view_panel=page.locator('.floating-menu-panel.canvas-view-menu-content')
+  expect(view_panel).to_be_visible()
+  assert_popup_topmost(page,'.floating-menu-panel.canvas-view-menu-content',
+    '.piano-timeline' if page.locator('.piano-timeline').count() else '.piano-editor')
+  assert view_panel.get_by_role('button',name='Zoom in').is_visible()
+  if w==720: page.screenshot(path=str(OUTPUT/'view-menu-zoom-layer.png'))
+  page.keyboard.press('Escape')
+  expect(view_panel).not_to_be_visible()
+  assert page.get_by_role('button',name='Canvas view options',exact=True).evaluate(
+    '(el)=>document.activeElement===el')
+ page.set_viewport_size({'width':1440,'height':900})
+ page.get_by_role('button',name='Project menu').click()
+ expect(page.locator('.floating-menu-panel.project-menu-content')).to_be_visible()
+ page.get_by_role('heading',name='Piano roll').click()
+ expect(page.locator('.floating-menu-panel.project-menu-content')).not_to_be_visible()
+ record('Project/View menus stay topmost, in viewport, keyboard-accessible and dismiss correctly')
+
  # Primary sound choice must be visible without scrolling the desktop inspector.
  panel=page.locator('.inspector-panel:not([hidden])').bounding_box()
  trigger=page.locator('.sound-picker-trigger').first.bounding_box()

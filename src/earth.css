@@ -665,3 +665,31 @@ body { background: var(--app-bg); }
   .editor-main .active-tool-readout { display: none; }
   .editor-toolbar { row-gap: 4px; }
 }
+
+/* Shared floating-menu layer.
+ * Project/View are rendered in document.body, not under their header or
+ * toolbar stacking contexts. Their portals sit above the mobile inspector
+ * (60), sticky piano ruler (50), and transient toasts (120), but under the
+ * Sound Library (200) and native dialog top layer.
+ */
+.floating-menu-panel.project-menu-content,
+.floating-menu-panel.canvas-view-menu-content {
+  position: fixed;
+  inset: auto;
+  z-index: 180;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  max-height: calc(100dvh - 16px);
+  box-shadow: 0 18px 48px #1419197d;
+}
+.floating-menu-panel.project-menu-content {
+  background: #414848;
+  border: 1px solid #929c94;
+}
+.floating-menu-panel.canvas-view-menu-content {
+  background: #edefe9;
+  border: 1px solid #8b958a;
+}
