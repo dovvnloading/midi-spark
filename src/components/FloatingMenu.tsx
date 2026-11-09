@@ -23,7 +23,10 @@ export function FloatingMenu({
 }: FloatingMenuProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const dismissRef = useRef(onDismiss);
-  dismissRef.current = onDismiss;
+  // Keep current callbacks without reading or mutating React refs during render.
+  useLayoutEffect(() => {
+    dismissRef.current = onDismiss;
+  }, [onDismiss]);
 
   useLayoutEffect(() => {
     const panel = panelRef.current;
