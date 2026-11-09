@@ -1,0 +1,45 @@
+name: Import README screenshot refresh
+
+on:
+  push:
+    branches:
+      - docs/readme-refresh-2026-11
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  bring-in-current-browser-captures:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/readme-refresh-2026-11
+      - name: Download actual Chromium QA captures from latest main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 42700759239 --repo dovvnloading/midi-spark --name browser-review --dir /tmp/browser-review
+          test -s /tmp/browser-review/workbench-1440.png
+          test -s /tmp/browser-review/melody-follow.png
+      - name: Refresh documented gallery
+        run: |
+          cp /tmp/browser-review/workbench-1440.png docs/screenshots/desktop-editor.png
+          cp /tmp/browser-review/melody-follow.png docs/screenshots/melody-follow.png
+          cp /tmp/browser-review/transform-desktop.png docs/screenshots/note-lab.png
+          cp /tmp/browser-review/workbench-390.png docs/screenshots/mobile-piano-roll.png
+          cp /tmp/browser-review/mobile-inspector.png docs/screenshots/mobile-compose.png
+          cp /tmp/browser-review/touch-accessibility-390.png docs/screenshots/mobile-tracks.png
+          cp /tmp/browser-review/empty-desktop.png docs/screenshots/empty-state.png
+      - name: Commit screenshots to documentation branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots/
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: refresh screenshots from latest Chromium QA"
+            git push origin HEAD:docs/readme-refresh-2026-11
+          fi
