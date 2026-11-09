@@ -1048,7 +1048,7 @@ export function PianoRoll({
                           if (name) playNote(name);
                         }}
                         className={`piano-key absolute w-full border-b border-[var(--border-color)] flex items-center justify-end pr-1 text-[8px] font-mono hover:brightness-125 cursor-pointer active:brightness-90
-                        ${isBlack ? "bg-[#19211f] text-[var(--text-muted)]" : "bg-[var(--piano-white)] text-[var(--text-main)]"}
+                        ${isBlack ? "piano-key-black bg-[#19211f] text-[var(--text-muted)]" : "piano-key-white bg-[var(--piano-white)] text-[var(--text-main)]"}
                         ${isC ? "octave-key font-bold text-[var(--accent)] border-t border-[var(--border-color)]" : ""}
                         ${isInScale ? "shadow-[inset_0_0_0_999px_rgba(94,124,246,0.08)]" : ""}`}
                         style={{
