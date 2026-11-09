@@ -140,6 +140,19 @@ with sync_playwright() as playwright:
         {"selector":".precision-controls .select-field select","backdrop":".editor-toolbar"},
         {"selector":".sound-picker-trigger","backdrop":".inspector"},
     ])
+    # Native progressive disclosure is both keyboard-operable and truly
+    # hidden from the accessible interaction tree until explicitly expanded.
+    optional=desktop.locator(".expression-disclosure")
+    assert optional.get_attribute("open") is None
+    expect(desktop.get_by_role("slider",name="Chord tension")).not_to_be_visible()
+    summary=optional.locator("summary")
+    summary.focus()
+    summary.press("Enter")
+    expect(optional).to_have_attribute("open","")
+    expect(desktop.get_by_role("slider",name="Chord tension")).to_be_visible()
+    summary.press("Enter")
+    assert optional.get_attribute("open") is None
+    record("Keyboard disclosure exposes and hides precise music controls on demand")
     desktop.get_by_role("button",name="Preview sound: Classic Analog. Open sound library").click()
     expect(desktop.get_by_role("dialog",name="Sound library")).to_be_visible()
     contrast(desktop,"Sound library",[
