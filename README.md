@@ -89,7 +89,13 @@ around a phrase instead of generating an unrelated progression:
    set it to 0 for unconstrained alternatives. Phrase coherence applies when
    harmony exploration is above 0. The engine follows clear offbeat emphasis
    and favors arpeggio motion opposite a rising or falling lead, while
-   retaining seeded alternatives.
+   retaining seeded alternatives. Use the **padlock on a generated chord** in the
+   piano-roll chord lane to preserve that chord **and the existing bass/harmony
+   notes in its region**. Locking is undoable; the search constrains the next
+   harmonization to those exact chord labels and keeps their MIDI untouched.
+   Unlock a single chord, or use **Unlock all** under Advanced harmony. A locked
+   half-bar keeps its two-beat window even when pacing is changed; incompatible
+   key/tension settings produce a clear error rather than changing a lock.
 3. **Choose the key strategy.** Use the root and mode from Compose, or select
    **Detect melody**. When key detection is uncertain, the app keeps the Compose
    key rather than presenting a guess as certain.

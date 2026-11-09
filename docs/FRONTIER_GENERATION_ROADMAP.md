@@ -21,7 +21,8 @@
 
 ## M1 — Constraints that composers can trust
 
-- Lock any generated chord or region; add optional chord exclusions and user-specified harmonic anchors.
+- **Implemented (PR follow-up):** lock/unlock any generated chord region in the piano-roll chord lane, preserve its exact generated bass/harmony notes, require its chord in both harmonic search algorithms and persist the preference. Undo and scoped replacement remain safe; incompatible chords/timing return explicit errors.
+- **Remaining:** allow explicit chord exclusions and user-specified new harmonic anchors, beyond locking a preexisting generated chord.
 - Constrained sequence search must reject violating paths *before* scoring them, and say when constraints are impossible rather than silently disregarding them.
 - Support exact scoped infill between two locked regions, preserving all non-target notes, track IDs and mixer settings.
 

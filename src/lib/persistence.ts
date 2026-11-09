@@ -73,7 +73,8 @@ function isChordEvent(v: unknown): v is ChordEvent {
     typeof c.name === "string" &&
     isFiniteNumber(c.timeStart) &&
     isFiniteNumber(c.duration) &&
-    (c.generatedSourceTrackIndex === undefined || (Number.isInteger(c.generatedSourceTrackIndex) && (c.generatedSourceTrackIndex as number) >= 0))
+    (c.generatedSourceTrackIndex === undefined || (Number.isInteger(c.generatedSourceTrackIndex) && (c.generatedSourceTrackIndex as number) >= 0)) &&
+    (c.locked === undefined || (typeof c.locked === "boolean" && c.generatedSourceTrackIndex !== undefined))
   );
 }
 

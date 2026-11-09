@@ -556,6 +556,30 @@ with sync_playwright() as p:
  assert fast_pacing['progression']['notes'][:len(original['notes'])]==original['notes']
  assert fast_pacing['progression']['tracks']==source_tracks
  record('Explicit two-per-bar chords follow the timeline without changing the melody')
+ # Protect the second half of bar one; changing pacing must preserve that
+ # exact chord label and its existing bass/harmony note events.
+ lock_button=adaptive.get_by_test_id('chord-lock-1')
+ expect(lock_button).to_have_attribute('aria-pressed','false')
+ lock_button.click()
+ expect(lock_button).to_have_attribute('aria-pressed','true')
+ locked_snapshot=snap(adaptive)
+ locked_chord=locked_snapshot['progression']['chords'][1]
+ assert locked_chord['locked'] is True and locked_chord['timeStart']==2 and locked_chord['duration']==2
+ owned_indexes={t['index'] for t in source_tracks if t.get('generatedRole') in ('bass','harmony')}
+ locked_events=[n for n in locked_snapshot['progression']['notes'] if n.get('trackIndex') in owned_indexes
+                and 2<=n['timeStart']<4]
+ adaptive.get_by_role('button',name='Each bar',exact=True).click()
+ adaptive.get_by_role('button',name='Harmonize melody',exact=False).click()
+ adaptive.wait_for_timeout(650)
+ infilled=snap(adaptive)
+ assert any(c==locked_chord for c in infilled['progression']['chords'])
+ assert [n for n in infilled['progression']['notes'] if n.get('trackIndex') in owned_indexes
+         and 2<=n['timeStart']<4]==locked_events
+ assert infilled['progression']['notes'][:len(original['notes'])]==original['notes']
+ expect(adaptive.get_by_role('button',name='Unlock all 1 chord regions')).to_be_visible()
+ adaptive.get_by_role('button',name='Unlock all 1 chord regions').click()
+ assert all(not c.get('locked') for c in snap(adaptive)['progression']['chords'])
+ record('Chord locks preserve exact accompaniment through tempo-pacing changes and unlock safely')
  adaptive.get_by_role('button',name='Adaptive',exact=True).click()
  adaptive.get_by_role('button',name='Harmonize melody',exact=False).click()
  adaptive.wait_for_timeout(650)
