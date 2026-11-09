@@ -24,6 +24,9 @@ export interface ChordEvent {
   duration: number;
   /** Accompaniment labels can be replaced without removing user chords. */
   generatedSourceTrackIndex?: number;
+  /** Keep this generated chord region and its owned accompaniment notes when
+   * reharmonizing. This project metadata is not exported in standard MIDI. */
+  locked?: boolean;
 }
 
 export interface TrackMetadata {
