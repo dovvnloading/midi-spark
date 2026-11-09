@@ -114,6 +114,10 @@ describe("native track lifecycle", () => {
         {index: 1, name: "Generated Bass", channel: 1, generatedRole: "bass", sourceTrackIndex: 0},
       ],
       chords: [{name: "C", timeStart: 0, duration: 4, generatedSourceTrackIndex: 0}],
+      harmonyConstraints: [
+        {sourceTrackIndex: 0, bar: 0, kind: "require", chord: "C"},
+        {sourceTrackIndex: 1, bar: 0, kind: "avoid", chord: "F"},
+      ],
       totalBars: 1,
     };
     const detached = deleteTrack(source, 0);
@@ -121,6 +125,10 @@ describe("native track lifecycle", () => {
     expect(detached.notes[0].trackIndex).toBe(1);
     expect(detached.tracks).toEqual([{index: 1, name: "Generated Bass", channel: 1}]);
     expect(detached.chords).toEqual([]);
+    expect(detached.harmonyConstraints).toEqual([
+      {sourceTrackIndex: 1, bar: 0, kind: "avoid", chord: "F"},
+    ]);
+    expect(source.harmonyConstraints).toHaveLength(2);
     expect(source.tracks?.[1].generatedRole).toBe("bass");
   });
 
