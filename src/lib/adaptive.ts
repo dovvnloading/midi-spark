@@ -1,5 +1,5 @@
 import { Chord, Note, Scale } from "@tonaljs/tonal";
-import { MAJOR_INTERVALS, MINOR_INTERVALS, type NoteEvent, type ProgressionData, type TrackMetadata } from "./theory";
+import { MAJOR_INTERVALS, MINOR_INTERVALS, type ChordEvent, type NoteEvent, type ProgressionData, type TrackMetadata } from "./theory";
 import { analyzeKeyFromProgression } from "./keyAnalysis";
 import { addTrack } from "./trackOperations";
 import { trackIndexOf } from "./tracks";
@@ -203,6 +203,52 @@ function planHarmonicRegions(
   return regions;
 }
 
+/** Keep existing locked half/full-bar segmentation even when pacing changes.
+ * Reject malformed or overlapping locks rather than quietly discarding them. */
+function honorLockedRegions(
+  source: readonly NoteEvent[], bars: number, planned: readonly HarmonicRegion[],
+  locked: readonly ChordEvent[],
+): { ok: true; regions: HarmonicRegion[] } | { ok: false; reason: string } {
+  if (locked.length === 0) return { ok: true, regions: [...planned] };
+  const shape = new Map<number, 2 | 4>();
+  const ordered = [...locked].sort((a, b) => a.timeStart - b.timeStart);
+  const close = (a: number, b: number) => Math.abs(a - b) < 1 / 64;
+  for (let i = 0; i < ordered.length; i++) {
+    const chord = ordered[i];
+    const bar = Math.floor(chord.timeStart / 4);
+    const offset = chord.timeStart - bar * 4;
+    const kind: 2 | 4 | null = close(chord.duration, 4) && close(offset, 0) ? 4
+      : close(chord.duration, 2) && (close(offset, 0) || close(offset, 2)) ? 2
+      : null;
+    if (kind === null || bar < 0 || bar >= bars) {
+      return { ok: false, reason: "A locked chord has unsupported timing. Unlock it before regenerating." };
+    }
+    if (shape.has(bar) && shape.get(bar) !== kind) {
+      return { ok: false, reason: "Locked chord windows conflict within a bar. Unlock one before regenerating." };
+    }
+    if (i > 0 && chord.timeStart < ordered[i - 1].timeStart + ordered[i - 1].duration - 1e-8) {
+      return { ok: false, reason: "Locked chord windows overlap. Unlock one before regenerating." };
+    }
+    shape.set(bar, kind);
+  }
+  const whole = melodyWindows(source, bars);
+  const halves = melodyWindows(source, bars, 2);
+  const adjusted: HarmonicRegion[] = [];
+  for (let bar = 0; bar < bars; bar++) {
+    const kind = shape.get(bar);
+    if (kind === 4) {
+      adjusted.push({ timeStart: bar * 4, duration: 4, notes: whole[bar] });
+    } else if (kind === 2) {
+      adjusted.push({ timeStart: bar * 4, duration: 2, notes: halves[bar * 2] });
+      adjusted.push({ timeStart: bar * 4 + 2, duration: 2, notes: halves[bar * 2 + 1] });
+    } else {
+      adjusted.push(...planned.filter(region =>
+        region.timeStart >= bar * 4 && region.timeStart < (bar + 1) * 4));
+    }
+  }
+  return { ok: true, regions: adjusted };
+}
+
 function chordFit(chord: ChordCandidate, notes: readonly WeightedNote[], fit: number, tension: number): number {
   if (notes.length === 0) return 0;
   const total = notes.reduce((sum, note) => sum + note.weight, 0);
@@ -243,6 +289,7 @@ function chooseHarmony(
   candidates: readonly ChordCandidate[], regions: readonly HarmonicRegion[],
   fit: number, tension: number, random: RandomSource,
   previousChords: readonly { name: string; timeStart: number }[] = [],
+  requiredChords: readonly (number | null)[] = [],
 ): ChordCandidate[] {
   const rows: { score: number; prev: number }[][] = [];
   const freedom = (1 - clamp(fit, 0, 100) / 100) * 0.46 + 0.035;
@@ -251,6 +298,10 @@ function chooseHarmony(
     const row: { score: number; prev: number }[] = [];
     const lastAtStart = previousChords.find(chord => Math.abs(chord.timeStart - region.timeStart) < 1 / 64);
     for (let j = 0; j < candidates.length; j++) {
+      if (requiredChords[segment] != null && requiredChords[segment] !== j) {
+        row.push({ score: -Infinity, prev: -1 });
+        continue;
+      }
       const chord = candidates[j];
       const evidence = chordFit(chord, region.notes, fit, tension) * (region.duration === 2 ? 0.82 : 1);
       const explore = (random() - 0.5) * freedom;
@@ -335,6 +386,7 @@ function chooseDiverseHarmony(
   exploration: number, previousChords: readonly { name: string; timeStart: number; duration?: number }[],
   leftContext: ChordCandidate | null = null, rightContext: ChordCandidate | null = null,
   structure: PhraseStructure | null = null, coherence = 0,
+  requiredChords: readonly (number | null)[] = [],
 ): { harmony: ChordCandidate[]; alternativesConsidered: number;
      chordFitRetained: number; changedChordRegions: number } {
   const beamWidth = 12;
@@ -345,6 +397,10 @@ function chooseDiverseHarmony(
     const region = regions[segment];
     const row: HarmonyPathNode[][] = [];
     for (let j = 0; j < candidates.length; j++) {
+      if (requiredChords[segment] != null && requiredChords[segment] !== j) {
+        row.push([]);
+        continue;
+      }
       const chord = candidates[j];
       const evidence = chordFit(chord, region.notes, fit, tension) * (region.duration === 2 ? 0.82 : 1);
       const cadence = segment !== regions.length - 1 ? 0 :
@@ -473,6 +529,7 @@ function chooseDiverseHarmony(
 function mergeRedundantHalfBars(
   regions: readonly HarmonicRegion[], chords: readonly ChordCandidate[],
   pacing: HarmonicPacing,
+  lockedStarts: ReadonlySet<number> = new Set(),
 ): { regions: HarmonicRegion[]; chords: ChordCandidate[] } {
   if (pacing !== "adaptive") return { regions: [...regions], chords: [...chords] };
   const mergedRegions: HarmonicRegion[] = [];
@@ -482,6 +539,7 @@ function mergeRedundantHalfBars(
     const previous = mergedRegions.at(-1);
     const previousChord = mergedChords.at(-1);
     if (previous && previousChord?.name === chords[i].name &&
+      !lockedStarts.has(previous.timeStart) && !lockedStarts.has(current.timeStart) &&
       previous.duration === 2 && current.duration === 2 &&
       current.timeStart % 4 === 2 && current.timeStart === previous.timeStart + 2) {
       mergedRegions[mergedRegions.length - 1] = {
@@ -724,12 +782,37 @@ export function generateFromMelody(
     start: Math.floor(scoped.phraseStart / 4) * 4,
     end: Math.min(bars * 4, Math.ceil(scoped.phraseEnd / 4) * 4),
   };
-  const regions = planHarmonicRegions(source, bars, pacing, candidates, options.harmonicFit, options.tension)
-    .filter(region => !target || (region.timeStart >= target.start &&
-      region.timeStart + region.duration <= target.end));
+  const lockedChords = input.chords.filter(chord =>
+    chord.generatedSourceTrackIndex === trackIndex && chord.locked &&
+    (!target || (chord.timeStart < target.end &&
+      chord.timeStart + chord.duration > target.start)));
+  const planned = planHarmonicRegions(source, bars, pacing, candidates, options.harmonicFit, options.tension);
+  const honored = honorLockedRegions(source, bars, planned, lockedChords);
+  if (!honored.ok) return honored;
+  const regions = honored.regions.filter(region => !target ||
+    (region.timeStart >= target.start && region.timeStart + region.duration <= target.end));
   if (!regions.length) {
     return {ok: false, reason: "The chosen phrase is too short for a harmonic window."};
   }
+  const requiredChords: Array<number | null> = [];
+  for (const region of regions) {
+    const locked = lockedChords.find(chord =>
+      Math.abs(chord.timeStart - region.timeStart) < 1 / 64 &&
+      Math.abs(chord.duration - region.duration) < 1 / 64);
+    if (!locked) { requiredChords.push(null); continue; }
+    const index = candidates.findIndex(candidate => candidate.name === locked.name);
+    if (index < 0) {
+      return { ok: false, reason: "Locked chord " + locked.name +
+        " is not available in this key/tension. Change the settings or unlock it." };
+    }
+    requiredChords.push(index);
+  }
+  if (lockedChords.some(chord => !regions.some(region =>
+    Math.abs(chord.timeStart - region.timeStart) < 1 / 64 &&
+    Math.abs(chord.duration - region.duration) < 1 / 64))) {
+    return { ok: false, reason: "A locked chord is outside the selected phrase or has incompatible timing. Unlock it first." };
+  }
+  const lockedStarts = new Set(lockedChords.map(chord => chord.timeStart));
   const insideTarget = (start: number) => !target ||
     (start >= target.start && start < target.end);
   const previousChords = input.chords.filter(chord =>
@@ -760,11 +843,11 @@ export function generateFromMelody(
   const explored = exploration > 0
     ? chooseDiverseHarmony(candidates, regions, options.harmonicFit, options.tension, random,
       exploration, previousChords, matchContext(beforeRegion?.name), matchContext(afterRegion?.name),
-      structure, coherence)
+      structure, coherence, requiredChords)
     : null;
   const selectedHarmony = explored?.harmony ??
-    chooseHarmony(candidates, regions, options.harmonicFit, options.tension, random, previousChords);
-  const refined = mergeRedundantHalfBars(regions, selectedHarmony, pacing);
+    chooseHarmony(candidates, regions, options.harmonicFit, options.tension, random, previousChords, requiredChords);
+  const refined = mergeRedundantHalfBars(regions, selectedHarmony, pacing, lockedStarts);
 
   let working = input;
   const selectedTracks: number[] = [];
@@ -783,10 +866,15 @@ export function generateFromMelody(
   }
   const [bassIndex, harmonyIndex] = selectedTracks;
   const generated = new Set(selectedTracks);
-  const accompaniment = makeAccompaniment(source, refined.regions, refined.chords, bassIndex, harmonyIndex, options.density, random);
+  const isLockedOnset = (start: number) => lockedChords.some(chord =>
+    start >= chord.timeStart - 1e-8 && start < chord.timeStart + chord.duration - 1e-8);
+  const accompaniment = makeAccompaniment(source, refined.regions, refined.chords,
+    bassIndex, harmonyIndex, options.density, random)
+    .filter(note => !isLockedOnset(note.timeStart));
   const chords = refined.chords.map((chord, index) => ({
     name: chord.name, timeStart: refined.regions[index].timeStart, duration: refined.regions[index].duration,
     generatedSourceTrackIndex: trackIndex,
+    ...(lockedStarts.has(refined.regions[index].timeStart) ? { locked: true } : {}),
   }));
 
   return {
@@ -795,7 +883,7 @@ export function generateFromMelody(
       ...working,
       totalBars: Math.max(working.totalBars, bars),
       notes: [...working.notes.filter(note =>
-        !generated.has(trackIndexOf(note)) || !insideTarget(note.timeStart)), ...accompaniment],
+        !generated.has(trackIndexOf(note)) || !insideTarget(note.timeStart) || isLockedOnset(note.timeStart)), ...accompaniment],
       chords: [...working.chords.filter(chord =>
         chord.generatedSourceTrackIndex !== trackIndex || !insideTarget(chord.timeStart)), ...chords]
         .sort((a, b) => a.timeStart - b.timeStart),
