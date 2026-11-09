@@ -21,6 +21,8 @@ export interface PhraseEcho {
   laterStart: number;
   transposition: number;
   confidence: number;
+  /** Pre-aligned region indices; computed once so candidate scoring stays cheap. */
+  regionPairs: Array<{ earlier: number; later: number }>;
 }
 export interface PhraseEnding {
   regionIndex: number;
@@ -91,7 +93,21 @@ export function analyzePhraseStructure(
       };
       if (!strongest || candidate.confidence >= strongest.confidence) strongest = candidate;
     }
-    if (strongest) echoes.push(strongest);
+    if (strongest) {
+      const regionPairs: PhraseEcho["regionPairs"] = [];
+      for (let later = 0; later < regions.length; later++) {
+        const region = regions[later];
+        if (region.timeStart < strongest.laterStart ||
+          region.timeStart >= strongest.laterStart + 8) continue;
+        const earlierTick = strongest.earlierStart +
+          region.timeStart - strongest.laterStart + region.duration / 2;
+        const earlier = regions.findIndex(other =>
+          other.timeStart <= earlierTick + 1e-8 &&
+          other.timeStart + other.duration > earlierTick + 1e-8);
+        if (earlier >= 0) regionPairs.push({ earlier, later });
+      }
+      if (regionPairs.length) echoes.push({ ...strongest, regionPairs });
+    }
   }
 
   const tonicThird = mode === "major" ? 4 : 3;
@@ -130,18 +146,9 @@ export function scorePhraseStructure(
   let echoScore = 0, echoWeight = 0;
   for (const echo of structure.echoes) {
     let score = 0, count = 0;
-    for (let j = 0; j < regions.length; j++) {
-      const region = regions[j];
-      if (region.timeStart < echo.laterStart ||
-        region.timeStart >= echo.laterStart + 8) continue;
-      const matchingTime = echo.earlierStart +
-        (region.timeStart - echo.laterStart) + region.duration / 2;
-      const i = regions.findIndex(previous =>
-        previous.timeStart <= matchingTime + 1e-8 &&
-        previous.timeStart + previous.duration > matchingTime + 1e-8);
-      if (i < 0) continue;
-      const previous = candidates[indices[i]];
-      const current = candidates[indices[j]];
+    for (const { earlier, later } of echo.regionPairs) {
+      const previous = candidates[indices[earlier]];
+      const current = candidates[indices[later]];
       if (!previous || !current) continue;
       score += current.rootPc === pc(previous.rootPc + echo.transposition) ? 1 : -0.2;
       count++;
