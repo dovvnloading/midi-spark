@@ -102,6 +102,23 @@ the k-best sampler without changing imported melody notes, ownership or
 zero-exploration/zero-coherence behavior. The scores are heuristic, not a
 learned form model or proof of perceptual improvement.
 
+**Hard chord-region locks (M1):** a user can lock any generated chord from
+its chord lane. The lock belongs to the exact source track, start and duration
+and is persisted in browser sessions. For bar and half-bar chord windows, the
+harmonic planner honors locked timing even if the pacing selector changes.
+Before running Viterbi or the k-best optimizer, every locked region is checked
+for overlaps and for an exact chord-symbol match in the current key/tension
+candidate vocabulary. Impossible locks return a readable error without editing
+any tracks. Both optimizers exclude disallowed chord candidates *at the DP
+state*, never by rewriting the chosen chord after optimization. At generation,
+the original generated bass and harmony notes with attacks inside a locked
+window are reused by identity. Neighboring unlocked regions are regenerated,
+and adaptive merge never absorbs a locked half-bar. The original melody,
+other imported tracks, track ownership/mixer settings, and generated backing
+outside the selected scope remain untouched. Lock/unlock actions are individually
+undoable. Standard MIDI cannot round-trip these app-specific locks, so save in
+the browser for native behavior; exported notes remain conventional MIDI.
+
 For a selected or looped **middle phrase**, the search also scores its
 transition **from the already generated chord before the selected bars and
 into the already generated chord after them**. This avoids treating a local
