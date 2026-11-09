@@ -27,7 +27,9 @@ import { availableHarmonyChords, generateFromMelody, isAdaptiveTrack, type Accom
 import { generateMotif, type ContinuationBars } from "./lib/motif";
 import { toggleChordRegionLock, unlockChordRegions } from "./lib/chordLocks";
 import { addHarmonyGuide, removeHarmonyGuide } from "./lib/harmonyGuide";
-import { generateHarmonyTakes, type HarmonyTake } from "./lib/harmonyTakes";
+import { describeHarmonyDifference, generateHarmonyTakes, harmonyStructureSignature, type HarmonyTake } from "./lib/harmonyTakes";
+import { isCompatibleTakeBank, removeHarmonyFavorite, restoreHarmonyFavorite,
+  saveHarmonyFavorite, type SavedHarmonyTakeBank } from "./lib/takeLibrary";
 import type { MelodySourceScope } from "./lib/melodyScope";
 import { MAX_BPM, MIN_BPM, clamp } from "./lib/constants";
 import { normalizeLoopRange, sequenceEndQuarters, type LoopRange } from "./lib/timeline";
@@ -132,6 +134,8 @@ export default function App() {
   // Candidate takes are ephemeral and reference their exact editable base.
   // Preview never enters history, autosave or MIDI export until acceptance.
   const [takeBatch, setTakeBatch] = useState<HarmonyTakeBatch | null>(null);
+  const [savedTakeBank, setSavedTakeBank] = useState<SavedHarmonyTakeBank | null>(
+    savedSession?.savedHarmonyTakes ?? null);
   const [previewTakeIndex, setPreviewTakeIndex] = useState<number | null>(null);
   const [focusedTrack, setFocusedTrack] = useState<number | null>(null);
   const [trackOverrides, setTrackOverrides] = useState<TrackMix>(
@@ -167,11 +171,39 @@ export default function App() {
   const canExploreTakes = effectiveMelodySourceTrackIndex !== null &&
     (progression?.tracks?.filter(track => track.sourceTrackIndex === effectiveMelodySourceTrackIndex &&
       (track.generatedRole === "bass" || track.generatedRole === "harmony")).length ?? 0) === 2;
-  const validTakeBatch = melodySourceMode === "follow" && melodyTask === "harmonize" &&
+  const comparingHarmony = melodySourceMode === "follow" && melodyTask === "harmonize";
+  const validTakeBatch = comparingHarmony &&
     takeBatch?.base === progression && takeBatch.sourceTrackIndex === effectiveMelodySourceTrackIndex
     ? takeBatch : null;
-  const previewTake = validTakeBatch && previewTakeIndex !== null
-    ? validTakeBatch.takes[previewTakeIndex] ?? null : null;
+  // Only restore favorites for precisely the arrangement they were saved
+  // against. Any source edit, lock, guide or generated-note edit invalidates them.
+  // Preserve a compatible favorite bank when switching composition tabs or
+  // source selectors. Only edits to the actual working progression stale it.
+  const persistableTakeBank = useMemo(() => savedTakeBank &&
+    isCompatibleTakeBank(progression, savedTakeBank.sourceTrackIndex, savedTakeBank)
+    ? savedTakeBank : null, [progression, savedTakeBank]);
+  const validSavedTakeBank = comparingHarmony &&
+    persistableTakeBank?.sourceTrackIndex === effectiveMelodySourceTrackIndex
+    ? persistableTakeBank : null;
+  const takeChoices = useMemo(() => {
+    if (!progression || effectiveMelodySourceTrackIndex === null || !comparingHarmony) return [];
+    const choices: { take: HarmonyTake; savedId: string | null }[] = [];
+    const known = new Set<string>();
+    if (validSavedTakeBank) {
+      for (const favorite of validSavedTakeBank.favorites) {
+        const restored = restoreHarmonyFavorite(progression, validSavedTakeBank, favorite);
+        if (!restored) continue;
+        const signature = harmonyStructureSignature(restored.progression, effectiveMelodySourceTrackIndex);
+        if (!known.has(signature)) { choices.push({ take: restored, savedId: favorite.id }); known.add(signature); }
+      }
+    }
+    for (const take of validTakeBatch?.takes ?? []) {
+      const signature = harmonyStructureSignature(take.progression, effectiveMelodySourceTrackIndex);
+      if (!known.has(signature)) { choices.push({ take, savedId: null }); known.add(signature); }
+    }
+    return choices;
+  }, [progression, effectiveMelodySourceTrackIndex, comparingHarmony, validSavedTakeBank, validTakeBatch]);
+  const previewTake = previewTakeIndex === null ? null : takeChoices[previewTakeIndex]?.take ?? null;
   const displayProgression = previewTake?.progression ?? progression;
   const displayRoot = previewTake?.root ?? root;
   const displayMode = previewTake?.mode ?? mode;
@@ -318,6 +350,7 @@ export default function App() {
         trackMix,
         isLooping,
         loopRegion,
+        ...(persistableTakeBank ? { savedHarmonyTakes: persistableTakeBank } : {}),
       });
       setSaveState(saved ? "saved" : "unavailable");
     }, 400);
@@ -350,6 +383,7 @@ export default function App() {
     trackMix,
     isLooping,
     loopRegion,
+    persistableTakeBank,
   ]);
 
   // Keep the audio engine in sync with edits (including live drag previews),
@@ -362,15 +396,11 @@ export default function App() {
 
   // ----- Transport -----
 
-  const handlePlay = useCallback(async () => {
-    if (playbackStateRef.current === "paused") {
-      resumeAudio();
-      playbackStateRef.current = "playing";
-      isPlayingRef.current = true;
-      setPlaybackState("playing");
-      return;
-    }
-    if (playbackStateRef.current === "playing" || !displayProgression?.notes.length || startingAudio.current) return;
+  /** Shared browser-audio startup: normal Play and one-click A/B listening
+   * use the same callbacks, BPM, mixer and loop transport. An explicit score
+   * parameter prevents React state batching from auditioning the old take. */
+  const startScorePlayback = useCallback(async (score: ProgressionData, requestedTick: number) => {
+    if (!score.notes.length) return;
     const request = ++playRequest.current;
     startingAudio.current = true;
     try {
@@ -383,8 +413,8 @@ export default function App() {
       startingAudio.current = false;
     }
     if (request !== playRequest.current) return;
-    const endTick = sequenceEndQuarters(displayProgression);
-    let startTick = currentTick;
+    const endTick = sequenceEndQuarters(score);
+    let startTick = requestedTick;
     const range = normalizeLoopRange(loopRegion, endTick);
     if (isLoopingRef.current && (startTick < range.start || startTick >= range.end)) {
       startTick = range.start;
@@ -396,27 +426,34 @@ export default function App() {
     setPlaybackState("playing");
     playbackStateRef.current = "playing";
     isPlayingRef.current = true;
-    playProgression(
-      displayProgression,
-      bpm,
-      {
-        onTick: (tick) => {
-          if (!isScrubbingRef.current) {
-            setCurrentTick(isLoopingRef.current && sequenceEndRef.current > 0 ? tick % sequenceEndRef.current : tick);
-          }
-        },
-        onEnded: () => {
-          setPlaybackState("stopped");
-          playbackStateRef.current = "stopped";
-          isPlayingRef.current = false;
-          setCurrentTick(0);
-        },
+    playProgression(score, bpm, {
+      onTick: (tick) => {
+        if (!isScrubbingRef.current) {
+          setCurrentTick(isLoopingRef.current && sequenceEndRef.current > 0
+            ? tick % sequenceEndRef.current : tick);
+        }
       },
-      startTick,
-      isLoopingRef.current,
-      loopRegion,
-    );
-  }, [displayProgression, bpm, currentTick, loopRegion, notify]);
+      onEnded: () => {
+        setPlaybackState("stopped");
+        playbackStateRef.current = "stopped";
+        isPlayingRef.current = false;
+        setCurrentTick(0);
+      },
+    }, startTick, isLoopingRef.current, loopRegion);
+  }, [bpm, loopRegion, notify]);
+
+  const handlePlay = useCallback(async () => {
+    if (playbackStateRef.current === "paused") {
+      resumeAudio();
+      playbackStateRef.current = "playing";
+      isPlayingRef.current = true;
+      setPlaybackState("playing");
+      return;
+    }
+    if (playbackStateRef.current === "playing" || !displayProgression?.notes.length ||
+      startingAudio.current) return;
+    await startScorePlayback(displayProgression, currentTick);
+  }, [displayProgression, currentTick, startScorePlayback]);
 
   const handlePause = useCallback(() => {
     if (playbackStateRef.current !== "playing") return;
@@ -434,6 +471,23 @@ export default function App() {
     setCurrentTick(0);
     stopAudio();
   }, []);
+
+  /** One click switches and starts the selected source at a *common*
+   * comparison anchor. Stop cancels old scheduled notes first so a slower
+   * initialization from an earlier click cannot start the wrong take. */
+  const handleAuditionHarmonyTake = useCallback((index: number | null) => {
+    if (index !== null && (!Number.isInteger(index) || index < 0 || index >= takeChoices.length)) return;
+    const score = index === null ? progression : takeChoices[index]?.take.progression;
+    if (!score?.notes.length) return;
+    handleStop();
+    setLivePreview(null);
+    setPreviewTakeIndex(index);
+    setFitRequest(n => n + 1);
+    const range = normalizeLoopRange(loopRegion, sequenceEndQuarters(score));
+    const anchor = isLoopingRef.current ? range.start : 0;
+    setCurrentTick(anchor);
+    void startScorePlayback(score, anchor);
+  }, [takeChoices, progression, handleStop, loopRegion, startScorePlayback]);
 
   const toggleLooping = useCallback(() => {
     setIsLooping((prev) => {
@@ -626,30 +680,66 @@ export default function App() {
       (baseSeed + Math.imul(i + 1, 0x9e3779b9)) >>> 0);
     const result = generateHarmonyTakes(progression, options, seeds, 3);
     if (!result.ok) { notify(result.reason, "error"); return; }
+    const signatures = new Set((validSavedTakeBank?.favorites ?? []).flatMap(favorite => {
+      const take = validSavedTakeBank && restoreHarmonyFavorite(progression, validSavedTakeBank, favorite);
+      return take ? [harmonyStructureSignature(take.progression, effectiveMelodySourceTrackIndex)] : [];
+    }));
+    const fresh = result.takes.filter(take =>
+      !signatures.has(harmonyStructureSignature(take.progression, effectiveMelodySourceTrackIndex)));
+    if (!fresh.length) {
+      notify("No new take beyond your saved favorites. Try another exploration or loosen chord constraints.", "info");
+      return;
+    }
     handleStop();
     setLivePreview(null);
     setTakeBatch({ base: progression, sourceTrackIndex: effectiveMelodySourceTrackIndex,
-      takes: result.takes });
-    setPreviewTakeIndex(0);
+      takes: fresh });
+    setPreviewTakeIndex(validSavedTakeBank?.favorites.length ?? 0);
     setFitRequest(n => n + 1);
-    notify("Found " + result.takes.length +
-      " structurally distinct harmony takes. Previewing Take 1; your original is untouched.", "success");
+    notify("Found " + fresh.length +
+      " new harmony takes. Your original and saved favorites remain untouched.", "success");
   }, [progression, effectiveMelodySourceTrackIndex, canExploreTakes, root, mode, dissonance,
     harmonicFit, harmonyExploration, phraseCoherence, accompanimentDensity,
     melodyKeyStrategy, harmonicPacing, melodyPhraseScope, selectedNoteIndices,
-    loopRegion, handleStop, notify]);
+    loopRegion, handleStop, notify, validSavedTakeBank]);
 
   const handleSelectHarmonyTake = useCallback((index: number | null) => {
-    if (!validTakeBatch || (index !== null &&
-      (!Number.isInteger(index) || index < 0 || index >= validTakeBatch.takes.length))) return;
+    if ((index !== null && (!Number.isInteger(index) || index < 0 ||
+      index >= takeChoices.length)) || (!takeChoices.length && index !== null)) return;
     handleStop();
     setLivePreview(null);
     setPreviewTakeIndex(index);
     setFitRequest(n => n + 1);
-  }, [validTakeBatch, handleStop]);
+  }, [takeChoices, handleStop]);
+
+  const handleSaveHarmonyTake = useCallback(() => {
+    if (!previewTake || !progression || effectiveMelodySourceTrackIndex === null) return;
+    const result = saveHarmonyFavorite(progression, effectiveMelodySourceTrackIndex,
+      previewTake, validSavedTakeBank);
+    if (!result.ok) { notify(result.reason, "error"); return; }
+    if (result.alreadySaved) {
+      notify("This musical take is already in your saved favorites.", "info");
+      return;
+    }
+    const favoriteIndex = result.bank.favorites.findIndex(favorite => favorite.id === result.id);
+    handleStop();
+    setSavedTakeBank(result.bank);
+    setPreviewTakeIndex(favoriteIndex);
+    notify("Saved take favorite for this arrangement. Browser autosave will retain it across reloads.", "success");
+  }, [previewTake, progression, effectiveMelodySourceTrackIndex,
+    validSavedTakeBank, handleStop, notify]);
+
+  const handleRemoveHarmonyFavorite = useCallback((id: string) => {
+    if (!validSavedTakeBank || !validSavedTakeBank.favorites.some(favorite => favorite.id === id)) return;
+    handleStop();
+    setSavedTakeBank(removeHarmonyFavorite(validSavedTakeBank, id));
+    setPreviewTakeIndex(null);
+    setFitRequest(n => n + 1);
+    notify("Removed the saved favorite. The original arrangement was not changed.", "info");
+  }, [validSavedTakeBank, handleStop, notify]);
 
   const handleAcceptHarmonyTake = useCallback(() => {
-    if (!previewTake || !validTakeBatch) return;
+    if (!previewTake || !progression) return;
     handleStop();
     commit(previewTake.progression);
     if (melodyKeyStrategy === "detect") {
@@ -661,14 +751,14 @@ export default function App() {
     setSelectedNoteIndices(new Set());
     setFitRequest(n => n + 1);
     notify("Accepted the harmony take as one undoable edit. Your melody and track routing are preserved.", "success");
-  }, [previewTake, validTakeBatch, melodyKeyStrategy, handleStop, commit, notify]);
+  }, [previewTake, progression, melodyKeyStrategy, handleStop, commit, notify]);
 
   const handleDiscardHarmonyTakes = useCallback(() => {
     handleStop();
     setLivePreview(null);
     setTakeBatch(null);
     setPreviewTakeIndex(null);
-    notify("Discarded take previews. Your original working arrangement is unchanged.", "info");
+    notify("Cleared unsaved previews. The original and saved favorites remain unchanged.", "info");
   }, [handleStop, notify]);
 
   /** New compositions are deliberately separate from melody-conditioned
@@ -1235,12 +1325,22 @@ export default function App() {
             lockedChordCount={lockedChordCount} onUnlockAllChords={handleUnlockAllChords}
             harmonyGuides={harmonyGuides} availableHarmonyChords={harmonyChordChoices}
             onAddHarmonyGuide={handleAddHarmonyGuide} onRemoveHarmonyGuide={handleRemoveHarmonyGuide}
-            canExploreTakes={canExploreTakes} takeViews={validTakeBatch?.takes.map((take, i) => ({
-              label: "Take " + (i + 1), changedRegions: take.changedRegions,
-              chordSummary: take.chordSummary,
-            })) ?? []}
-            previewTakeIndex={validTakeBatch ? previewTakeIndex : null}
+            canExploreTakes={canExploreTakes}
+            takeViews={progression && effectiveMelodySourceTrackIndex !== null
+              ? takeChoices.map(({ take, savedId }, i) => {
+                const savedCount = takeChoices.filter(choice => !!choice.savedId).length;
+                return {
+                  label: savedId ? "Favorite " + (i + 1) : "Take " + (i - savedCount + 1),
+                  savedId,
+                  comparison: describeHarmonyDifference(progression, take.progression,
+                    effectiveMelodySourceTrackIndex),
+                  chordSummary: take.chordSummary,
+                };
+              }) : []}
+            previewTakeIndex={takeChoices.length ? previewTakeIndex : null}
             onExploreTakes={handleExploreHarmonyTakes} onSelectTake={handleSelectHarmonyTake}
+            onAuditionTake={handleAuditionHarmonyTake} onSaveTake={handleSaveHarmonyTake}
+            onRemoveSavedTake={handleRemoveHarmonyFavorite}
             onAcceptTake={handleAcceptHarmonyTake} onDiscardTakes={handleDiscardHarmonyTakes}
             accompanimentDensity={accompanimentDensity} onAccompanimentDensityChange={setAccompanimentDensity}
             harmonicPacing={harmonicPacing} onHarmonicPacingChange={setHarmonicPacing}

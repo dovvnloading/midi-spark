@@ -6,6 +6,7 @@ import { PRESET_IDS } from "./presets";
 import type { AccompanimentDensity, MelodyKeyStrategy, HarmonicPacing } from "./adaptive";
 import type { ContinuationBars } from "./motif";
 import type { MelodySourceScope } from "./melodyScope";
+import type { SavedHarmonyTakeBank, SavedHarmonyFavorite } from "./takeLibrary";
 
 /** Versioned so an incompatible future shape change can invalidate old saves
  *  cleanly (loadSession just won't find this key) instead of crashing on a
@@ -45,6 +46,8 @@ export interface SavedSession {
   /** Optional transport preferences; older v1 saves remain valid. */
   isLooping?: boolean;
   loopRegion?: LoopRange | null;
+  /** Explicitly saved Take Lab favorites; previews are never autosaved. */
+  savedHarmonyTakes?: SavedHarmonyTakeBank;
 }
 
 const SYNTH_TYPES: ReadonlySet<string> = PRESET_IDS;
@@ -144,6 +147,37 @@ function isProgressionData(v: unknown): v is ProgressionData {
   );
 }
 
+function isSavedFavorite(v: unknown, sourceTrackIndex: number): v is SavedHarmonyFavorite {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return false;
+  const t = v as Record<string, unknown>;
+  return typeof t.id === "string" && /^[a-zA-Z0-9-]{1,64}$/.test(t.id) &&
+    Number.isSafeInteger(t.seed) && (t.seed as number) >= 0 && (t.seed as number) < 0x100000000 &&
+    typeof t.root === "string" && t.root.length > 0 && t.root.length <= 8 &&
+    (t.mode === "major" || t.mode === "minor") &&
+    Number.isInteger(t.totalBars) && (t.totalBars as number) > 0 && (t.totalBars as number) <= 64 &&
+    Array.isArray(t.notes) && t.notes.length <= 10000 &&
+    t.notes.every(note => isNoteEvent(note) &&
+      Number.isInteger(note.midi) && note.midi >= 0 && note.midi <= 127 &&
+      note.timeStart >= 0 && note.duration > 0 && note.velocity >= 0 && note.velocity <= 1 &&
+      Number.isInteger(note.trackIndex) && (note.trackIndex ?? -1) >= 0) &&
+    Array.isArray(t.chords) && t.chords.length > 0 && t.chords.length <= 128 &&
+    t.chords.every(chord => isChordEvent(chord) &&
+      chord.generatedSourceTrackIndex === sourceTrackIndex &&
+      chord.timeStart >= 0 && chord.duration > 0 &&
+      chord.timeStart + chord.duration <= (t.totalBars as number) * 4 + 1e-8);
+}
+function isSavedHarmonyTakeBank(v: unknown): v is SavedHarmonyTakeBank {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return false;
+  const bank = v as Record<string, unknown>;
+  if (typeof bank.baseFingerprint !== "string" ||
+    !/^[0-9a-f]{8}:[0-9a-f]{8}:[0-9]+$/.test(bank.baseFingerprint) ||
+    !Number.isInteger(bank.sourceTrackIndex) || (bank.sourceTrackIndex as number) < 0 ||
+    !Array.isArray(bank.favorites) || bank.favorites.length > 4) return false;
+  const sourceTrackIndex = bank.sourceTrackIndex as number;
+  return bank.favorites.every(take => isSavedFavorite(take, sourceTrackIndex)) &&
+    new Set(bank.favorites.map(take => (take as SavedHarmonyFavorite).id)).size === bank.favorites.length;
+}
+
 function isValidSession(v: unknown): v is SavedSession {
   if (typeof v !== "object" || v === null) return false;
   const s = v as Record<string, unknown>;
@@ -180,7 +214,8 @@ function isValidSession(v: unknown): v is SavedSession {
     isFiniteNumber(s.zoomX) &&
     (s.trackMix === undefined || isTrackMix(s.trackMix)) &&
     (s.isLooping === undefined || typeof s.isLooping === "boolean") &&
-    (s.loopRegion === undefined || s.loopRegion === null || isLoopRange(s.loopRegion))
+    (s.loopRegion === undefined || s.loopRegion === null || isLoopRange(s.loopRegion)) &&
+    (s.savedHarmonyTakes === undefined || isSavedHarmonyTakeBank(s.savedHarmonyTakes))
   );
 }
 
@@ -204,7 +239,17 @@ export function loadSession(): SavedSession | null {
     const raw = localStorage.getItem(SESSION_STORAGE_KEY);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
-    return isValidSession(parsed) ? parsed : null;
+    if (isValidSession(parsed)) return parsed;
+    // A malformed optional favorite must never discard an otherwise valid
+    // original composition. Strip only that optional library and try again;
+    // corruption in the actual MIDI/session still fails closed as before.
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) &&
+      "savedHarmonyTakes" in parsed) {
+      const withoutFavorites: Record<string, unknown> = { ...parsed };
+      delete withoutFavorites.savedHarmonyTakes;
+      if (isValidSession(withoutFavorites)) return withoutFavorites;
+    }
+    return null;
   } catch {
     return null;
   }

@@ -115,13 +115,24 @@ around a phrase instead of generating an unrelated progression:
 5. **Compare before committing.** After the first harmonization, use **Take Lab →
    Explore 3 takes** to generate structurally distinct alternatives against the
    same unchanged project and current chord locks/guides. Click **Original** or
-   a numbered **Take** to inspect its notes in the piano roll, and press the
-   normal Play button to audition it with the same tempo, loop and mixer.
-   Previewed piano rolls are read-only, and neither autosave nor standard MIDI
-   export is changed until **Accept selected take** commits one undoable edit.
-   **Clear takes** returns to the working arrangement without any commit.
-   Candidate lists are session-only previews, not saved across reloads; when
-   constraints leave no meaningful variation the app reports that honestly.
+   a numbered **Take** to inspect its notes in the piano roll, or press its
+   **Listen** control to start playback in one click. **Previous / Next** starts
+   each comparison at the same loop-in point (or the beginning when not looping)
+   with the current tempo and mixer, making A/B listening more consistent.
+   Expand **What changed?** for a bar-by-bar chord-label comparison, the count
+   of changed bars, and bass/harmony note-count differences. These are
+   descriptive differences, **not** generated-music quality scores.
+   **Save favorite** retains up to four selected takes across browser reloads
+   while the original arrangement is unchanged. Favorites store only generated
+   bass/harmony notes and chord labels, not duplicate user melody tracks;
+   changing the base score invalidates old favorites rather than silently
+   transplanting them. Remove a favorite individually when no longer useful.
+   Previewed piano rolls are read-only, and only the **explicitly saved
+   favorites** enter browser autosave. Neither previews nor favorite snapshots
+   change exported MIDI until **Accept selected take** commits one undoable
+   edit. **Clear takes** discards fresh previews while leaving saved favorites
+   available. Unusual constraints may yield fewer takes or none rather than
+   fabricated novelty. Standard MIDI does not contain saved Take Lab metadata.
 6. **Try another harmonization.** Only the generated tracks for that source are
    replaced. Their IDs, channels, and mixer selections are retained, and Undo
    restores the previous result. Other user-owned tracks remain untouched.
