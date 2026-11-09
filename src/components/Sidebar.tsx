@@ -10,12 +10,20 @@ import type { AccompanimentDensity, MelodyKeyStrategy, HarmonicPacing } from "..
 import type { ContinuationBars } from "../lib/motif";
 import type { MelodySourceScope } from "../lib/melodyScope";
 import type { LoopRange } from "../lib/timeline";
-import type { HarmonyConstraint } from "../lib/theory";
+import type { HarmonyConstraint, ArrangementSection } from "../lib/theory";
+import type { SongForm } from "../lib/songForm";
 
 export interface SidebarProps {
   root: string; mode: "major" | "minor"; dissonance: number; complexity: number; bars: number; canVary: boolean;
   synthType: SynthType; multiTrack: boolean;
   generationMode: "single" | "layers";
+  songForm: SongForm;
+  onSongFormChange: (form: SongForm) => void;
+  formContrast: number;
+  onFormContrastChange: (value: number) => void;
+  canBuildSongForm: boolean;
+  onBuildSongForm: () => void;
+  arrangementSections: ArrangementSection[];
   melodySourceMode: "scratch" | "follow";
   melodyTracks: { index: number; name: string; noteCount: number }[];
   melodyBarCount: number | null;
@@ -395,6 +403,49 @@ export function Sidebar(p: SidebarProps) {
           </div>
           <p className="generation-hint">Two layers create separate, editable bass and harmony parts.</p>
         </section>}
+
+        <section className="field-section compose-section song-form-section">
+          <div className="section-heading">
+            <span className="section-heading-icon"><Layers size={15} /></span>
+            <h3>Song structure</h3>
+            <span className="section-index">FORM</span>
+          </div>
+          <p className="generation-hint">Grow a 4- or 8-bar musical idea into
+            a 16- or 32-bar composition. Keep the original phrase, introduce
+            a thematic variation, explore a contrasting bridge, then return.
+            The bridge can receive fresh melody-aware backing.</p>
+          <div className="field-heading"><h4>Section plan</h4></div>
+          <div className="generation-mode" role="group" aria-label="Song form">
+            <button type="button" aria-pressed={p.songForm === "AABA"}
+              onClick={() => p.onSongFormChange("AABA")}>A–A′–B–A</button>
+            <button type="button" aria-pressed={p.songForm === "ABAB"}
+              onClick={() => p.onSongFormChange("ABAB")}>A–B–A′–B</button>
+          </div>
+          <div className="expression-control">
+            <div className="field-heading"><h4>Section contrast</h4>
+              <output>{p.formContrast}<span>%</span></output></div>
+            <CustomSlider value={p.formContrast} min={0} max={100}
+              onChange={p.onFormContrastChange} label="Section contrast" />
+            <div className="range-captions"><span>Subtle development</span><span>Stronger contrast</span></div>
+          </div>
+          <button className="secondary-button wide song-form-build" type="button"
+            disabled={!p.canBuildSongForm} onClick={p.onBuildSongForm}>
+            <Sparkles size={15} aria-hidden="true" />
+            Build {p.melodyBarCount && [4, 8].includes(p.melodyBarCount)
+              ? p.melodyBarCount * 4 : 16}-bar song form
+          </button>
+          {!p.canBuildSongForm && p.arrangementSections.length === 0 &&
+            <p className="generation-hint">Start with a 4- or 8-bar pattern to enable
+              one-click song-form generation. Import or draw a melody first.</p>}
+          {p.arrangementSections.length > 0 && <ol className="song-form-sections"
+            aria-label="Current arrangement sections">
+            {p.arrangementSections.map((section, i) => <li key={i}>
+              <strong>{section.label}</strong>
+              <span>Bars {section.startBar + 1}–{section.startBar + section.bars}
+                {" · "}{section.role}</span>
+            </li>)}
+          </ol>}
+        </section>
       </div>
 
       <div className="compose-actions">

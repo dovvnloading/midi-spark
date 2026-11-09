@@ -966,6 +966,10 @@ export function PianoRoll({
                       style={{ left: `${i * 4 * zoomX}px` }}
                     >
                       {i + 1}
+                      {progression.arrangementSections?.find(section => section.startBar === i) &&
+                        <span className="song-form-marker">
+                          {progression.arrangementSections.find(section => section.startBar === i)?.label}
+                        </span>}
                     </div>
                   ))}
                   <div className={"loop-range-band" + (!isLooping ? " inactive" : "")}

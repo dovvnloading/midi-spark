@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { AlertTriangle, ArrowRight, X } from "lucide-react";
 
 export interface ReplaceProjectDialogProps {
-  operation: "import" | "generate";
+  operation: "import" | "generate" | "project";
   existingNotes: number;
   existingTracks: number;
   incomingSummary: string;
@@ -30,16 +30,18 @@ export function ReplaceProjectDialog({
   }, []);
 
   const importing = operation === "import";
+  const opening = operation === "project";
   return <dialog ref={dialogRef} className="replace-project-dialog"
     aria-labelledby="replace-project-heading" aria-describedby="replace-project-description"
     onCancel={event => { event.preventDefault(); onCancel(); }}>
     <div className="replace-project-heading">
       <span className="replace-project-warning"><AlertTriangle size={19} aria-hidden="true" /></span>
-      <h2 id="replace-project-heading">{importing ? "Replace current composition?" : "Start a new pattern?"}</h2>
+      <h2 id="replace-project-heading">{importing ? "Replace current composition?" : opening ? "Open native project?" : "Start a new pattern?"}</h2>
       <button className="icon-button" aria-label="Cancel replacement" onClick={onCancel}><X size={17} /></button>
     </div>
     <p id="replace-project-description">
       {importing ? "The imported MIDI will replace your current composition." :
+        opening ? "The project file will replace your current notes, instruments, locks, guides, saved takes, and studio settings." :
         "Generating from scratch will replace your current composition."}
     </p>
     <div className="replace-project-comparison">
@@ -49,14 +51,15 @@ export function ReplaceProjectDialog({
     </div>
     <p className="replace-project-caution">
       Notes can be restored with Undo, but track sound/mixer settings and the current
-      loop may not be restored. Export a MIDI backup first if you need to preserve this setup.
+      loop may not be restored. Save a native .midispark project backup first if you
+      need to preserve your full workspace.
     </p>
     <div className="replace-project-actions">
       <button ref={cancelRef} type="button" className="secondary-button" onClick={onCancel}>
         Keep current work
       </button>
       <button type="button" className="danger-action" onClick={onConfirm}>
-        {importing ? "Import and replace" : "Generate and replace"}
+        {importing ? "Import and replace" : opening ? "Open and replace" : "Generate and replace"}
       </button>
     </div>
   </dialog>;

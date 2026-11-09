@@ -209,6 +209,34 @@ committed. Unsaved candidates remain transient. Standard MIDI export does
 not include Take Lab favorites, and quotas can make browser autosave
 unavailable; the status bar reports failures rather than claiming storage.
 
+### 3b. First song-form planner and native project archive
+
+**Compose → Song structure** accepts a complete 4/8-bar MIDI idea and expands
+it deterministically into AABA or ABAB (16/32 bars). The original first
+section retains its exact NoteEvent and ChordEvent object identities. Reused
+sections create new events on the same track IDs, with A′ timing/dynamic
+development and a B contrasting perfect-fourth sequence. Section labels
+are first-class progression metadata and are rendered on the timeline.
+If the user has already generated source-owned Bass/Harmony, only the B
+section is reharmonized with the same scoped global chord search; the
+composer can therefore use the existing chord fit/tension/exploration
+controls while keeping other sections intact. Locks on the original do
+not automatically lock the new thematic copies; bar guides still refer
+to their original positions. Unsupported source meter, oversized bars,
+out-of-range transposition or notes overflowing the seed phrase reject
+the operation before any editor state is committed.
+
+A **versioned `.midispark` project** serializes the same validated session
+shape used by browser autosave, wrapped in a format/version discriminator.
+Unlike standard MIDI, it preserves original track and generated ownership
+metadata, selected instruments/mixer, transport preferences, constraints,
+song sections and explicitly saved Take Lab favorites. The parser rejects
+malformed/future archives before a confirmation dialog can replace the
+current workspace; a native import commits the entire score as one undoable
+operation. MIDI export remains conventional playable notes and General MIDI
+program information without application-specific metadata. The archive
+contains local project data only and requires no server upload.
+
 ### 4. Accompaniment
 
 Accompaniment uses one dedicated Bass track and one dedicated Harmony track.

@@ -332,6 +332,34 @@ not acoustic recordings or an identical sampled instrument library. Detailed
 patch and modulation choices, performance safeguards, and a critical listening
 checklist are documented in [Sound Design Engineering](docs/SOUND_DESIGN.md).
 
+### Native MIDI Spark projects and song form
+
+Use **More actions → Save MIDI Spark project** to download a versioned
+`.midispark` file, and **Open MIDI Spark project** (or drag-and-drop the file)
+to restore the editable studio. Unlike a conventional MIDI file, this archive
+retains original track IDs/programs/channels, generated-part ownership,
+chord locks and bar guides, form labels, mixer and synth preferences, loop,
+generation settings, and explicitly saved Take Lab favorites. The archive is
+human-readable JSON and stored locally; no MIDI data is uploaded. Invalid
+files and unsupported future versions are rejected before any music is
+replaced. Opening over a composition requires confirmation; the previous
+notes remain recoverable with Undo, but use a native backup to retain the
+previous non-undoable mixer and preferences.
+
+Under **Compose → Song structure**, expand a complete **4- or 8-bar** idea
+into an **A–A′–B–A** or **A–B–A′–B** composition of 16/32 bars. The first A
+section preserves its original notes, chords and track identity exactly.
+A′ develops the motif with small timing/dynamic changes, B sequences the
+theme up a perfect fourth, and the form returns to the theme. If Bass/Harmony
+were previously generated for a chosen melody, the B bridge is newly
+harmonized by the melody-aware search, not merely copied chords. The section
+outline and piano-roll ruler show the resulting form. The complete expansion
+is one undoable action. This first form planner uses **4/4** timing and
+currently refuses overlapping notes beyond the source phrase, high pitches
+that cannot be transposed, or an already expanded form rather than silently
+damaging MIDI. Use a native project to preserve the section markers; standard
+MIDI exports keep the playable notes but not the custom metadata.
+
 ### MIDI Import & Export
 
 * Drag & drop `.mid`/`.midi` files onto the app (or use **Load MIDI**)

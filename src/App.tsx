@@ -22,6 +22,8 @@ import {
   SynthType,
 } from "./lib/audio";
 import { exportToMidiBlob, parseMidiFile, unsupportedSourceMeters } from "./lib/midi";
+import { parseNativeProjectFile, serializeNativeProject, PROJECT_EXTENSION } from "./lib/projectFile";
+import { buildSongForm, type SongForm } from "./lib/songForm";
 import { availableHarmonyChords, generateFromMelody, isAdaptiveTrack, type AccompanimentDensity, type MelodyKeyStrategy,
   type HarmonicPacing } from "./lib/adaptive";
 import { generateMotif, type ContinuationBars } from "./lib/motif";
@@ -76,6 +78,7 @@ interface HarmonyTakeBatch {
 
 type PendingReplacement =
   | {kind: "import"; filename: string; parsed: ProgressionData; fileBpm: number | null}
+  | {kind: "project"; filename: string; session: SavedSession}
   | {kind: "generate"};
 
 export default function App() {
@@ -106,6 +109,8 @@ export default function App() {
   const [melodyTask, setMelodyTask] = useState<"harmonize" | "continue" | "reimagine">(savedSession?.melodyTask ?? "harmonize");
   const [motifCreativity, setMotifCreativity] = useState(savedSession?.motifCreativity ?? 46);
   const [continuationBars, setContinuationBars] = useState<ContinuationBars>(savedSession?.continuationBars ?? 4);
+  const [songForm, setSongForm] = useState<SongForm>(savedSession?.songFormPreference ?? "AABA");
+  const [formContrast, setFormContrast] = useState(savedSession?.formContrast ?? 65);
 
   // Transport / sound
   const [bpm, setBpm] = useState(savedSession?.bpm ?? 120);
@@ -207,6 +212,10 @@ export default function App() {
   const displayProgression = previewTake?.progression ?? progression;
   const displayRoot = previewTake?.root ?? root;
   const displayMode = previewTake?.mode ?? mode;
+  const canBuildSongForm = !!progression && (progression.totalBars === 4 ||
+    progression.totalBars === 8) && !progression.arrangementSections?.length &&
+    effectiveMelodySourceTrackIndex !== null && !previewTake &&
+    !(progression.sourceTimeSignatures?.some(meter => meter !== "4/4"));
   const trackMix = useMemo(
     () => reconcileTrackMix(progression, trackOverrides, synthType),
     [progression, trackOverrides, synthType],
@@ -319,72 +328,34 @@ export default function App() {
     setTrackMixer(trackMix);
   }, [trackMix]);
 
-  // Debounced autosave of the session so a hard reload can restore it.
+  // A single versioned session snapshot powers both local autosave and the
+  // explicit .midispark archive. Preview-only candidate notes never enter it.
+  const currentSession = useMemo<SavedSession>(() => ({
+    progression, root, mode, bpm, dissonance, complexity, bars,
+    generationMode, melodySourceMode, melodySourceTrackIndex, melodyPhraseScope,
+    harmonicFit, harmonyExploration, phraseCoherence, accompanimentDensity,
+    harmonicPacing, melodyKeyStrategy, melodyTask, motifCreativity,
+    continuationBars, songFormPreference: songForm, formContrast,
+    synthType, snapResolution, noteLength, zoomX, trackMix, isLooping, loopRegion,
+    ...(persistableTakeBank ? { savedHarmonyTakes: persistableTakeBank } : {}),
+  }), [
+    progression, root, mode, bpm, dissonance, complexity, bars,
+    generationMode, melodySourceMode, melodySourceTrackIndex, melodyPhraseScope,
+    harmonicFit, harmonyExploration, phraseCoherence, accompanimentDensity,
+    harmonicPacing, melodyKeyStrategy, melodyTask, motifCreativity,
+    continuationBars, songForm, formContrast,
+    synthType, snapResolution, noteLength, zoomX, trackMix, isLooping, loopRegion,
+    persistableTakeBank,
+  ]);
+
+  // Debounced autosave of the *same* data exported to a native file.
   useEffect(() => {
     autosaveTimeoutRef.current = setTimeout(() => {
-      const saved = saveSession({
-        progression,
-        root,
-        mode,
-        bpm,
-        dissonance,
-        complexity,
-        bars,
-        generationMode,
-        melodySourceMode,
-        melodySourceTrackIndex,
-        melodyPhraseScope,
-        harmonicFit,
-        harmonyExploration,
-        phraseCoherence,
-        accompanimentDensity,
-        harmonicPacing,
-        melodyKeyStrategy,
-        melodyTask,
-        motifCreativity,
-        continuationBars,
-        synthType,
-        snapResolution,
-        noteLength,
-        zoomX,
-        trackMix,
-        isLooping,
-        loopRegion,
-        ...(persistableTakeBank ? { savedHarmonyTakes: persistableTakeBank } : {}),
-      });
+      const saved = saveSession(currentSession);
       setSaveState(saved ? "saved" : "unavailable");
     }, 400);
     return () => clearTimeout(autosaveTimeoutRef.current);
-  }, [
-    progression,
-    root,
-    mode,
-    bpm,
-    dissonance,
-    complexity,
-    bars,
-    generationMode,
-    melodySourceMode,
-    melodySourceTrackIndex,
-    melodyPhraseScope,
-    harmonicFit,
-    harmonyExploration,
-    phraseCoherence,
-    accompanimentDensity,
-    harmonicPacing,
-    melodyKeyStrategy,
-    melodyTask,
-    motifCreativity,
-    continuationBars,
-    synthType,
-    snapResolution,
-    noteLength,
-    zoomX,
-    trackMix,
-    isLooping,
-    loopRegion,
-    persistableTakeBank,
-  ]);
+  }, [currentSession]);
 
   // Keep the audio engine in sync with edits (including live drag previews),
   // BPM changes, and loop toggles while the transport is running.
@@ -761,6 +732,43 @@ export default function App() {
     notify("Cleared unsaved previews. The original and saved favorites remain unchanged.", "info");
   }, [handleStop, notify]);
 
+  const handleBuildSongForm = useCallback(() => {
+    if (!progression || effectiveMelodySourceTrackIndex === null || !canBuildSongForm) {
+      notify("Choose a four- or eight-bar idea without an existing song form first.", "info");
+      return;
+    }
+    const sourceTrackIndex = effectiveMelodySourceTrackIndex;
+    const harmonySettings = canExploreTakes ? {
+      sourceTrackIndex,
+      root, mode, tension: dissonance, harmonicFit, harmonyExploration,
+      phraseCoherence, density: accompanimentDensity,
+      keyStrategy: "manual" as const, harmonicPacing,
+    } : undefined;
+    const result = buildSongForm(progression, {
+      form: songForm, contrast: formContrast,
+      seed: Math.floor(Math.random() * 0x100000000),
+      sourceTrackIndex, harmonicOptions: harmonySettings,
+    });
+    if (!result.ok) { notify(result.reason, "error"); return; }
+    handleStop();
+    commit(result.progression);
+    setTakeBatch(null);
+    setPreviewTakeIndex(null);
+    setSelectedNoteIndices(new Set());
+    setCurrentTick(0);
+    setLoopRegion(null);
+    setFitRequest(k => k + 1);
+    setScrollAnchorKey(k => k + 1);
+    setInspectorTab("compose");
+    setMobileInspectorOpen(false);
+    notify("Built " + result.progression.totalBars + "-bar " + songForm +
+      " form with thematic callbacks and a contrasting B section" +
+      (result.reharmonizedBridge ? " with fresh generated harmony." : "."), "success");
+  }, [progression, effectiveMelodySourceTrackIndex, canBuildSongForm,
+    canExploreTakes, root, mode, dissonance, harmonicFit, harmonyExploration,
+    phraseCoherence, accompanimentDensity, harmonicPacing,
+    songForm, formContrast, handleStop, commit, notify]);
+
   /** New compositions are deliberately separate from melody-conditioned
    * generation: only this path can replace the entire project. */
   const generateScratch = useCallback(() => {
@@ -934,6 +942,85 @@ export default function App() {
     notify("MIDI exported: notes and GM programs only. Browser synth sounds are not embedded in .mid files.", "success");
   }, [progression, bpm, root, mode, notify]);
 
+  const handleExportProject = useCallback(() => {
+    try {
+      const json = serializeNativeProject(currentSession);
+      const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "midi-spark-project" + PROJECT_EXTENSION;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      notify("Native project saved: MIDI, track ownership, mixer, chords, locks, song form and favorites.", "success");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Could not save the native project.", "error");
+    }
+  }, [currentSession, notify]);
+
+  /** Applying a native snapshot restores *settings as well as notes*. It
+   * occurs only after parsing and replacement confirmation, preserving the
+   * previous note score as one Undo history step. */
+  const applyImportedProject = useCallback((session: SavedSession, filename: string) => {
+    handleStop();
+    commit(session.progression);
+    setRoot(session.root);
+    setMode(session.mode);
+    setBpm(clamp(Math.round(session.bpm), MIN_BPM, MAX_BPM));
+    setDissonance(session.dissonance);
+    setComplexity(session.complexity);
+    setBars(session.bars);
+    setGenerationMode(session.generationMode ?? "single");
+    setMelodySourceMode(session.melodySourceMode ?? "scratch");
+    setMelodySourceTrackIndex(session.melodySourceTrackIndex ?? null);
+    setMelodyPhraseScope(session.melodyPhraseScope ?? "track");
+    setHarmonicFit(session.harmonicFit ?? 82);
+    setHarmonyExploration(session.harmonyExploration ?? 62);
+    setPhraseCoherence(session.phraseCoherence ?? 65);
+    setAccompanimentDensity(session.accompanimentDensity ?? "balanced");
+    setHarmonicPacing(session.harmonicPacing ?? "adaptive");
+    setMelodyKeyStrategy(session.melodyKeyStrategy ?? "manual");
+    setMelodyTask(session.melodyTask ?? "harmonize");
+    setMotifCreativity(session.motifCreativity ?? 46);
+    setContinuationBars(session.continuationBars ?? 4);
+    setSongForm(session.songFormPreference ?? "AABA");
+    setFormContrast(session.formContrast ?? 65);
+    setSynthTypeState(session.synthType);
+    setSynthType(session.synthType);
+    setTrackOverrides(session.trackMix ?? {});
+    setSnapResolution(session.snapResolution);
+    setNoteLength(session.noteLength);
+    setZoomX(session.zoomX);
+    setIsLooping(session.isLooping ?? true);
+    isLoopingRef.current = session.isLooping ?? true;
+    setLoopRegion(session.loopRegion ?? null);
+    setSavedTakeBank(session.savedHarmonyTakes ?? null);
+    setTakeBatch(null);
+    setPreviewTakeIndex(null);
+    setLivePreview(null);
+    setFocusedTrack(null);
+    setSelectedNoteIndices(new Set());
+    setCurrentTick(0);
+    setFitRequest(k => k + 1);
+    setScrollAnchorKey(k => k + 1);
+    setMobileInspectorOpen(false);
+    if (session.melodySourceMode === "follow") setInspectorTab("compose");
+    else if (session.progression && listTracks(session.progression).length > 1) setInspectorTab("tracks");
+    else setInspectorTab("compose");
+    notify("Opened " + filename + " with its editable tracks, studio settings and saved musical structure.", "success");
+  }, [handleStop, commit, notify]);
+
+  const loadProjectFile = useCallback(async (file: File) => {
+    const revision = ++importRevision.current;
+    const parsed = await parseNativeProjectFile(file);
+    if (revision !== importRevision.current) return;
+    if (!parsed.ok) { notify(parsed.reason, "error"); return; }
+    if (hasExistingContent) {
+      setPendingReplacement({ kind: "project", filename: file.name, session: parsed.session });
+    } else {
+      applyImportedProject(parsed.session, file.name);
+    }
+  }, [hasExistingContent, applyImportedProject, notify]);
+
   /** Parsing completes before replacing anything. Invalid files and Cancel
    * leave the entire in-memory score, track mixer and loop untouched. */
   const applyImportedMidi = useCallback((parsed: ProgressionData, fileBpm: number | null, fileName: string) => {
@@ -994,8 +1081,9 @@ export default function App() {
     setPendingReplacement(null);
     if (!request) return;
     if (request.kind === "import") applyImportedMidi(request.parsed, request.fileBpm, request.filename);
+    else if (request.kind === "project") applyImportedProject(request.session, request.filename);
     else generateScratch();
-  }, [pendingReplacement, applyImportedMidi, generateScratch]);
+  }, [pendingReplacement, applyImportedMidi, applyImportedProject, generateScratch]);
 
   // ----- Editing -----
 
@@ -1280,8 +1368,12 @@ export default function App() {
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
     const lower = file.name.toLowerCase();
+    if (lower.endsWith(PROJECT_EXTENSION)) {
+      await loadProjectFile(file);
+      return;
+    }
     if (!lower.endsWith(".mid") && !lower.endsWith(".midi")) {
-      notify("Only .mid and .midi files are supported.", "error");
+      notify("Drop a MIDI (.mid/.midi) file or a native .midispark project.", "error");
       return;
     }
     await loadMidiFile(file);
@@ -1298,7 +1390,7 @@ export default function App() {
   const displayedSynth = tracks.length === 1 ? trackMix[tracks[0].index]?.synthType ?? synthType : synthType;
   return (
     <div className={"workbench" + (!desktopInspectorOpen ? " inspector-collapsed" : "")} style={{ "--inspector-width": inspectorWidth + "px" } as CSSProperties} onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
-      {isDraggingMidi && <div className="file-drop-overlay"><Upload size={36} /><h2>Drop your MIDI here</h2><p>Your current pattern is recoverable with Undo.</p></div>}
+      {isDraggingMidi && <div className="file-drop-overlay"><Upload size={36} /><h2>Drop MIDI or .midispark project</h2><p>Native projects also restore mixer settings, chord guides, and song sections.</p></div>}
       <TransportBar isPlaying={isPlaying} isPaused={playbackState === "paused"} canPlay={hasNotes}
         canUndo={canUndo && !previewTake} canRedo={canRedo && !previewTake}
         isLooping={isLooping} bpm={bpm} currentTick={currentTick}
@@ -1306,12 +1398,18 @@ export default function App() {
         onLoadFile={loadMidiFile} onExport={() => previewTake
           ? notify("Accept the auditioned take before exporting its MIDI; this project is still unchanged.", "info")
           : handleExport()}
+        onLoadProject={loadProjectFile} onExportProject={handleExportProject}
+        canExportProject={progression !== null}
         onClearSavedSession={handleClearSavedSession} onOpenShortcuts={() => setShortcutsOpen(true)} onToggleInspector={toggleInspector} />
       <div className="workspace">
         <Inspector tab={inspectorTab} onTabChange={setInspectorTab} mobileOpen={mobileInspectorOpen} onClose={() => setMobileInspectorOpen(false)}
           onToggle={toggleInspector} width={inspectorWidth} onResize={setInspectorWidth}
           compose={<Sidebar root={root} mode={mode} dissonance={dissonance} complexity={complexity} bars={bars} canVary={hasNotes}
             generationMode={generationMode} onGenerationModeChange={setGenerationMode}
+            songForm={songForm} onSongFormChange={setSongForm}
+            formContrast={formContrast} onFormContrastChange={setFormContrast}
+            canBuildSongForm={canBuildSongForm} onBuildSongForm={handleBuildSongForm}
+            arrangementSections={progression?.arrangementSections ?? []}
             melodySourceMode={melodySourceMode} onMelodySourceModeChange={setMelodySourceMode}
             melodyTracks={melodyTracks} melodyBarCount={progression?.totalBars ?? null}
             melodySourceTrackIndex={effectiveMelodySourceTrackIndex}
@@ -1419,7 +1517,11 @@ export default function App() {
         incomingSummary={pendingReplacement.kind === "import"
           ? pendingReplacement.parsed.notes.length + " notes · " +
             listTracks(pendingReplacement.parsed).length + " tracks (" + pendingReplacement.filename + ")"
-          : bars + " bars · " + (generationMode === "layers" ? "Bass + Harmony" : "single track")}
+          : pendingReplacement.kind === "project"
+            ? (pendingReplacement.session.progression?.notes.length ?? 0) + " notes · " +
+              (pendingReplacement.session.progression ? listTracks(pendingReplacement.session.progression).length : 0) +
+              " tracks (" + pendingReplacement.filename + ")"
+            : bars + " bars · " + (generationMode === "layers" ? "Bass + Harmony" : "single track")}
         onCancel={() => setPendingReplacement(null)}
         onConfirm={confirmReplacement}
       />}

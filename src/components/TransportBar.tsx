@@ -5,10 +5,12 @@ export interface TransportBarProps {
   isPlaying: boolean; isPaused: boolean; canPlay: boolean; canUndo: boolean; canRedo: boolean; isLooping: boolean; bpm: number; currentTick: number;
   onPlay: () => void; onPause: () => void; onStop: () => void; onUndo: () => void; onRedo: () => void; onToggleLoop: () => void;
   onBpmChange: (value: number) => void; onLoadFile: (file: File) => void; onExport: () => void;
+  onLoadProject: (file: File) => void; onExportProject: () => void; canExportProject: boolean;
   onClearSavedSession: () => void; onOpenShortcuts: () => void; onToggleInspector: () => void;
 }
 export function TransportBar(p: TransportBarProps) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const projectRef = useRef<HTMLInputElement>(null);
   const moreRef = useRef<HTMLDetailsElement>(null);
   const [tempoDraft, setTempoDraft] = useState<string | null>(null);
   const commitTempo = (raw: string) => {
@@ -71,6 +73,11 @@ export function TransportBar(p: TransportBarProps) {
       <details className="project-menu" ref={moreRef} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}>
         <summary className="icon-button" aria-label="More actions"><MoreHorizontal size={18} /></summary>
         <div className="project-menu-content">
+          <button onClick={() => { moreRef.current!.open = false; projectRef.current?.click(); }}>
+            <Upload size={15} />Open MIDI Spark project</button>
+          <button onClick={() => { moreRef.current!.open = false; p.onExportProject(); }} disabled={!p.canExportProject}>
+            <Download size={15} />Save MIDI Spark project</button>
+          <p>Native .midispark projects preserve locks, guides, mixer, song sections, and saved takes.</p>
           <button onClick={() => { moreRef.current!.open = false; p.onOpenShortcuts(); }}><Keyboard size={15} />Keyboard shortcuts <kbd>?</kbd></button>
           <button onClick={() => { moreRef.current!.open = false; p.onToggleInspector(); }}><SlidersHorizontal size={15} />Toggle inspector</button>
           <button className="menu-danger" onClick={() => { moreRef.current!.open = false; p.onClearSavedSession(); }}><Trash2 size={15} />Clear browser autosave</button>
@@ -80,6 +87,11 @@ export function TransportBar(p: TransportBarProps) {
       <input type="file" accept=".mid,.midi" ref={fileRef} className="hidden" aria-label="Import MIDI file" onChange={event => {
         const file = event.target.files?.[0]; if (file) p.onLoadFile(file); event.target.value = "";
       }} />
+      <input type="file" accept=".midispark,application/json" ref={projectRef}
+        className="hidden" aria-label="Open MIDI Spark project file" onChange={event => {
+          const file = event.target.files?.[0]; if (file) p.onLoadProject(file);
+          event.target.value = "";
+        }} />
     </div>
   </header>;
 }

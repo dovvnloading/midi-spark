@@ -1,4 +1,4 @@
-import { ProgressionData, NoteEvent, ChordEvent, TrackMetadata, HarmonyConstraint } from "./theory";
+import { ProgressionData, NoteEvent, ChordEvent, TrackMetadata, HarmonyConstraint, type ArrangementSection } from "./theory";
 import type { TrackMix } from "./tracks";
 import type { LoopRange } from "./timeline";
 import type { SynthType } from "./audio";
@@ -37,6 +37,9 @@ export interface SavedSession {
   melodyTask?: "harmonize" | "continue" | "reimagine";
   motifCreativity?: number;
   continuationBars?: ContinuationBars;
+  /** Current future form-builder preferences; optional for legacy sessions. */
+  songFormPreference?: "AABA" | "ABAB";
+  formContrast?: number;
   synthType: SynthType;
   snapResolution: number;
   noteLength: number;
@@ -90,6 +93,16 @@ function isHarmonyConstraint(v: unknown): v is HarmonyConstraint {
     typeof c.chord === "string" && c.chord.length > 0 && c.chord.length <= 64;
 }
 
+function isArrangementSection(v: unknown): v is ArrangementSection {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return false;
+  const s = v as Record<string, unknown>;
+  return ["A", "A′", "B", "A (return)", "B (return)"].includes(String(s.label)) &&
+    ["theme", "variation", "contrast", "reprise"].includes(String(s.role)) &&
+    Number.isInteger(s.startBar) && (s.startBar as number) >= 0 &&
+    Number.isInteger(s.bars) && (s.bars as number) >= 1 && (s.bars as number) <= 16 &&
+    (s.startBar as number) + (s.bars as number) <= 64;
+}
+
 function isTrackMetadata(v: unknown): v is TrackMetadata {
   if (typeof v !== "object" || v === null) return false;
   const t = v as Record<string, unknown>;
@@ -128,6 +141,19 @@ function isLoopRange(v: unknown): v is LoopRange {
     range.start >= 0 && range.end >= range.start + 1;
 }
 
+function isArrangementSections(v: unknown, totalBars: unknown): v is ArrangementSection[] {
+  if (!Array.isArray(v) || v.length > 16) return false;
+  let end = 0;
+  for (const section of v) {
+    if (!isArrangementSection(section) || section.startBar !== end) return false;
+    end += section.bars;
+  }
+  // Editing may append bars after the last planned section. Keep the form
+  // markers as a valid prefix instead of invalidating the entire autosave.
+  return v.length === 0 || (typeof totalBars === "number" &&
+    Number.isInteger(totalBars) && end <= totalBars);
+}
+
 function isProgressionData(v: unknown): v is ProgressionData {
   if (typeof v !== "object" || v === null) return false;
   const p = v as Record<string, unknown>;
@@ -136,6 +162,8 @@ function isProgressionData(v: unknown): v is ProgressionData {
     p.notes.every(isNoteEvent) &&
     Array.isArray(p.chords) &&
     p.chords.every(isChordEvent) &&
+    (p.arrangementSections === undefined ||
+      isArrangementSections(p.arrangementSections, p.totalBars)) &&
     (p.harmonyConstraints === undefined ||
       (Array.isArray(p.harmonyConstraints) && p.harmonyConstraints.length <= 512 &&
         p.harmonyConstraints.every(isHarmonyConstraint))) &&
@@ -178,7 +206,8 @@ function isSavedHarmonyTakeBank(v: unknown): v is SavedHarmonyTakeBank {
     new Set(bank.favorites.map(take => (take as SavedHarmonyFavorite).id)).size === bank.favorites.length;
 }
 
-function isValidSession(v: unknown): v is SavedSession {
+/** Shared strict schema check for browser autosaves and native project archives. */
+export function isValidSession(v: unknown): v is SavedSession {
   if (typeof v !== "object" || v === null) return false;
   const s = v as Record<string, unknown>;
   return (
@@ -207,6 +236,8 @@ function isValidSession(v: unknown): v is SavedSession {
     (s.melodyTask === undefined || s.melodyTask === "harmonize" || s.melodyTask === "continue" || s.melodyTask === "reimagine") &&
     (s.motifCreativity === undefined || (isFiniteNumber(s.motifCreativity) && s.motifCreativity >= 0 && s.motifCreativity <= 100)) &&
     (s.continuationBars === undefined || s.continuationBars === 1 || s.continuationBars === 2 || s.continuationBars === 4 || s.continuationBars === 8) &&
+    (s.songFormPreference === undefined || s.songFormPreference === "AABA" || s.songFormPreference === "ABAB") &&
+    (s.formContrast === undefined || (isFiniteNumber(s.formContrast) && s.formContrast >= 0 && s.formContrast <= 100)) &&
     typeof s.synthType === "string" &&
     SYNTH_TYPES.has(s.synthType) &&
     isFiniteNumber(s.snapResolution) &&

@@ -41,6 +41,8 @@
 
 ## M3 — Hierarchical musical form + arrangements
 
+- **Implemented first form stage:** deterministic AABA/ABAB 16- or 32-bar expansion from an original 4/8-bar motif, with source-note identity protected, an A′ rhythmic/dynamic variation, a fourth-up B bridge, a thematic return and explicit section markers. When the source owns generated bass/harmony, the bridge is reharmonized with scoped harmonic search and the existing original section remains unchanged. Forms are 4/4-only and refuse unsupported material rather than inventing time-signature support.
+- **Next:** section-targeted regeneration, longer formal context beyond the initial theme and richer contrapuntal bass lines. These need listening evidence and polyphonic voice tracking.
 - Split harmonic planning into **phrase**, **section** and **voicing/texture** objectives. Develop A/A'/B themes with controllable contrast and meaningful cadences.
 - Add genuine bass counterline generation and voice-leading across phrase boundaries. Support rhythm families, motif reuse and sparse orchestration with editable part ownership.
 - For polyphonic sources, track lead voices through time instead of always selecting the highest note at each onset. Explicitly distinguish lead, bass and chordal evidence.
@@ -68,7 +70,8 @@
 ## Enablers (parallel)
 
 - Replace 4/4-only assumptions with a meter-aware internal timeline before claiming full MIDI interoperability (including 3/4, 6/8, pickups, triplets and tempo maps).
-- Define a native project archive for generated-role provenance, constraints and alternative takes; standard MIDI export alone cannot preserve every app-specific edit.
+- **Implemented:** versioned, explicit `.midispark` JSON project import/export including mixer/transport/preferences, ownership, locks, guides, section markers and saved Take Lab favorites. Validated before replacing projects; the existing v1 browser autosave remains compatible. Standard MIDI export intentionally remains notes/programs-only.
+- **Next:** optional multi-project library and revision history beyond the undo stack; native archives currently store a single project snapshot, not the entire history graph.
 - Maintain accessible, progressive controls: simple defaults, discoverable advanced parameters and one-click recovery/undo.
 
 ## Working principle

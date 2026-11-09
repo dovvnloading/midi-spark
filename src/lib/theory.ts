@@ -51,11 +51,21 @@ export interface TrackMetadata {
   sourceTrackIndex?: number;
 }
 
+/** Explicit long-form structure. Starts are measured on the fixed 4/4 editor grid. */
+export interface ArrangementSection {
+  label: "A" | "A′" | "B" | "A (return)" | "B (return)";
+  role: "theme" | "variation" | "contrast" | "reprise";
+  startBar: number;
+  bars: number;
+}
+
 export interface ProgressionData {
   notes: NoteEvent[];
   chords: ChordEvent[];
   /** Optional native-project constraints. Standard MIDI has no corresponding metadata. */
   harmonyConstraints?: HarmonyConstraint[];
+  /** Optional song-form markers for native project files and the editor. */
+  arrangementSections?: ArrangementSection[];
   totalBars: number;
   /** Original melodic-track headers; generated sessions may omit these. */
   tracks?: TrackMetadata[];

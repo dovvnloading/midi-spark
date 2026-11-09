@@ -889,3 +889,19 @@ button:disabled { opacity: .42; }
 .take-diff li { margin: 4px 0; }
 .take-remove { grid-column: 1 / -1; justify-self: start; min-height: 28px; font-size: 10px; }
 .take-actions .secondary-button { flex: 1; }
+
+/* A source-preserving, form-aware 16/32-bar composer with visible sections. */
+.song-form-section { padding-top: 4px; }
+.song-form-section .song-form-build { margin-top: 10px; }
+.song-form-section .song-form-build:disabled { opacity: .5; }
+.song-form-sections { display: flex; flex-direction: column; gap: 5px; margin: 11px 0 0;
+  padding: 0; list-style: none; }
+.song-form-sections li { display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; min-width: 0; padding: 8px 10px; background: #26382c;
+  border: 1px solid #435c49; border-radius: 6px; color: #d1e6d1; }
+.song-form-sections strong { color: #dbeead; font-size: 12px; min-width: 35px; }
+.song-form-sections span { color: #b8caba; font-size: 10px; text-align: right; }
+.song-form-marker { display: inline-block; vertical-align: middle; margin-left: 6px;
+  padding: 2px 4px; color: #ebf2c9; background: #476648;
+  border: 1px solid #85a677; border-radius: 4px; font-size: 9px;
+  font-weight: 700; letter-spacing: .1px; white-space: nowrap; }
