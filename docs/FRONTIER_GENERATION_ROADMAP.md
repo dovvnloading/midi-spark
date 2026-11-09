@@ -22,7 +22,8 @@
 ## M1 — Constraints that composers can trust
 
 - **Implemented (PR follow-up):** lock/unlock any generated chord region in the piano-roll chord lane, preserve its exact generated bass/harmony notes, require its chord in both harmonic search algorithms and persist the preference. Undo and scoped replacement remain safe; incompatible chords/timing return explicit errors.
-- **Remaining:** allow explicit chord exclusions and user-specified new harmonic anchors, beyond locking a preexisting generated chord.
+- **Implemented next:** add a source-scoped, undoable bar-level Chord guide for exact required chords and exclusions, with vocabulary checks, full-bar pin segmentation, conflict handling and persistent project metadata. Both Viterbi and diverse k-best search honor these hard states.
+- **Remaining:** dedicated half-bar authoring, multi-chord progression templates, user-entered borrowed symbols beyond the standard tension-based candidate palette, and better visualization of the impact of constraints. A/B candidate audition comes next.
 - Constrained sequence search must reject violating paths *before* scoring them, and say when constraints are impossible rather than silently disregarding them.
 - Support exact scoped infill between two locked regions, preserving all non-target notes, track IDs and mixer settings.
 
