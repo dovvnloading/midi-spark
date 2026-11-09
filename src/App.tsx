@@ -27,6 +27,7 @@ import { availableHarmonyChords, generateFromMelody, isAdaptiveTrack, type Accom
 import { generateMotif, type ContinuationBars } from "./lib/motif";
 import { toggleChordRegionLock, unlockChordRegions } from "./lib/chordLocks";
 import { addHarmonyGuide, removeHarmonyGuide } from "./lib/harmonyGuide";
+import { generateHarmonyTakes, type HarmonyTake } from "./lib/harmonyTakes";
 import type { MelodySourceScope } from "./lib/melodyScope";
 import { MAX_BPM, MIN_BPM, clamp } from "./lib/constants";
 import { normalizeLoopRange, sequenceEndQuarters, type LoopRange } from "./lib/timeline";
@@ -64,6 +65,12 @@ import { PianoRoll } from "./components/PianoRoll";
 import { ShortcutHelp } from "./components/ShortcutHelp";
 import { StatusToast, type Notice, type NoticeKind } from "./components/StatusToast";
 import { ReplaceProjectDialog } from "./components/ReplaceProjectDialog";
+
+interface HarmonyTakeBatch {
+  base: ProgressionData;
+  sourceTrackIndex: number;
+  takes: HarmonyTake[];
+}
 
 type PendingReplacement =
   | {kind: "import"; filename: string; parsed: ProgressionData; fileBpm: number | null}
@@ -122,6 +129,10 @@ export default function App() {
   const [selectedNoteIndices, setSelectedNoteIndices] = useState<Set<number>>(
     new Set(),
   );
+  // Candidate takes are ephemeral and reference their exact editable base.
+  // Preview never enters history, autosave or MIDI export until acceptance.
+  const [takeBatch, setTakeBatch] = useState<HarmonyTakeBatch | null>(null);
+  const [previewTakeIndex, setPreviewTakeIndex] = useState<number | null>(null);
   const [focusedTrack, setFocusedTrack] = useState<number | null>(null);
   const [trackOverrides, setTrackOverrides] = useState<TrackMix>(
     savedSession?.trackMix ?? {},
@@ -153,6 +164,16 @@ export default function App() {
       ? [{ index, guide }] : []), [progression, effectiveMelodySourceTrackIndex]);
   const harmonyChordChoices = useMemo(() => availableHarmonyChords(root, mode, dissonance),
     [root, mode, dissonance]);
+  const canExploreTakes = effectiveMelodySourceTrackIndex !== null &&
+    (progression?.tracks?.filter(track => track.sourceTrackIndex === effectiveMelodySourceTrackIndex &&
+      (track.generatedRole === "bass" || track.generatedRole === "harmony")).length ?? 0) === 2;
+  const validTakeBatch = takeBatch?.base === progression &&
+    takeBatch.sourceTrackIndex === effectiveMelodySourceTrackIndex ? takeBatch : null;
+  const previewTake = validTakeBatch && previewTakeIndex !== null
+    ? validTakeBatch.takes[previewTakeIndex] ?? null : null;
+  const displayProgression = previewTake?.progression ?? progression;
+  const displayRoot = previewTake?.root ?? root;
+  const displayMode = previewTake?.mode ?? mode;
   const trackMix = useMemo(
     () => reconcileTrackMix(progression, trackOverrides, synthType),
     [progression, trackOverrides, synthType],
@@ -223,7 +244,7 @@ export default function App() {
   const playRequest = useRef(0);
   const startingAudio = useRef(false);
   const sequenceEndRef = useRef(0);
-  useEffect(() => { sequenceEndRef.current = progression ? sequenceEndQuarters(progression) : 0; }, [progression]);
+  useEffect(() => { sequenceEndRef.current = displayProgression ? sequenceEndQuarters(displayProgression) : 0; }, [displayProgression]);
   // Shrinking the musical pattern cannot leave a saved custom loop out of bounds.
   useEffect(() => {
     if (!progression || !loopRegion) return;
@@ -333,10 +354,10 @@ export default function App() {
   // Keep the audio engine in sync with edits (including live drag previews),
   // BPM changes, and loop toggles while the transport is running.
   useEffect(() => {
-    if (playbackState !== "stopped" && progression) {
-      updateProgressionLive(livePreview ?? progression, bpm, isLooping, loopRegion);
+    if (playbackState !== "stopped" && displayProgression) {
+      updateProgressionLive(livePreview ?? displayProgression, bpm, isLooping, loopRegion);
     }
-  }, [progression, livePreview, bpm, playbackState, isLooping, loopRegion]);
+  }, [displayProgression, livePreview, bpm, playbackState, isLooping, loopRegion]);
 
   // ----- Transport -----
 
@@ -348,7 +369,7 @@ export default function App() {
       setPlaybackState("playing");
       return;
     }
-    if (playbackStateRef.current === "playing" || !progression?.notes.length || startingAudio.current) return;
+    if (playbackStateRef.current === "playing" || !displayProgression?.notes.length || startingAudio.current) return;
     const request = ++playRequest.current;
     startingAudio.current = true;
     try {
@@ -361,7 +382,7 @@ export default function App() {
       startingAudio.current = false;
     }
     if (request !== playRequest.current) return;
-    const endTick = sequenceEndQuarters(progression);
+    const endTick = sequenceEndQuarters(displayProgression);
     let startTick = currentTick;
     const range = normalizeLoopRange(loopRegion, endTick);
     if (isLoopingRef.current && (startTick < range.start || startTick >= range.end)) {
@@ -375,7 +396,7 @@ export default function App() {
     playbackStateRef.current = "playing";
     isPlayingRef.current = true;
     playProgression(
-      progression,
+      displayProgression,
       bpm,
       {
         onTick: (tick) => {
@@ -394,7 +415,7 @@ export default function App() {
       isLoopingRef.current,
       loopRegion,
     );
-  }, [progression, bpm, currentTick, loopRegion, notify]);
+  }, [displayProgression, bpm, currentTick, loopRegion, notify]);
 
   const handlePause = useCallback(() => {
     if (playbackStateRef.current !== "playing") return;
