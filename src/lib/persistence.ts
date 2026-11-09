@@ -37,6 +37,9 @@ export interface SavedSession {
   melodyTask?: "harmonize" | "continue" | "reimagine";
   motifCreativity?: number;
   continuationBars?: ContinuationBars;
+  /** Current future form-builder preferences; optional for legacy sessions. */
+  songFormPreference?: "AABA" | "ABAB";
+  formContrast?: number;
   synthType: SynthType;
   snapResolution: number;
   noteLength: number;
@@ -227,6 +230,8 @@ export function isValidSession(v: unknown): v is SavedSession {
     (s.melodyTask === undefined || s.melodyTask === "harmonize" || s.melodyTask === "continue" || s.melodyTask === "reimagine") &&
     (s.motifCreativity === undefined || (isFiniteNumber(s.motifCreativity) && s.motifCreativity >= 0 && s.motifCreativity <= 100)) &&
     (s.continuationBars === undefined || s.continuationBars === 1 || s.continuationBars === 2 || s.continuationBars === 4 || s.continuationBars === 8) &&
+    (s.songFormPreference === undefined || s.songFormPreference === "AABA" || s.songFormPreference === "ABAB") &&
+    (s.formContrast === undefined || (isFiniteNumber(s.formContrast) && s.formContrast >= 0 && s.formContrast <= 100)) &&
     typeof s.synthType === "string" &&
     SYNTH_TYPES.has(s.synthType) &&
     isFiniteNumber(s.snapResolution) &&
