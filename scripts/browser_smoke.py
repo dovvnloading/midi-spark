@@ -268,6 +268,7 @@ with sync_playwright() as p:
  record('Focused-track transpose changes only visible notes')
  page.get_by_role('combobox',name='Edit track',exact=True).select_option('2')
  expect(page.get_by_role('button',name='Apply quantize',exact=True)).to_be_disabled()
+ open_composer_group(page,'.transform-more-disclosure')
  expect(page.get_by_role('button',name='Apply humanize',exact=True)).to_be_disabled()
  assert snap(page)['progression']['notes']==after
  record('Empty-track transforms are disabled, never affect hidden notes')
@@ -276,6 +277,7 @@ with sync_playwright() as p:
  record('Focused track is visible and All-tracks drawing target is explicit')
  page.get_by_role('tab',name='Tracks',exact=True).click()
  bass_strip=page.locator('section.track-strip').filter(has_text='Bass').first
+ bass_strip.locator('.track-settings-disclosure > summary').click()
  bass_strip.locator('.sound-picker-trigger').click()
  page.get_by_role('button',name='Bass',exact=True).click()
  page.get_by_role('searchbox',name='Search presets').fill('digital bass')
@@ -283,12 +285,14 @@ with sync_playwright() as p:
  page.locator('.sound-library-select').filter(has_text='Digital Bass').click()
  page.wait_for_timeout(550)
  assert snap(page)['trackMix']['1']['synthType']=='fmBass'
- expect(page.get_by_text('Browser sound only',exact=False).first).to_be_visible()
+ expect(page.get_by_text('Browser playback sound',exact=False).first).to_be_visible()
  expect(page.get_by_text('GM program 34',exact=False).first).to_be_visible()
  record('Track picker discloses browser-only sound and exported GM instrument program')
  record('Track mixer chooses independent expanded presets with audition')
  page.get_by_role('button',name='Mute Bass',exact=True).click();assert snap(page)['trackMix']['1']['muted']
  page.get_by_role('button',name='Solo Keys',exact=True).click();assert snap(page)['trackMix']['0']['solo']
+ keys_strip=page.locator('section.track-strip').filter(has_text='Keys').first
+ keys_strip.locator('.track-settings-disclosure > summary').click()
  page.get_by_role('slider',name='Keys volume',exact=True).fill('35');assert snap(page)['trackMix']['0']['level']==.35
  record('Track mute, solo and volume persist without altering MIDI notes')
  page.get_by_role('button',name='Play pattern',exact=True).click();page.wait_for_timeout(600)
@@ -417,6 +421,7 @@ with sync_playwright() as p:
  drawn=snap(page)['progression']
  assert len([n for n in drawn['notes'] if n['trackIndex']==2])==1
  record('Adding an empty track focuses a new lane and drawing writes to it')
+ page.locator('section.track-strip').filter(has_text='Track 3').first.locator('.track-settings-disclosure > summary').click()
  page.get_by_role('button',name='Rename Track 3',exact=True).click()
  page.get_by_role('textbox',name='New track name').fill('Melody')
  page.get_by_role('textbox',name='New track name').press('Enter')
@@ -425,6 +430,7 @@ with sync_playwright() as p:
  duplicated=snap(page)['progression']
  assert duplicated['tracks'][-1]['name']=='Melody copy'
  assert len([n for n in duplicated['notes'] if n['trackIndex']==3])==1
+ page.locator('section.track-strip').filter(has_text='Melody copy').first.locator('.track-settings-disclosure > summary').click()
  page.get_by_role('button',name='Delete Melody copy',exact=True).click()
  expect(page.get_by_role('alertdialog',name='Delete Melody copy confirmation')).to_be_visible()
  page.get_by_role('button',name='Delete track',exact=True).click()
