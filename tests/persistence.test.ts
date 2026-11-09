@@ -173,7 +173,9 @@ describe("saveSession / loadSession", () => {
       localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
         ...sampleSession, savedHarmonyTakes: item,
       }));
-      expect(loadSession()).toBeNull();
+      // Losing a damaged optional take library must not discard the user's
+      // valid original MIDI composition or settings.
+      expect(loadSession()).toEqual(sampleSession);
     }
     // v1 sessions saved before Take Lab remain fully compatible.
     saveSession(sampleSession);
