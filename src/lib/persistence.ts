@@ -148,7 +148,10 @@ function isArrangementSections(v: unknown, totalBars: unknown): v is Arrangement
     if (!isArrangementSection(section) || section.startBar !== end) return false;
     end += section.bars;
   }
-  return v.length === 0 || end === totalBars;
+  // Editing may append bars after the last planned section. Keep the form
+  // markers as a valid prefix instead of invalidating the entire autosave.
+  return v.length === 0 || (typeof totalBars === "number" &&
+    Number.isInteger(totalBars) && end <= totalBars);
 }
 
 function isProgressionData(v: unknown): v is ProgressionData {
