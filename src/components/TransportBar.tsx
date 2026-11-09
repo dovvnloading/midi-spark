@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, Play, Pause, Square, Repeat2, Undo2, Redo2, Upload, Keyboard, Trash2, MoreHorizontal, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, Download, FolderOpen, Play, Pause, Square, Repeat2, Undo2, Redo2, Upload, Keyboard, Trash2, SlidersHorizontal } from "lucide-react";
 import { MIN_BPM, MAX_BPM } from "../lib/constants";
 export interface TransportBarProps {
   isPlaying: boolean; isPaused: boolean; canPlay: boolean; canUndo: boolean; canRedo: boolean; isLooping: boolean; bpm: number; currentTick: number;
@@ -68,11 +68,15 @@ export function TransportBar(p: TransportBarProps) {
       <div className="history-actions"><button className="icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo" title="Undo (Ctrl/⌘ Z)"><Undo2 size={17} /></button>
         <button className="icon-button" onClick={p.onRedo} disabled={!p.canRedo} aria-label="Redo" title="Redo (Ctrl/⌘ Shift Z)"><Redo2 size={17} /></button></div>
       <span className="control-divider history-divider" />
-      <button className="secondary-button import-button" onClick={() => fileRef.current?.click()} aria-label="Import MIDI"><Upload size={15} /><span>Import</span></button>
-      <button className="primary-button export-button" onClick={p.onExport} disabled={!p.canPlay} aria-label="Export MIDI" title="Export editable MIDI notes and General MIDI programs; browser synth sounds are not embedded"><Download size={15} /><span>Export MIDI</span></button>
+       <button className="primary-button export-button" onClick={p.onExport} disabled={!p.canPlay} aria-label="Export MIDI" title="Export editable MIDI notes and General MIDI programs; browser synth sounds are not embedded"><Download size={15} /><span>Export MIDI</span></button>
       <details className="project-menu" ref={moreRef} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}>
-        <summary className="icon-button" aria-label="More actions"><MoreHorizontal size={18} /></summary>
+        <summary className="secondary-button project-menu-trigger" aria-label="Project menu">
+          <FolderOpen size={16} aria-hidden="true" /><span>Project</span>
+          <ChevronDown size={13} aria-hidden="true" />
+        </summary>
         <div className="project-menu-content">
+          <button onClick={() => { moreRef.current!.open = false; fileRef.current?.click(); }}>
+            <Upload size={15} />Import MIDI</button>
           <button onClick={() => { moreRef.current!.open = false; projectRef.current?.click(); }}>
             <Upload size={15} />Open MIDI Spark project</button>
           <button onClick={() => { moreRef.current!.open = false; p.onExportProject(); }} disabled={!p.canExportProject}>
