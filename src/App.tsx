@@ -179,9 +179,9 @@ export default function App() {
   // against. Any source edit, lock, guide or generated-note edit invalidates them.
   // Preserve a compatible favorite bank when switching composition tabs or
   // source selectors. Only edits to the actual working progression stale it.
-  const persistableTakeBank = savedTakeBank &&
+  const persistableTakeBank = useMemo(() => savedTakeBank &&
     isCompatibleTakeBank(progression, savedTakeBank.sourceTrackIndex, savedTakeBank)
-    ? savedTakeBank : null;
+    ? savedTakeBank : null, [progression, savedTakeBank]);
   const validSavedTakeBank = comparingHarmony &&
     persistableTakeBank?.sourceTrackIndex === effectiveMelodySourceTrackIndex
     ? persistableTakeBank : null;
