@@ -14,6 +14,10 @@ OUTPUT.mkdir(parents=True, exist_ok=True)
 KEY='midi-spark:session:v1'
 fixture=OUTPUT/'two-tracks.mid'
 subprocess.run(['node','-e', "const fs=require('fs'),{Midi}=require('@tonejs/midi');const m=new Midi();m.header.setTempo(108);const k=m.addTrack();k.name='Keys';k.channel=0;k.instrument.number=4;[[60,0],[64,480],[67,960]].forEach(([midi,ticks])=>k.addNote({midi,ticks,durationTicks:360,velocity:.8}));const b=m.addTrack();b.name='Bass';b.channel=1;b.instrument.number=33;[[48,0],[43,960]].forEach(([midi,ticks])=>b.addNote({midi,ticks,durationTicks:720,velocity:.7}));const e=m.addTrack();e.name='Empty pad';e.channel=2;e.instrument.number=89;fs.writeFileSync(process.argv[1],Buffer.from(m.toArray()));",str(fixture)],cwd=ROOT,check=True)
+take_fixture=OUTPUT/'take-melody.mid'
+subprocess.run(['node','-e',
+ "const fs=require('fs'),{Midi}=require('@tonejs/midi');const m=new Midi();const t=m.addTrack();t.name='Lead';[[72,0],[76,960],[79,1440],[74,1920],[77,2880],[76,3840],[79,4800],[72,5760],[74,6720]].forEach(([midi,ticks])=>t.addNote({midi,ticks,durationTicks:480,velocity:.8}));fs.writeFileSync(process.argv[1],Buffer.from(m.toArray()));",
+ str(take_fixture)],cwd=ROOT,check=True)
 meter_fixture=OUTPUT/'three-four.mid'
 subprocess.run(['node','-e', "const fs=require('fs'),{Midi}=require('@tonejs/midi');const m=new Midi();m.header.timeSignatures.push({ticks:0,timeSignature:[3,4]});m.header.update();m.addTrack().addNote({midi:60,ticks:0,durationTicks:480,velocity:.8});fs.writeFileSync(process.argv[1],Buffer.from(m.toArray()));",str(meter_fixture)],cwd=ROOT,check=True)
 results=[]
@@ -653,6 +657,50 @@ with sync_playwright() as p:
  assert excluded_result['harmonyConstraints'][0]['kind']=='avoid'
  record('Chord guide pins full bars, excludes chords, persists, and regenerates safely')
  guide_page.close()
+ # Take Lab previews are separate from the saved session and become one
+ # undoable history entry only after explicit acceptance.
+ take_page=b.new_page(viewport={'width':1280,'height':800})
+ take_page.on('pageerror',lambda error:errors.append(str(error)))
+ take_page.goto(args.url)
+ take_page.locator('input[type=file]').first.set_input_files(str(take_fixture))
+ take_page.wait_for_timeout(650)
+ take_original=snap(take_page)['progression']
+ assert take_original['totalBars']==4
+ take_page.get_by_role('tab',name='Compose',exact=True).click()
+ take_page.get_by_role('button',name='Follow melody',exact=True).click()
+ take_page.get_by_role('slider',name='Harmonic fit to melody').fill('55')
+ take_page.locator('.melody-advanced > summary').click()
+ take_page.get_by_role('slider',name='Harmony exploration').fill('100')
+ take_page.get_by_role('button',name='Harmonize melody',exact=False).click()
+ take_page.wait_for_timeout(650)
+ take_base=snap(take_page)['progression']
+ expect(take_page.get_by_role('button',name='Explore 3 takes')).to_be_enabled()
+ take_page.get_by_role('button',name='Explore 3 takes').click()
+ take_page.wait_for_timeout(650)
+ take_1=take_page.get_by_role('button',name='Take 1',exact=False)
+ expect(take_1).to_have_attribute('aria-pressed','true')
+ assert take_page.locator('.editor-main').evaluate('(el)=>el.inert') is True
+ assert snap(take_page)['progression']==take_base
+ expect(take_page.get_by_role('button',name='Undo')).to_be_disabled()
+ take_page.get_by_role('button',name='Play pattern').click()
+ take_page.wait_for_timeout(350)
+ expect(take_page.get_by_role('button',name='Pause playback')).to_be_visible()
+ take_page.get_by_role('button',name='Stop playback').click()
+ take_page.get_by_role('button',name='Original',exact=False).click()
+ assert take_page.locator('.editor-main').evaluate('(el)=>el.inert') is False
+ assert snap(take_page)['progression']==take_base
+ take_1.click()
+ take_page.get_by_role('button',name='Accept selected take',exact=True).click()
+ take_page.wait_for_timeout(650)
+ accepted_take=snap(take_page)['progression']
+ assert accepted_take!=take_base
+ assert accepted_take['notes'][:len(take_original['notes'])]==take_original['notes']
+ assert take_page.locator('.editor-main').evaluate('(el)=>el.inert') is False
+ take_page.get_by_role('button',name='Undo').click()
+ take_page.wait_for_timeout(650)
+ assert snap(take_page)['progression']==take_base
+ record('Take Lab previews original and alternatives without autosave, then accepts one undoable take')
+ take_page.close()
  # Melody continuation and variation are separate, user-protecting operations.
  motif_page=b.new_page(viewport={'width':1280,'height':800})
  motif_page.on('pageerror',lambda error:errors.append(str(error)))
