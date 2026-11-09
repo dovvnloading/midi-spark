@@ -36,7 +36,7 @@ def import_fixture(page):
  if page.get_by_role('button',name='Dismiss notification').count(): page.get_by_role('button',name='Dismiss notification').click()
 def open_composer_group(page, selector):
  group=page.locator(selector).first
- expect(group.locator('summary')).to_be_visible()
+ expect(group.locator('summary').first).to_be_visible()
  if group.get_attribute('open') is None:
   group.locator('summary').first.click()
  expect(group).to_have_attribute('open','')
