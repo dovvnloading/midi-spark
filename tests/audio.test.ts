@@ -228,6 +228,29 @@ describe("multitrack audio routing", () => {
     audio.stopAudio();
   });
 
+  it("cancels a pending audition and disposes active preview voices on Library dismissal", async () => {
+    vi.resetModules();
+    const audio = await import("../src/lib/audio");
+    const before = mockState.voices.length;
+    const pending = audio.auditionPreset("organ");
+    audio.cancelPresetAudition();
+    await pending;
+    expect(mockState.voices.slice(before).filter(voice => voice.triggers.length > 0)).toHaveLength(0);
+
+    await audio.auditionPreset("glass");
+    const active = mockState.voices[mockState.voices.length - 1];
+    expect(active.triggers).toHaveLength(2);
+    audio.cancelPresetAudition();
+    expect(active.disposed).toBe(true);
+
+    await audio.auditionPreset("sub");
+    const fresh = mockState.voices[mockState.voices.length - 1];
+    expect(fresh.triggers).toHaveLength(2);
+    expect(fresh.disposed).toBe(false);
+    audio.cancelPresetAudition();
+    expect(fresh.disposed).toBe(true);
+  });
+
   it("constructs each new voice family with distinct sound-defining parameters", async () => {
     vi.resetModules();
     const fresh = await import("../src/lib/audio");
