@@ -395,8 +395,11 @@ with sync_playwright() as p:
  bass_strip.locator('.sound-picker-trigger').click()
  page.get_by_role('button',name='Bass',exact=True).click()
  page.get_by_role('searchbox',name='Search presets').fill('digital bass')
- assert page.locator('.sound-library-row').count()==1
+ expect(page.locator('.sound-library-row')).to_have_count(1)
  page.locator('.sound-library-select').filter(has_text='Digital Bass').click()
+ page.get_by_role('button',name='Add Digital Bass to favorites').click()
+ page.get_by_role('button',name='Use Digital Bass',exact=True).click()
+ expect(page.get_by_role('dialog',name='Sound library')).not_to_be_visible()
  page.wait_for_timeout(550)
  assert snap(page)['trackMix']['1']['synthType']=='fmBass'
  expect(bass_strip.get_by_text('Browser playback sound',exact=False)).to_be_visible()
@@ -408,6 +411,13 @@ with sync_playwright() as p:
  keys_strip=page.locator('section.track-strip').filter(has_text='Keys').first
  keys_strip.locator('.track-settings-disclosure > summary').click()
  page.get_by_role('slider',name='Keys volume',exact=True).fill('35');assert snap(page)['trackMix']['0']['level']==.35
+ # Both track pickers share one favorites library without changing either patch.
+ keys_strip.locator('.sound-picker-trigger').click()
+ page.get_by_role('button',name='Favorites',exact=True).click()
+ expect(page.locator('.sound-library-row')).to_have_count(1)
+ assert 'Digital Bass' in page.locator('.sound-library-row').first.inner_text()
+ page.keyboard.press('Escape')
+ record('Favorites remain synchronized across independent track pickers')
  record('Track mute, solo and volume persist without altering MIDI notes')
  page.get_by_role('button',name='Play pattern',exact=True).click();page.wait_for_timeout(600)
  expect(page.get_by_role('button',name='Pause playback',exact=True)).to_be_visible()
