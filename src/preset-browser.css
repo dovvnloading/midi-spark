@@ -391,10 +391,10 @@
   .sound-library-header { padding-top: 6px; padding-bottom: 6px; }
   .sound-library-header h2 { font-size: 21px; }
   .sound-library-categories { padding-top: 3px; padding-bottom: 3px; }
-  .sound-library-search { height: 42px; }
+  .sound-library-search { height: 44px; }
   .sound-library-choice small { display: none; }
   .sound-library-footer { gap: 5px; padding-top: 5px; padding-bottom: 5px; }
-  .sound-library-cancel, .sound-library-preview-action, .sound-library-apply { min-height: 40px; }
+  .sound-library-cancel, .sound-library-preview-action, .sound-library-apply { min-height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .sound-library-row, .sound-picker-trigger { transition: none; }
