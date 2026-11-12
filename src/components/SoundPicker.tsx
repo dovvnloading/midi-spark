@@ -81,12 +81,13 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
   useLayoutEffect(() => {
     if (!open) return;
     const root = document.getElementById("root");
+    const trigger = triggerRef.current;
     const previouslyInert = root?.inert ?? false;
     if (root) root.inert = true;
     searchRef.current?.focus({ preventScroll: true });
     return () => {
       if (root) root.inert = previouslyInert;
-      if (triggerRef.current?.isConnected) triggerRef.current.focus({ preventScroll: true });
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
     };
   }, [open]);
 
