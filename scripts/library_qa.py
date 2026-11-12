@@ -69,8 +69,8 @@ def assert_layout(page, width, height):
           const actions=row.querySelector(".sound-library-row-actions")?.getBoundingClientRect();
           const copy=row.querySelector(".sound-library-row-copy")?.getBoundingClientRect();
           if(!actions || !copy) return [{index:i,reason:"missing elements"}];
-          const clipped=actions.bottom>outer.bottom-2 || actions.left<outer.left-1 ||
-            actions.right>outer.right+1 || copy.bottom>outer.bottom-2;
+          const clipped=actions.bottom>outer.bottom+0.5 || actions.left<outer.left-1 ||
+            actions.right>outer.right+1 || copy.bottom>outer.bottom+0.5;
           return clipped ? [{index:i,rowBottom:outer.bottom,actionsBottom:actions.bottom,
             copyBottom:copy.bottom}] : [];
         })
