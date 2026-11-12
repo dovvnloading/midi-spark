@@ -252,6 +252,9 @@ with sync_playwright() as p:
  # selection, and saved instrument state, all in the real browser.
  page.get_by_role('button',name='Preview sound: Classic Analog. Open sound library').click()
  expect(page.get_by_role('dialog',name='Sound library')).to_be_visible()
+ expect(page.get_by_role('searchbox',name='Search presets')).to_be_focused()
+ assert page.locator('#root').evaluate('(element) => element.inert')
+ page.screenshot(path=str(OUTPUT/'preset-browser-desktop.png'))
  assert page.locator('.sound-library-row').count()==49
  expect(page.get_by_role('status').filter(has_text='49 of 49 sounds')).to_be_visible()
  page.get_by_role('searchbox',name='Search presets').fill('no-such-instrument-x')
@@ -632,6 +635,7 @@ with sync_playwright() as p:
  page.locator('.sound-picker-trigger').first.click()
  modal=page.get_by_role('dialog',name='Sound library')
  expect(modal).to_have_attribute('aria-modal','true')
+ page.screenshot(path=str(OUTPUT/'preset-browser-mobile.png'))
  bounds=modal.bounding_box()
  assert bounds and bounds['x']>=0 and bounds['y']>=0 and bounds['x']+bounds['width']<=375.5 and bounds['y']+bounds['height']<=667.5
  page.keyboard.press('Escape')
