@@ -63,7 +63,17 @@ def assert_layout(page, width, height):
         rootInert:document.querySelector("#root").inert,
         screenW:window.innerWidth,screenH:window.innerHeight,
         visualHeight:window.visualViewport?.height ?? window.innerHeight,
-        layerHeight:document.querySelector(".sound-library-layer").getBoundingClientRect().height
+        layerHeight:document.querySelector(".sound-library-layer").getBoundingClientRect().height,
+        clippedRows:[...document.querySelectorAll(".sound-library-row")].flatMap((row,i) => {
+          const outer=row.getBoundingClientRect();
+          const actions=row.querySelector(".sound-library-row-actions")?.getBoundingClientRect();
+          const copy=row.querySelector(".sound-library-row-copy")?.getBoundingClientRect();
+          if(!actions || !copy) return [{index:i,reason:"missing elements"}];
+          const clipped=actions.bottom>outer.bottom-2 || actions.left<outer.left-1 ||
+            actions.right>outer.right+1 || copy.bottom>outer.bottom-2;
+          return clipped ? [{index:i,rowBottom:outer.bottom,actionsBottom:actions.bottom,
+            copyBottom:copy.bottom}] : [];
+        })
       };
     }""")
     assert abs(info["screenW"]-width)<=1 and abs(info["screenH"]-height)<=1, info
@@ -81,9 +91,24 @@ def assert_layout(page, width, height):
         assert info[name]["height"]>=44 and info[name]["width"]>=44,(name,info)
         assert info[name]["hit"],(name,info)
     assert info["search"]["height"]>=44,info
-    # Even when the results scroll far down, the footer remains a topmost target.
+    assert not info["clippedRows"], ("Card text/action controls overflow their surface",info["clippedRows"])
+    # Verify actual hit-testing of card actions: a visible Play icon is not
+    # enough if the button is clipped under the card/scroll container.
+    for index in (0,24,48):
+        button = page.locator(".sound-library-row-play").nth(index)
+        button.scroll_into_view_if_needed()
+        hit = button.evaluate("""(el) => {
+          const b=el.getBoundingClientRect(),x=b.left+b.width/2,y=b.top+b.height/2;
+          const target=document.elementFromPoint(x,y);
+          const results=document.querySelector(".sound-library-results").getBoundingClientRect();
+          return {topmost:!!target && el.contains(target),inResults:x>=results.left&&
+            x<=results.right&&y>=results.top&&y<=results.bottom,bottom:b.bottom};
+        }""")
+        assert hit["topmost"] and hit["inResults"], (index,hit,info)
+    # Even when scrolling to the bottom, the footer must stay reachable.
     page.locator(".sound-library-results").evaluate("(el)=>{el.scrollTop=el.scrollHeight;}")
     assert page.locator(".sound-library-results").evaluate("(el)=>el.scrollTop")>0
+    page.locator(".sound-library-results").evaluate("(el)=>{el.scrollTop=0;}")
     measurements.append({"viewport":[width,height],**info})
 
 with sync_playwright() as playwright:
