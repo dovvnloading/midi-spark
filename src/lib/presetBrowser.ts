@@ -16,7 +16,7 @@ export function filterSoundPresets<T extends PresetDefinition>(
     if (view !== "All" && view !== "Favorites" && preset.category !== view) return false;
     const haystack = [
       preset.label, preset.description, preset.category, preset.character,
-      preset.patch.engine, preset.patch.wave, preset.fx,
+      preset.patch.engine, preset.patch.wave,
       "secondWave" in preset.patch ? preset.patch.secondWave : "",
       ...(preset.motion ?? []).map(motion => motion.kind),
     ].join(" ").toLocaleLowerCase();
