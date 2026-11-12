@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, Headphones, LoaderCircle, Play, Search, SlidersHorizontal, Star, X } from "lucide-react";
+import { Check, ChevronDown, Headphones, LocateFixed, LoaderCircle, Play, Search, SlidersHorizontal, Star, X } from "lucide-react";
 import { auditionPreset, cancelPresetAudition } from "../lib/audio";
 import { filterSoundPresets, presetViewCounts, sanitizeFavoriteIds, PRESET_VIEWS, type PresetView } from "../lib/presetBrowser";
 import { PRESET_BY_ID, PRESET_IDS, SOUND_PRESETS, type SynthType, type Wave } from "../lib/presets";
@@ -196,6 +196,21 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
     setView("All");
     resultsRef.current?.scrollTo({ top: 0 });
     searchRef.current?.focus();
+  };
+
+  const revealDraft = () => {
+    // Selecting a preset in another category or while searching should never
+    // strand the staged choice behind filters. The footer is the stable way
+    // back to its card, independent of scroll position and current results.
+    setQuery("");
+    setView("All");
+    requestAnimationFrame(() => {
+      const activeCard = resultsRef.current?.querySelector<HTMLButtonElement>(
+        '.sound-library-row[data-active="true"] .sound-library-select',
+      );
+      activeCard?.scrollIntoView({ block: "center" });
+      activeCard?.focus({ preventScroll: true });
+    });
   };
 
   const apply = () => {
@@ -410,12 +425,15 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
               {auditioning ? "Preparing " + PRESET_BY_ID[auditioning].label : ""}
             </span>
             <footer className="sound-library-footer">
-              <div className="sound-library-choice">
+              <button type="button" className="sound-library-choice" onClick={revealDraft}
+                aria-label={"Show " + candidate.label + " in the sound collection"}
+                title={"Find " + candidate.label + " in the sound collection"}>
                 <span className="sound-library-choice-eyebrow">{draft === value ? "CURRENT SOUND" : "STAGED / NOT YET APPLIED"}</span>
-                <strong>{candidate.label}</strong>
+                <span className="sound-library-choice-title"><strong>{candidate.label}</strong>
+                  <LocateFixed size={15} aria-hidden="true" /></span>
                 <small>{candidate.category} <span aria-hidden="true">·</span> {draft === value
                   ? "Already in use on this track" : "Currently using " + applied.label}</small>
-              </div>
+              </button>
               <div className="sound-library-footer-actions">
                 <button type="button" className="sound-library-cancel" onClick={close}>Cancel</button>
                 <button type="button" className="sound-library-preview-action" onClick={() => preview(draft)}
