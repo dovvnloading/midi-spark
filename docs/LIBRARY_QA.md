@@ -17,10 +17,12 @@ to the library must not change MIDI note or export data.
   Arrow keys move focus between visible cards (two columns desktop, one on
   phones); Home/End navigate the list; Enter/Space stage. Search Escape first
   clears a nonempty query, then closes the dialog.
-- **Safe asynchronous audio.** Closing the dialog invalidates pending preview
-  completions, disposes scheduled synth voices and their processors, and
-  prevents a late error/toast or loading spinner from leaking into a new session.
-  Audio preview never commits the staged selection.
+- **Safe asynchronous audio.** "Preparing" is displayed while Web Audio
+  starts, followed by a visible "Playing" indicator over the preset audition
+  phrase; this is a phrase-length approximation, not measurement of long reverb
+  tails. Closing the dialog invalidates pending preview completions, disposes
+  scheduled synth voices and their processors, and prevents late errors or busy
+  states from leaking into another session. Preview never commits the selection.
 - **Modal behavior.** The portal stays above editor stacks; the editor becomes
   inert; background scrolling is locked and restored exactly; tab focus loops
   within the dialog; opening search receives focus and dismissal returns focus
