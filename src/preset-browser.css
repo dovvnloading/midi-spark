@@ -48,7 +48,7 @@
 .sound-library-header-copy { min-width: 0; }
 .sound-library-eyebrow {
   display: inline-flex; align-items: center; gap: 8px;
-  font: 700 10px var(--font-mono); letter-spacing: 1.3px; color: #e1c7aa;
+  font: 700 11px var(--font-mono); letter-spacing: 1.3px; color: #e1c7aa;
 }
 .sound-library-header h2 { font-size: 30px; letter-spacing: -1.1px; line-height: 1.08; margin: 9px 0 8px; font-weight: 750; color: #fcfaf3; }
 .sound-library-header h2 span { color: #d7bda0; }
