@@ -13,14 +13,28 @@ export interface SoundPickerProps {
 }
 
 const FAVORITES_STORAGE_KEY = "midi-spark:sound-favorites";
+const FAVORITES_CHANGED_EVENT = "midi-spark:sound-favorites-updated";
+let cachedFavorites: Set<SynthType> | null = null;
 
 function readFavorites(): Set<SynthType> {
+  if (cachedFavorites) return cachedFavorites;
   try {
-    return new Set(sanitizeFavoriteIds(JSON.parse(localStorage.getItem(FAVORITES_STORAGE_KEY) ?? "[]"), PRESET_IDS) as SynthType[]);
+    cachedFavorites = new Set(sanitizeFavoriteIds(JSON.parse(localStorage.getItem(FAVORITES_STORAGE_KEY) ?? "[]"), PRESET_IDS) as SynthType[]);
   } catch {
-    // Browsers that block storage can still use favorites for this session.
-    return new Set();
+    // In-memory favorites still work when browser storage is unavailable.
+    cachedFavorites = new Set();
   }
+  return cachedFavorites;
+}
+
+function saveFavorites(next: Set<SynthType>): void {
+  cachedFavorites = next;
+  try {
+    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify([...next]));
+  } catch {
+    // The in-memory cache continues to serve every mounted picker.
+  }
+  window.dispatchEvent(new Event(FAVORITES_CHANGED_EVENT));
 }
 
 /** Shared by Compose and the track mixer. Browsing and auditioning never
@@ -37,7 +51,7 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
   const dialogRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
-  const titleId = useId();
+  const descriptionId = useId();
 
   const applied = PRESET_BY_ID[value] ?? PRESET_BY_ID.classic;
   const candidate = PRESET_BY_ID[draft] ?? applied;
@@ -45,13 +59,22 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
   const filtered = useMemo(() => filterSoundPresets(SOUND_PRESETS, query, view, favorites), [query, view, favorites]);
   const filtersActive = view !== "All" || query.trim().length > 0;
 
+  // Compose and each track have independent pickers. Keep their favorites in
+  // sync, including edits made in another tab of the same browser.
   useEffect(() => {
-    try {
-      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify([...favorites]));
-    } catch {
-      // Favorites still work in memory when storage is unavailable.
-    }
-  }, [favorites]);
+    const sync = () => setFavorites(readFavorites());
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== FAVORITES_STORAGE_KEY) return;
+      cachedFavorites = null;
+      sync();
+    };
+    window.addEventListener(FAVORITES_CHANGED_EVENT, sync);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(FAVORITES_CHANGED_EVENT, sync);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
 
   // The browser is a real modal on every viewport, not a popover that leaves
   // underlying editor controls tabbable. Focus returns to its originating track.
@@ -98,12 +121,11 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
   };
 
   const toggleFavorite = (id: SynthType) => {
-    setFavorites(previous => {
-      const next = new Set(previous);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    const next = new Set(readFavorites());
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    saveFavorites(next);
+    setFavorites(next);
   };
 
   const resetFilters = () => {
@@ -183,15 +205,15 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
             role="dialog"
             aria-modal="true"
             aria-label="Sound library"
-            aria-describedby={titleId}
+            aria-describedby={descriptionId}
             className="sound-library"
             onKeyDown={onDialogKeyDown}
           >
             <header className="sound-library-header">
               <div className="sound-library-header-copy">
                 <span className="sound-library-eyebrow"><SlidersHorizontal size={14} aria-hidden="true" /> INSTRUMENT BROWSER</span>
-                <h2 id={titleId}>Find your sound<span>.</span></h2>
-                <p>Explore and audition freely. Your track changes only when you apply a preset.</p>
+                <h2>Find your sound<span>.</span></h2>
+                <p id={descriptionId}>Explore and audition freely. Your track changes only when you apply a preset.</p>
               </div>
               <button type="button" className="sound-library-close" aria-label="Close sound library" onClick={close}>
                 <X size={20} aria-hidden="true" />
