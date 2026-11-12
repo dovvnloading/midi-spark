@@ -4,12 +4,12 @@ export type PresetView = "All" | "Favorites" | PresetCategory;
 export const PRESET_VIEWS: readonly PresetView[] = ["All", "Favorites", ...PRESET_CATEGORIES];
 
 /** Search all descriptive fields. Separate words can match different fields. */
-export function filterSoundPresets(
-  presets: readonly PresetDefinition[],
+export function filterSoundPresets<T extends PresetDefinition>(
+  presets: readonly T[],
   query: string,
   view: PresetView,
   favorites: ReadonlySet<string> = new Set(),
-): PresetDefinition[] {
+): T[] {
   const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   return presets.filter(preset => {
     if (view === "Favorites" && !favorites.has(preset.id)) return false;
