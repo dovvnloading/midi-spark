@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, Headphones, LocateFixed, LoaderCircle, Play, Search, SlidersHorizontal, Star, X } from "lucide-react";
+import { Check, ChevronDown, Headphones, LocateFixed, LoaderCircle, Play, Search, Volume2, SlidersHorizontal, Star, X } from "lucide-react";
 import { auditionPreset, cancelPresetAudition } from "../lib/audio";
 import { filterSoundPresets, presetViewCounts, sanitizeFavoriteIds, PRESET_VIEWS, type PresetView } from "../lib/presetBrowser";
 import { PRESET_BY_ID, PRESET_IDS, SOUND_PRESETS, type SynthType, type Wave } from "../lib/presets";
@@ -68,6 +68,8 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
   const [draft, setDraft] = useState<SynthType>(value);
   const [favorites, setFavorites] = useState<Set<SynthType>>(readFavorites);
   const [auditioning, setAuditioning] = useState<SynthType | null>(null);
+  const [previewPhase, setPreviewPhase] = useState<"preparing" | "playing" | null>(null);
+  const previewTimer = useRef<number | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const sequence = useRef(0);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -76,6 +78,13 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
   const resultsRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   const descriptionId = useId();
+
+  const clearPreviewTimer = () => {
+    if (previewTimer.current !== null) {
+      window.clearTimeout(previewTimer.current);
+      previewTimer.current = null;
+    }
+  };
 
   const applied = PRESET_BY_ID[value] ?? PRESET_BY_ID.classic;
   const candidate = PRESET_BY_ID[draft] ?? applied;
@@ -125,6 +134,7 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
     window.visualViewport?.addEventListener("scroll", updateViewport);
     searchRef.current?.focus({ preventScroll: true });
     return () => {
+      clearPreviewTimer();
       cancelPresetAudition();
       window.removeEventListener("resize", updateViewport);
       window.visualViewport?.removeEventListener("resize", updateViewport);
@@ -139,7 +149,9 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
   const close = () => {
     // Ignore late promise completions as soon as the dialog is dismissed.
     ++sequence.current;
+    clearPreviewTimer();
     setAuditioning(null);
+    setPreviewPhase(null);
     setOpen(false);
   };
 
@@ -154,17 +166,33 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
 
   const preview = (type: SynthType) => {
     const request = ++sequence.current;
+    clearPreviewTimer();
     setPreviewError(null);
     setAuditioning(type);
+    setPreviewPhase("preparing");
     void auditionPreset(type)
+      .then(() => {
+        if (sequence.current !== request) return;
+        setPreviewPhase("playing");
+        // Tone has scheduled both attacks at this point; it does not return
+        // a promise when the notes finish. Reflect the actual audition phrase
+        // window, rather than flashing a loading icon for a single frame.
+        const category = PRESET_BY_ID[type].category;
+        const atmospheric = category === "Pads & Atmospheres" || category === "Motion & Experimental";
+        previewTimer.current = window.setTimeout(() => {
+          if (sequence.current !== request) return;
+          setAuditioning(null);
+          setPreviewPhase(null);
+          previewTimer.current = null;
+        }, atmospheric ? 3100 : 1450);
+      })
       .catch(() => {
         if (sequence.current !== request) return;
+        setAuditioning(null);
+        setPreviewPhase(null);
         const message = "Audio preview could not start. Check your browser audio settings.";
         setPreviewError(message);
         onPreviewError?.(message);
-      })
-      .finally(() => {
-        if (sequence.current === request) setAuditioning(null);
       });
   };
 
@@ -277,19 +305,21 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
         <button
           type="button"
           className="sound-picker-listen"
-          aria-busy={auditioning === value}
-          aria-label={"Audition " + applied.label}
+          aria-busy={auditioning === value && previewPhase === "preparing"}
+          aria-label={(auditioning === value && previewPhase === "playing" ? "Previewing " : "Audition ") + applied.label}
           title={"Hear " + applied.label + " without changing MIDI notes"}
           onClick={() => preview(value)}
         >
-          {auditioning === value
+          {auditioning === value && previewPhase === "preparing"
             ? <LoaderCircle className="animate-spin" size={17} aria-hidden="true" />
-            : <Play size={17} fill="currentColor" aria-hidden="true" />}
+            : auditioning === value && previewPhase === "playing"
+              ? <Volume2 size={17} aria-hidden="true" />
+              : <Play size={17} fill="currentColor" aria-hidden="true" />}
         </button>
       </div>
       <p className="sound-picker-helper">{applied.description}</p>
       <span className="sr-only" role="status" aria-live="polite">
-        {auditioning ? "Preparing " + PRESET_BY_ID[auditioning].label : ""}
+        {auditioning ? (previewPhase === "playing" ? "Previewing " : "Preparing ") + PRESET_BY_ID[auditioning].label : ""}
       </span>
 
       {open && createPortal(
@@ -407,11 +437,15 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
                             <Star size={17} fill={isFavorite ? "currentColor" : "none"} aria-hidden="true" />
                           </button>
                           <button type="button" className="sound-library-row-play"
-                            aria-busy={auditioning === preset.id} aria-label={"Preview " + preset.label}
+                            aria-busy={auditioning === preset.id && previewPhase === "preparing"}
+                            data-preview-state={auditioning === preset.id ? previewPhase : undefined}
+                            aria-label={(auditioning === preset.id && previewPhase === "playing" ? "Previewing " : "Preview ") + preset.label}
                             title={"Preview " + preset.label + " without applying"} onClick={() => preview(preset.id)}>
-                            {auditioning === preset.id
+                            {auditioning === preset.id && previewPhase === "preparing"
                               ? <LoaderCircle className="animate-spin" size={16} aria-hidden="true" />
-                              : <Play size={16} fill="currentColor" aria-hidden="true" />}
+                              : auditioning === preset.id && previewPhase === "playing"
+                                ? <Volume2 size={16} aria-hidden="true" />
+                                : <Play size={16} fill="currentColor" aria-hidden="true" />}
                           </button>
                         </div>
                       </div>
@@ -437,11 +471,15 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
               <div className="sound-library-footer-actions">
                 <button type="button" className="sound-library-cancel" onClick={close}>Cancel</button>
                 <button type="button" className="sound-library-preview-action" onClick={() => preview(draft)}
-                  aria-busy={auditioning === draft} aria-label={"Preview selected sound: " + candidate.label}>
-                  {auditioning === draft
+                  aria-busy={auditioning === draft && previewPhase === "preparing"}
+                  data-preview-state={auditioning === draft ? previewPhase : undefined}
+                  aria-label={(auditioning === draft && previewPhase === "playing" ? "Previewing selected sound: " : "Preview selected sound: ") + candidate.label}>
+                  {auditioning === draft && previewPhase === "preparing"
                     ? <LoaderCircle className="animate-spin" size={17} aria-hidden="true" />
-                    : <Play size={16} fill="currentColor" aria-hidden="true" />}
-                  <span>Preview</span>
+                    : auditioning === draft && previewPhase === "playing"
+                      ? <Volume2 size={17} aria-hidden="true" />
+                      : <Play size={16} fill="currentColor" aria-hidden="true" />}
+                  <span>{auditioning === draft && previewPhase === "playing" ? "Playing" : "Preview"}</span>
                 </button>
                 <button type="button" className="sound-library-apply" onClick={apply}>
                   {draft === value ? "Done" : "Use " + candidate.label}
