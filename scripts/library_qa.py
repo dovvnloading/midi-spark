@@ -155,7 +155,7 @@ with sync_playwright() as playwright:
     expect(page.get_by_role("button",name="Done",exact=True)).to_be_focused()
     page.keyboard.press("Tab")
     expect(close_button).to_be_focused()
-    page.locator(".sound-library-backdrop").click(position={"x":5,"y":5})
+    page.mouse.click(5,5)  # use a real outside pointer path; backdrop unmounts on pointerdown
     expect(page.get_by_role("dialog",name="Sound library")).not_to_be_visible()
     expect(page.locator(".sound-picker-trigger").first).to_be_focused()
     record("Modal focus trap wraps in both directions and backdrop dismisses safely")
