@@ -46,6 +46,7 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
   const [draft, setDraft] = useState<SynthType>(value);
   const [favorites, setFavorites] = useState<Set<SynthType>>(readFavorites);
   const [auditioning, setAuditioning] = useState<SynthType | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const sequence = useRef(0);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -98,14 +99,20 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
     setQuery("");
     setView("All");
     setDraft(value);
+    setPreviewError(null);
     setOpen(true);
   };
 
   const preview = (type: SynthType) => {
     const request = ++sequence.current;
+    setPreviewError(null);
     setAuditioning(type);
     void auditionPreset(type)
-      .catch(() => onPreviewError?.("Audio preview could not start. Check your browser audio settings."))
+      .catch(() => {
+        const message = "Audio preview could not start. Check your browser audio settings.";
+        setPreviewError(message);
+        onPreviewError?.(message);
+      })
       .finally(() => {
         if (sequence.current === request) setAuditioning(null);
       });
@@ -220,6 +227,12 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
                 <X size={20} aria-hidden="true" />
               </button>
             </header>
+            {previewError && <div className="sound-library-error" role="alert">
+              <span>{previewError}</span>
+              <button type="button" aria-label="Dismiss preview error" onClick={() => setPreviewError(null)}>
+                <X size={16} aria-hidden="true" />
+              </button>
+            </div>}
 
             <div className="sound-library-body">
               <nav className="sound-library-categories" aria-label="Sound categories">
@@ -310,6 +323,9 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
               </div>
             </div>
 
+            <span className="sr-only" role="status" aria-live="polite">
+              {auditioning ? "Preparing " + PRESET_BY_ID[auditioning].label : ""}
+            </span>
             <footer className="sound-library-footer">
               <div className="sound-library-choice">
                 <span className="sound-library-choice-eyebrow">{draft === value ? "CURRENT SOUND" : "READY TO APPLY"}</span>
