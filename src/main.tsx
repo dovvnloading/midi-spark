@@ -7,6 +7,7 @@ import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import './index.css';
 import './studio.css';
 import './earth.css';
+import './preset-browser.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

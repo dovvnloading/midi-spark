@@ -252,6 +252,9 @@ with sync_playwright() as p:
  # selection, and saved instrument state, all in the real browser.
  page.get_by_role('button',name='Preview sound: Classic Analog. Open sound library').click()
  expect(page.get_by_role('dialog',name='Sound library')).to_be_visible()
+ expect(page.get_by_role('searchbox',name='Search presets')).to_be_focused()
+ assert page.locator('#root').evaluate('(element) => element.inert')
+ page.screenshot(path=str(OUTPUT/'preset-browser-desktop.png'))
  assert page.locator('.sound-library-row').count()==49
  expect(page.get_by_role('status').filter(has_text='49 of 49 sounds')).to_be_visible()
  page.get_by_role('searchbox',name='Search presets').fill('no-such-instrument-x')
@@ -263,9 +266,15 @@ with sync_playwright() as p:
  page.get_by_role('button',name='Keys',exact=True).click()
  assert page.locator('.sound-library-row').count()==8
  page.get_by_role('searchbox',name='Search presets').fill('glass piano')
- assert page.locator('.sound-library-row').count()==1
+ expect(page.locator('.sound-library-row')).to_have_count(1)
  page.get_by_role('button',name='Preview Glass Piano',exact=True).click()
+ assert snap(page)['synthType']=='classic'
  page.locator('.sound-library-select').filter(has_text='Glass Piano').click()
+ # Choosing a card stages a sound; it does not silently change playback.
+ expect(page.get_by_role('dialog',name='Sound library')).to_be_visible()
+ expect(page.get_by_role('button',name='Use Glass Piano',exact=True)).to_be_visible()
+ assert snap(page)['synthType']=='classic'
+ page.get_by_role('button',name='Use Glass Piano',exact=True).click()
  expect(page.get_by_role('dialog',name='Sound library')).not_to_be_visible()
  assert 'Glass Piano' in page.locator('.sound-picker-title').first.inner_text()
  page.wait_for_timeout(650)
@@ -285,6 +294,16 @@ with sync_playwright() as p:
  assert snap(page)['synthType']==prior
  assert page.get_by_text('Audio preview could not start',exact=False).count()==0
  record('All 49 preset engines and modulation graphs audition without changing the selected sound')
+ # Favorites persist independently of selection and are filterable.
+ page.get_by_role('button',name='Add Glass Piano to favorites').click()
+ page.get_by_role('button',name='Favorites',exact=True).click()
+ assert page.locator('.sound-library-row').count()==1
+ assert 'Glass Piano' in page.locator('.sound-library-row').first.inner_text()
+ page.get_by_role('button',name='Remove Glass Piano from favorites').click()
+ assert page.locator('.sound-library-row').count()==0
+ expect(page.get_by_text('No favorites yet')).to_be_visible()
+ page.get_by_role('button',name='All',exact=True).click()
+ record('Favorites can be added, filtered and removed without applying a preset')
  page.get_by_role('button',name='Motion & Experimental',exact=True).click()
  assert page.locator('.sound-library-row').count()==3
  page.get_by_role('searchbox',name='Search presets').fill('wow')
@@ -293,11 +312,16 @@ with sync_playwright() as p:
  page.get_by_role('searchbox',name='Search presets').fill('')
  page.get_by_role('button',name='All',exact=True).click()
  record('Timbral and modulation descriptors are searchable, including experimental sounds')
+ page.locator('.sound-library-select').filter(has_text='Deep Sub').click()
+ expect(page.get_by_role('button',name='Use Deep Sub',exact=True)).to_be_visible()
+ assert snap(page)['synthType']=='glass'
  page.locator('.inspector-panel:not([hidden])').evaluate("(el) => { el.scrollTop += 40; el.dispatchEvent(new Event('scroll')); }")
  expect(page.get_by_role('dialog',name='Sound library')).to_be_visible()
  page.keyboard.press('Escape')
  expect(page.get_by_role('dialog',name='Sound library')).not_to_be_visible()
- record('Sound library remains open during inspector scrolling')
+ assert snap(page)['synthType']=='glass'
+ expect(page.locator('.sound-picker-trigger').first).to_be_focused()
+ record('Escape cancels staged presets, restores focus, and browser survives inspector scrolling')
  page.screenshot(path=str(OUTPUT/'empty-desktop.png'))
  page.get_by_role('button',name='Start blank',exact=True).click();page.wait_for_timeout(250)
  x,y=grid_point(page,60,1)
@@ -374,8 +398,11 @@ with sync_playwright() as p:
  bass_strip.locator('.sound-picker-trigger').click()
  page.get_by_role('button',name='Bass',exact=True).click()
  page.get_by_role('searchbox',name='Search presets').fill('digital bass')
- assert page.locator('.sound-library-row').count()==1
+ expect(page.locator('.sound-library-row')).to_have_count(1)
  page.locator('.sound-library-select').filter(has_text='Digital Bass').click()
+ page.get_by_role('button',name='Add Digital Bass to favorites').click()
+ page.get_by_role('button',name='Use Digital Bass',exact=True).click()
+ expect(page.get_by_role('dialog',name='Sound library')).not_to_be_visible()
  page.wait_for_timeout(550)
  assert snap(page)['trackMix']['1']['synthType']=='fmBass'
  expect(bass_strip.get_by_text('Browser playback sound',exact=False)).to_be_visible()
@@ -387,6 +414,13 @@ with sync_playwright() as p:
  keys_strip=page.locator('section.track-strip').filter(has_text='Keys').first
  keys_strip.locator('.track-settings-disclosure > summary').click()
  page.get_by_role('slider',name='Keys volume',exact=True).fill('35');assert snap(page)['trackMix']['0']['level']==.35
+ # Both track pickers share one favorites library without changing either patch.
+ keys_strip.locator('.sound-picker-trigger').click()
+ page.get_by_role('button',name='Favorites',exact=True).click()
+ expect(page.locator('.sound-library-row')).to_have_count(1)
+ assert 'Digital Bass' in page.locator('.sound-library-row').first.inner_text()
+ page.keyboard.press('Escape')
+ record('Favorites remain synchronized across independent track pickers')
  record('Track mute, solo and volume persist without altering MIDI notes')
  page.get_by_role('button',name='Play pattern',exact=True).click();page.wait_for_timeout(600)
  expect(page.get_by_role('button',name='Pause playback',exact=True)).to_be_visible()
@@ -601,6 +635,7 @@ with sync_playwright() as p:
  page.locator('.sound-picker-trigger').first.click()
  modal=page.get_by_role('dialog',name='Sound library')
  expect(modal).to_have_attribute('aria-modal','true')
+ page.screenshot(path=str(OUTPUT/'preset-browser-mobile.png'))
  bounds=modal.bounding_box()
  assert bounds and bounds['x']>=0 and bounds['y']>=0 and bounds['x']+bounds['width']<=375.5 and bounds['y']+bounds['height']<=667.5
  page.keyboard.press('Escape')
