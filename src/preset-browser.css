@@ -264,6 +264,11 @@
 .sound-library-favorite:hover, .sound-library-row-play:hover {
   background: #758672; border-color: #f0d8af; color: #fff;
 }
+.sound-library-row-play[data-preview-state="playing"],
+.sound-library-preview-action[data-preview-state="playing"] {
+  background: #826e54; border-color: #f9d7a4; color: #fff7e8;
+  box-shadow: inset 0 0 0 1px #f1d6a34d;
+}
 .sound-library-empty {
   grid-column: 1 / -1; align-self: start; justify-items: center;
   display: grid; text-align: center; gap: 12px; padding: 64px 20px; color: #dbe6d9;
