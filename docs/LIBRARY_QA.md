@@ -36,7 +36,7 @@ PRs run all of the existing `scripts/browser_smoke.py` interaction checks,
 `scripts/library_qa.py` in headless Chromium against the *production build*.
 The library suite checks:
 
-1. Fifty? No: the **actual 49-preset catalog**, categories, filter counts and
+1. The **49-preset catalog**, categories, filter counts and
    empty state (a future catalog expansion requires matching test updates).
 2. Keyboard navigation, staging without silent commit, cancel, scroll restoration,
    focus return, Escape-to-clear, and explicit apply.
