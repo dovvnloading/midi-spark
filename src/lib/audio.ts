@@ -346,6 +346,17 @@ export function setSynthType(type: SynthType): void {
   activeSynth = selectedPreview.synth;
 }
 
+/** Cancel both a pending Web Audio initialization and scheduled preview voices.
+ * Closing the Library must not leave an old preview playing or resurrect it
+ * after a slow audio permission/startup request resolves. */
+export function cancelPresetAudition(): void {
+  ++auditionRequestId;
+  if (auditionVoice) {
+    releaseVoice(auditionVoice.synth);
+    auditionVoice = null;
+  }
+}
+
 /** Play a short, original triad or register-appropriate interval while browsing
  * sounds. Auditions do not change MIDI data, the requested instrument, or
  * per-track mute/solo; the listener can hear a new patch before selecting it. */
