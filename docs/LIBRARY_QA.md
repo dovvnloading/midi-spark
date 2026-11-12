@@ -9,7 +9,9 @@ to the library must not change MIDI note or export data.
 - **Current ≠ staged ≠ auditioning.** Browsing and previewing are reversible.
   The in-use preset is marked independently from the staged selection; only
   **Use [preset]** changes the track. **Cancel**, close, backdrop, and Escape
-  discard the draft and restore focus to the opening sound control.
+  discard the draft and restore focus to the opening sound control. Clicking
+  the persistent staged-sound summary clears filters, reveals its card and
+  focuses it (important when the selection was made in a hidden category).
 - **Fast navigation.** Search matches preset metadata and synth engine.
   Category totals reflect search; each filtered result count is announced.
   Arrow keys move focus between visible cards (two columns desktop, one on
@@ -38,8 +40,9 @@ The library suite checks:
 
 1. The **49-preset catalog**, categories, filter counts and
    empty state (a future catalog expansion requires matching test updates).
-2. Keyboard navigation, staging without silent commit, cancel, scroll restoration,
-   focus return, Escape-to-clear, and explicit apply.
+2. Keyboard navigation, staging without silent commit, reveal staged sound after
+   filtering, cancel, scroll restoration, focus return, Escape-to-clear,
+   and explicit apply.
 3. Favorites removal without orphaning focus; hit-target visibility and topmost
    pointer hit testing (not merely high z-index).
 4. Layout geometry, vertical results scrolling, fixed footer and horizontal
