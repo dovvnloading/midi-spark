@@ -134,7 +134,10 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
     window.visualViewport?.addEventListener("scroll", updateViewport);
     searchRef.current?.focus({ preventScroll: true });
     return () => {
-      clearPreviewTimer();
+      if (previewTimer.current !== null) {
+        window.clearTimeout(previewTimer.current);
+        previewTimer.current = null;
+      }
       cancelPresetAudition();
       window.removeEventListener("resize", updateViewport);
       window.visualViewport?.removeEventListener("resize", updateViewport);
