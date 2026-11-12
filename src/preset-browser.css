@@ -133,12 +133,6 @@
 }
 .sound-library-categories button[aria-pressed="true"] :where(.sound-library-nav-count, svg) { color: #27362c; }
 .sound-library-categories .favorite-view { margin-bottom: 10px; }
-.sound-library-nav-note {
-  display: flex; align-items: flex-start; gap: 10px; margin: auto 8px 0;
-  padding: 18px 0 0; border-top: 1px solid #6b7c6e;
-  color: #c9d7c9; font-size: 11px; line-height: 1.6;
-}
-.sound-library-nav-note svg { flex: 0 0 auto; color: #edcaa1; }
 .sound-library-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #222c2b; }
 .sound-library-tools {
   flex: 0 0 auto; padding: 18px 23px 13px;
@@ -347,7 +341,7 @@
     gap: 7px; padding: 9px 13px; scrollbar-width: thin;
     border: 0; border-bottom: 1px solid #7d8b7e;
   }
-  .sound-library-nav-label, .sound-library-nav-note { display: none; }
+  .sound-library-nav-label { display: none; }
   .sound-library-categories button {
     min-height: 44px; white-space: nowrap;
     border-color: #859989; background: #414f49;
