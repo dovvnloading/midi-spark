@@ -142,20 +142,6 @@ body { background: var(--app-bg); }
 }
 .select-field select:hover { background: #586161; border-color: #c3c8bd; }
 .select-field > svg { color: #e6e8e0; }
-.sound-picker-trigger {
-  background: #505758; border-color: #a6b0a7;
-  box-shadow: inset 0 1px #ffffff10;
-}
-.sound-picker-trigger:hover, .sound-picker-trigger[aria-expanded="true"] {
-  background: #606761; border-color: #d0bea6;
-}
-.sound-picker-title strong { color: #ffffff; }
-.sound-picker-title small, .sound-picker-helper { color: #d7ded6; }
-.sound-picker-listen {
-  background: linear-gradient(150deg, #776b59, #615b51);
-  border-color: #bbaa95;
-}
-.sound-picker-listen:hover { background: #8a7961; border-color: #d8c3a5; }
 .quick-directions-heading span:first-child,
 .quick-directions-heading span:last-child,
 .field-hint { color: #d0d9cf; }
@@ -383,23 +369,6 @@ body { background: var(--app-bg); }
 .app-status button, .status-hints, .app-status .save-status { color: #e0e4de; }
 .save-status svg { color: #d1b89a; }
 
-/* Dialogs and sound library: neutralized, retaining legible dark surfaces. */
-.sound-library, .shortcut-dialog, .replace-project-dialog {
-  background: #3c4343; border-color: #98a59b; color: #f3f4ed;
-}
-.sound-library-header, .sound-library-footer { border-color: #78847d; }
-.sound-library-search {
-  background: #2e3535; border-color: #a5b3a6;
-}
-.sound-library-search:focus-within { border-color: #dcc4a6; box-shadow: 0 0 0 2px #cbb99f2c; }
-.sound-library-categories button { background: #535c59; border-color: #9ca99d; }
-.sound-library-categories button[aria-pressed="true"] {
-  background: #cebba3; color: #283129; border-color: #e1cdb5;
-}
-.sound-library-row:hover { background: #525e59; }
-.sound-library-select[aria-pressed="true"] {
-  background: #5b695c; color: #f6f7ee;
-}
 .replace-project-comparison { background: #343c3c; border-color: #8e9990; }
 .replace-project-dialog > p { color: #e2e7de; }
 .replace-project-comparison small { color: #d6ddd4; }
@@ -417,7 +386,7 @@ body { background: var(--app-bg); }
 .editor-main .active-tool-readout {
   border-color: #666d69;
 }
-.inspector .sound-picker-trigger, .sound-library .sound-library-search {
+.inspector .sound-picker-trigger {
   border-color: #a5b3a7;
 }
 

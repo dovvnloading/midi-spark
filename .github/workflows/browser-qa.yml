@@ -33,7 +33,7 @@ jobs:
           python -m pip install playwright==1.57.0
           command -v google-chrome || command -v chromium
       - name: Validate browser regression script
-        run: python -m py_compile scripts/browser_smoke.py scripts/browser_accessibility.py
+        run: python -m py_compile scripts/browser_smoke.py scripts/browser_accessibility.py scripts/library_qa.py
       - name: Start production preview
         run: |
           npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/preview.log 2>&1 &
@@ -47,6 +47,8 @@ jobs:
         run: CHROMIUM_PATH=/usr/bin/google-chrome python scripts/browser_smoke.py --url http://127.0.0.1:4173 --output browser-report
       - name: Computed accessibility and simulated touch acceptance
         run: CHROMIUM_PATH=/usr/bin/google-chrome python scripts/browser_accessibility.py --url http://127.0.0.1:4173 --output browser-report
+      - name: Sound Library premium UX and robustness acceptance
+        run: CHROMIUM_PATH=/usr/bin/google-chrome python scripts/library_qa.py --url http://127.0.0.1:4173 --output browser-report
       - name: Upload browser evidence
         if: always()
         uses: actions/upload-artifact@v4

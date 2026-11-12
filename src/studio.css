@@ -187,20 +187,6 @@ button:disabled { opacity: .42; }
 .select-field select:focus-visible { outline-offset: 2px; border-color: #9ecb86; }
 .select-field > svg { color: #a7b9ac; }
 .compose-panel .sound-section { padding-bottom: 20px; margin-bottom: 23px; }
-.sound-picker-control { gap: 7px; }
-.sound-picker-trigger {
-  min-height: 50px; padding: 8px 11px; border-radius: 9px;
-  border-color: #475c50; background: #253230; box-shadow: inset 0 1px #ffffff06;
-}
-.sound-picker-trigger:hover, .sound-picker-trigger[aria-expanded="true"] { border-color: #94b77f; background: #30423a; }
-.sound-picker-title strong { font-size: 12px; color: #f0f7ed; }
-.sound-picker-title small { color: #acc2af; }
-.sound-picker-listen {
-  flex-basis: 44px; border-radius: 9px; border-color: #6f8f61;
-  background: linear-gradient(150deg, #456448, #324a3d);
-}
-.sound-picker-listen:hover { background: #547953; border-color: #b7dc9a; }
-.sound-picker-helper { color: #93a99e; line-height: 1.55; margin-top: 8px; }
 .track-studio-link { height: 44px; justify-content: space-between; padding-inline: 14px; }
 .field-heading { margin-bottom: 9px; }
 .field-heading h4 { margin: 0; color: #d8e5dc; font-size: 11px; font-weight: 600; }
@@ -364,21 +350,6 @@ button:disabled { opacity: .42; }
 .save-status svg { color: #c8eea8; }
 .toast { background: #2a3b31; border-color: #68846a; border-radius: 11px; }
 .shortcut-dialog { background: #1d2927; border-color: #5f7663; }
-
-/* The sound library is a real studio surface, with the same hierarchy. */
-.sound-library { background: #1d2829; border-color: #5a7060; border-radius: 15px; box-shadow: 0 26px 75px #000b; }
-.sound-library-header { border-bottom-color: #3b4e46; padding: 17px 17px 13px; }
-.sound-library-header strong { font-size: 17px; }
-.sound-library-search { height: 43px; border-radius: 9px; margin: 13px 14px 11px; background: #131d1e; border-color: #53675d; }
-.sound-library-search:focus-within { border-color: #b6df98; box-shadow: 0 0 0 2px #b6df981a; }
-.sound-library-categories button { border-color: #485e53; background: #263634; }
-.sound-library-categories button[aria-pressed="true"] { background: #ccefae; border-color: #d8f6c3; }
-.sound-library-row { border-radius: 9px; }
-.sound-library-row:hover { background: #2d413b; }
-.sound-library-select { border-radius: 9px; }
-.sound-library-select[aria-pressed="true"] { background: #3a5540; color: #e2f8d4; }
-.sound-library-row-play { border-radius: 8px; }
-.sound-library-footer { border-top-color: #3b4e46; }
 
 /* Responsive composition, not desktop controls squeezed onto mobile */
 @container (max-width: 940px) {
@@ -795,30 +766,15 @@ button:disabled { opacity: .42; }
   .compose-panel .compose-action-topline small { font-size: var(--type-ui-ancillary); }
 }
 
-/* Remaining non-spatial labels in menus, transport controls and the sound
-   library should use operational type, not dense piano-roll annotation type. */
+/* Operational labels in shared menus; the library owns its own type scale. */
 .precision-controls label > span,
 .project-menu-content p,
-.sound-library-row-copy small,
-.sound-library-footer,
-.sound-library-summary,
-.sound-picker-helper,
 .dialog-content footer,
 .dialog-content dl > div {
   font-size: var(--type-ui-operational);
   color: var(--fg-ui-secondary);
   line-height: 1.45;
 }
-.sound-library-eyebrow,
-.sound-library-row-character,
-.sound-library-selected-status,
-.sound-picker-character,
-.sound-library-categories button {
-  font-size: var(--type-ui-ancillary);
-  color: var(--fg-ui-muted);
-  line-height: 1.45;
-}
-.sound-library-categories button { min-height: 40px; }
 
 /* Interactive outlines also need contrast against their surrounding surfaces,
    independent of label color. These borders must meet the 3:1 non-text target. */
