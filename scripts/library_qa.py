@@ -205,7 +205,9 @@ with sync_playwright() as playwright:
     page.keyboard.press("ArrowDown")
     expect(cards.nth(1)).to_be_focused()
     page.get_by_role("button",name="Preview Classic Analog").click()
+    expect(page.locator(".sound-library-row-play[data-preview-state='playing']")).to_have_count(1)
     page.get_by_role("button",name="Preview Glass Piano").click()
+    expect(page.locator(".sound-library-row-play[data-preview-state='playing']")).to_have_count(1)
     page.get_by_role("button",name="Cancel",exact=True).click()
     expect(page.get_by_role("dialog",name="Sound library")).not_to_be_visible()
     page.set_viewport_size({"width":1440,"height":900})
@@ -213,7 +215,7 @@ with sync_playwright() as playwright:
     expect(page.locator(".sound-library-row")).to_have_count(49)
     assert page.locator(".sound-library [aria-busy='true']").count()==0
     assert not errors,errors
-    record("Mobile card navigation, rapid audition and dismiss/reopen do not leave stale busy state")
+    record("Mobile card navigation, audible preview status, rapid audition and dismiss/reopen state")
 
     page.get_by_role("button",name="Keys",exact=True).click()
     page.get_by_role("searchbox",name="Search presets").fill("glass piano")
