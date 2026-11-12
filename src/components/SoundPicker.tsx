@@ -327,7 +327,9 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
 
       {open && createPortal(
         <div ref={layerRef} className="sound-library-layer">
-          <div className="sound-library-backdrop" aria-hidden="true" onPointerDown={close} />
+          {/* Dismiss on completed click, not pointerdown: the latter can restore
+              focus before the same pointer gesture moves it back to body. */}
+          <div className="sound-library-backdrop" aria-hidden="true" onClick={close} />
           <div
             ref={dialogRef}
             role="dialog"
