@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, Headphones, LocateFixed, LoaderCircle, Play, Search, Volume2, SlidersHorizontal, Star, X } from "lucide-react";
+import { Check, ChevronDown, LocateFixed, LoaderCircle, Play, Search, Volume2, SlidersHorizontal, Star, X } from "lucide-react";
 import { auditionPreset, cancelPresetAudition } from "../lib/audio";
 import { filterSoundPresets, presetViewCounts, sanitizeFavoriteIds, PRESET_VIEWS, type PresetView } from "../lib/presetBrowser";
 import { PRESET_BY_ID, PRESET_IDS, SOUND_PRESETS, type SynthType, type Wave } from "../lib/presets";
@@ -371,10 +371,6 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
                     <span className="sound-library-nav-count" aria-hidden="true">{counts[name]}</span>
                   </button>
                 ))}
-                <div className="sound-library-nav-note">
-                  <Headphones size={16} aria-hidden="true" />
-                  <span>Built to explore. All sounds are original browser synths; your MIDI stays intact.</span>
-                </div>
               </nav>
 
               <div className="sound-library-main">
