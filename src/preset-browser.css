@@ -177,14 +177,14 @@
 .sound-library-reset:hover { color: white; }
 .sound-library-results {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-auto-rows: minmax(206px, auto); align-content: start;
+  grid-auto-rows: max-content; align-content: start;
   flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
   padding: 20px 22px 23px; gap: 13px; scrollbar-width: thin;
 }
 .sound-library-row {
   --preset-identity: #b7c6b2;
   position: relative; display: flex; flex-direction: column; min-width: 0;
-  min-height: 206px; overflow: hidden; border-radius: 12px;
+  min-height: 226px; overflow: hidden; border-radius: 12px;
   border: 1px solid #718277; background: linear-gradient(160deg, #354340, #2e3a38);
   transition: border-color .16s ease, background .16s ease, box-shadow .16s ease, transform .16s ease;
 }
@@ -208,7 +208,7 @@
   background: linear-gradient(155deg, #485343, #35453c);
 }
 .sound-library-select {
-  display: flex; flex: 1; flex-direction: column; gap: 9px; min-width: 0;
+  display: flex; flex: 1 0 auto; flex-direction: column; gap: 7px; min-width: 0;
   padding: 14px 15px 6px 17px; border: 0; background: transparent; color: #f8f8ef; text-align: left;
 }
 .sound-library-row-topline {
@@ -229,7 +229,7 @@
 .sound-library-row-tag.selected { color: #2b382d; background: #e8d4b1; border-color: #f9e8ca; }
 .sound-library-row-art {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; width: 100%; min-height: 54px;
+  gap: 12px; width: 100%; min-height: 44px;
   padding: 5px 12px 5px 9px; border-radius: 7px; overflow: hidden;
   background: linear-gradient(115deg, #121e1e8e, #19272740);
 }
@@ -252,7 +252,7 @@
   display: block; color: #cadcc7; font-size: 11px; line-height: 1.4; font-weight: 560;
 }
 .sound-library-row-actions {
-  display: flex; align-items: center; justify-content: flex-end;
+  display: flex; flex: 0 0 auto; align-items: center; justify-content: flex-end;
   gap: 7px; padding: 0 12px 11px;
 }
 .sound-library-favorite, .sound-library-row-play {
@@ -356,12 +356,12 @@
   .sound-library-search input { font-size: 13px; }
   .sound-library-search-hint, .sound-library-navigation-hint, .sound-library-context { display: none; }
   .sound-library-results {
-    grid-template-columns: minmax(0,1fr); grid-auto-rows: minmax(157px, auto);
+    grid-template-columns: minmax(0,1fr); grid-auto-rows: max-content;
     gap: 9px; padding: 10px 12px;
   }
-  .sound-library-row { min-height: 157px; }
+  .sound-library-row { min-height: 210px; }
   .sound-library-select { padding: 10px 13px 3px 15px; gap: 5px; }
-  .sound-library-row-art { min-height: 39px; }
+  .sound-library-row-art { min-height: 36px; }
   .sound-library-wave { height: 31px; }
   .sound-library-row-copy strong { font-size: 15px; }
   .sound-library-row-copy small { font-size: 12px; }
