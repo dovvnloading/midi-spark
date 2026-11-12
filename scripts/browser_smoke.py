@@ -263,7 +263,7 @@ with sync_playwright() as p:
  page.get_by_role('button',name='Keys',exact=True).click()
  assert page.locator('.sound-library-row').count()==8
  page.get_by_role('searchbox',name='Search presets').fill('glass piano')
- assert page.locator('.sound-library-row').count()==1
+ expect(page.locator('.sound-library-row')).to_have_count(1)
  page.get_by_role('button',name='Preview Glass Piano',exact=True).click()
  assert snap(page)['synthType']=='classic'
  page.locator('.sound-library-select').filter(has_text='Glass Piano').click()
