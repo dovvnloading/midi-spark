@@ -176,9 +176,14 @@ with sync_playwright() as playwright:
     page.get_by_role("button",name="Remove Glass Piano from favorites").click()
     expect(page.get_by_role("searchbox",name="Search presets")).to_be_focused()
     expect(page.get_by_text("No matching sounds")).to_be_visible()
-    page.get_by_role("button",name="Clear filters",exact=True).click()
+    page.get_by_role("button",name="Show Glass Piano in the sound collection").click()
+    expect(search).to_have_value("")
     expect(page.locator(".sound-library-row")).to_have_count(49)
-    record("Category+search, selection state, favorites and focus repair after card removal")
+    active=page.locator('.sound-library-row[data-active="true"] .sound-library-select')
+    expect(active).to_have_count(1)
+    expect(active).to_be_focused()
+    expect(active).to_be_in_viewport()
+    record("Category+search, favorites, focus repair and reveal selected across filters")
 
     # Modal stays open while moving between layout breakpoints, including the
     # 720x450 CSS viewport / DPR=2 proxy for 200% zoom on a 1440x900 display.
