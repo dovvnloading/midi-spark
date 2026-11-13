@@ -87,7 +87,7 @@
 }
 
 .stamp-control { display: flex; align-items: center; gap: 7px; min-width: 0; }
-.stamp-control > span { color: var(--fg-ui-secondary, #dce7da); font-size: 10px; }
+.stamp-control > span { color: #435248; font-size: 10px; }
 @container (max-width: 470px) {
   .stamp-control > span { display: none; }
   .stamp-picker-trigger { min-width: 116px; max-width: 140px; }
