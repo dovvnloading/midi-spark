@@ -98,3 +98,88 @@ export const SCALE_PRESETS: readonly ScaleStampPreset[] = [
   S("Diminished Scale", "Octatonic", [0, 2, 3, 5, 6, 8, 9, 11], "Whole-half diminished"),
 ];
 
+/** Major/minor spellings are intentional. In particular minor V is MAJOR,
+ * and ♭III / ♭VI / ♭VII never inherit a major-key natural degree. */
+export const PROGRESSION_PRESETS: readonly ProgressionStampPreset[] = [
+  P("pop-anthem", "Four-chord pop", "Major progressions", "I – V – vi – IV",
+    [[0,"Major"],[7,"Major"],[9,"Minor"],[5,"Major"]], "Pop / rock • 4 bars"),
+  P("pop-lift", "Pop lift", "Major progressions", "vi – IV – I – V",
+    [[9,"Minor"],[5,"Major"],[0,"Major"],[7,"Major"]], "Uplifting pop • 4 bars"),
+  P("doo-wop", "Doo-wop turnaround", "Major progressions", "I – vi – IV – V",
+    [[0,"Major"],[9,"Minor"],[5,"Major"],[7,"Major"]], "1950s pop • 4 bars"),
+  P("classic-rock", "Classic rock", "Major progressions", "I – IV – V – IV",
+    [[0,"Major"],[5,"Major"],[7,"Major"],[5,"Major"]], "Guitar rock • 4 bars"),
+  P("plagal", "Plagal cadence", "Major progressions", "I – IV – I",
+    [[0,"Major"],[5,"Major"],[0,"Major"]], "Amen cadence • 3 bars"),
+  P("authentic", "Authentic cadence", "Major progressions", "I – IV – V – I",
+    [[0,"Major"],[5,"Major"],[7,"Major"],[0,"Major"]], "Classic tonic resolution • 4 bars"),
+  P("royal-road", "Royal road", "Major progressions", "IVmaj7 – V7 – iii7 – vi7",
+    [[5,"Maj7"],[7,"Dom7"],[4,"Min7"],[9,"Min7"]], "Japanese pop / R&B • 4 bars"),
+  P("canon", "Canon sequence", "Major progressions", "I – V – vi – iii – IV – I – IV – V",
+    [[0,"Major"],[7,"Major"],[9,"Minor"],[4,"Minor"],[5,"Major"],[0,"Major"],[5,"Major"],[7,"Major"]], "Classical cycle • 8 bars"),
+  P("backdoor", "Backdoor resolution", "Major progressions", "iv7 – ♭VII7 – Imaj7",
+    [[5,"Min7"],[10,"Dom7"],[0,"Maj7"]], "Soul / jazz cadence • 3 bars"),
+  P("mixolydian", "Mixolydian rock", "Major progressions", "I – ♭VII – IV – I",
+    [[0,"Major"],[10,"Major"],[5,"Major"],[0,"Major"]], "Modal rock • 4 bars"),
+
+  P("minor-pop", "Minor pop", "Minor progressions", "i – ♭VI – ♭III – ♭VII",
+    [[0,"Minor"],[8,"Major"],[3,"Major"],[10,"Major"]], "Modern minor pop • 4 bars"),
+  P("andalusian", "Andalusian cadence", "Minor progressions", "i – ♭VII – ♭VI – V",
+    [[0,"Minor"],[10,"Major"],[8,"Major"],[7,"Major"]], "Flamenco / cinematic • 4 bars"),
+  P("minor-cadence", "Minor authentic cadence", "Minor progressions", "i – iv – V – i",
+    [[0,"Minor"],[5,"Minor"],[7,"Major"],[0,"Minor"]], "Harmonic minor dominant • 4 bars"),
+  P("minor-cinema", "Cinematic minor", "Minor progressions", "i – ♭VI – iv – V",
+    [[0,"Minor"],[8,"Major"],[5,"Minor"],[7,"Major"]], "Dramatic minor • 4 bars"),
+  P("minor-hero", "Minor heroic", "Minor progressions", "i – ♭VI – ♭VII – i",
+    [[0,"Minor"],[8,"Major"],[10,"Major"],[0,"Minor"]], "Epic minor cadence • 4 bars"),
+  P("minor-lift", "Minor rise", "Minor progressions", "i – ♭III – iv – V",
+    [[0,"Minor"],[3,"Major"],[5,"Minor"],[7,"Major"]], "Ascending tension • 4 bars"),
+  P("minor-landing", "Minor landing", "Minor progressions", "♭VI – ♭VII – i – i",
+    [[8,"Major"],[10,"Major"],[0,"Minor"],[0,"Minor"]], "Aeolian rise • 4 bars"),
+
+  P("two-five-one", "Jazz ii–V–I", "Jazz & blues progressions", "ii7 – V7 – Imaj7",
+    [[2,"Min7",2],[7,"Dom7",2],[0,"Maj7",4]], "Jazz cadence • 2 bars"),
+  P("jazz-turnaround", "Jazz turnaround", "Jazz & blues progressions", "Imaj7 – vi7 – ii7 – V7",
+    [[0,"Maj7"],[9,"Min7"],[2,"Min7"],[7,"Dom7"]], "Jazz / standards • 4 bars"),
+  P("jazz-1625", "Jazz 1–6–2–5", "Jazz & blues progressions", "Imaj7 – VI7 – ii7 – V7",
+    [[0,"Maj7"],[9,"Dom7"],[2,"Min7"],[7,"Dom7"]], "Secondary dominant • 4 bars"),
+  P("jazz-cycle", "Circle of fifths", "Jazz & blues progressions", "iii7 – vi7 – ii7 – V7 – Imaj7",
+    [[4,"Min7"],[9,"Min7"],[2,"Min7"],[7,"Dom7"],[0,"Maj7"]], "Functional sequence • 5 bars"),
+  P("minor-two-five-one", "Minor ii–V–i", "Jazz & blues progressions", "iiø7 – V7♭9 – i",
+    [[2,"m7b5",2],[7,"7b9",2],[0,"Minor",4]], "Minor jazz cadence • 2 bars"),
+  P("twelve-bar-blues", "12-bar blues", "Jazz & blues progressions", "I7 ×4 – IV7 ×2 – I7 ×2 – V7 – IV7 – I7 – V7",
+    [[0,"Dom7"],[0,"Dom7"],[0,"Dom7"],[0,"Dom7"],[5,"Dom7"],[5,"Dom7"],[0,"Dom7"],[0,"Dom7"],[7,"Dom7"],[5,"Dom7"],[0,"Dom7"],[7,"Dom7"]], "Traditional blues • 12 bars"),
+  P("minor-blues", "Minor 12-bar blues", "Jazz & blues progressions", "i7 ×4 – iv7 ×2 – i7 ×2 – ♭VI7 – V7 – i7 – V7",
+    [[0,"Min7"],[0,"Min7"],[0,"Min7"],[0,"Min7"],[5,"Min7"],[5,"Min7"],[0,"Min7"],[0,"Min7"],[8,"Dom7"],[7,"Dom7"],[0,"Min7"],[7,"Dom7"]], "Minor blues • 12 bars"),
+];
+
+export const STAMP_PRESETS: readonly StampPreset[] = [
+  ...CHORD_PRESETS, ...PROGRESSION_PRESETS, ...SCALE_PRESETS,
+];
+const byId = new Map(STAMP_PRESETS.map(preset => [preset.id, preset]));
+const chordById = new Map(CHORD_PRESETS.map(preset => [preset.id, preset]));
+
+/** Compatibility for existing imports; this catalog is the single source of truth. */
+export const CHORD_STAMPS: Record<string, number[]> = Object.fromEntries(
+  CHORD_PRESETS.map(preset => [preset.id, [...preset.intervals]]));
+export const SCALE_STAMPS: Record<string, number[]> = Object.fromEntries(
+  SCALE_PRESETS.map(preset => [preset.id, [...preset.intervals]]));
+
+export function getStampPreset(id: string): StampPreset | undefined {
+  return byId.get(id);
+}
+export function searchStampPresets(query: string): StampPreset[] {
+  const terms = query.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (!terms.length) return [...STAMP_PRESETS];
+  return STAMP_PRESETS.filter(preset => {
+    const text = [preset.label, preset.id, preset.group, preset.description,
+      preset.kind === "progression" ? preset.formula : ""].join(" ").toLocaleLowerCase();
+    return terms.every(term => text.includes(term));
+  });
+}
+export function stampDuration(preset: StampPreset, noteLength: number): number {
+  if (preset.kind === "scale") return 1 / 64;
+  if (preset.kind === "chord") return noteLength;
+  return preset.steps.reduce((total, step) => total + (step[2] ?? 4), 0);
+}
+
