@@ -16,7 +16,7 @@ function placed(id: string, root = 60, start = 0, length = 1,
   expect(result, "Could not place " + id).not.toBeNull();
   return result!;
 }
-function pitchClasses(midi: number[]): number[] {
+function pitchClasses(midi: readonly number[]): number[] {
   return [...new Set(midi.map(p => p % 12))].sort((a, b) => a - b);
 }
 
