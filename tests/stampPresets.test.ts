@@ -63,14 +63,20 @@ describe("stamp catalog", () => {
   });
 
   it("defines conventional tonal symbols for all pitched chord stamps", () => {
+    const unsupported: string[] = [];
+    const differentPitchClasses: string[] = [];
     for (const quality of CHORD_PRESETS) {
       const label = "C" + quality.suffix;
       const parsed = Chord.get(label);
-      expect(parsed.empty, label + " should parse").toBe(false);
-      const degrees = pitchClasses(quality.intervals);
-      const normalized = pitchClasses(parsed.notes.map(name => Note.chroma(name) ?? -1));
-      expect(normalized, label + " should use the documented pitch classes").toEqual(degrees);
+      if (parsed.empty) { unsupported.push(label); continue; }
+      const expected = pitchClasses(quality.intervals);
+      const parsedClasses = pitchClasses(parsed.notes.map(name => Note.chroma(name) ?? -1));
+      if (JSON.stringify(parsedClasses) !== JSON.stringify(expected)) {
+        differentPitchClasses.push(label + ": expected " + expected.join(",") + "; parsed " + parsedClasses.join(","));
+      }
     }
+    expect(unsupported).toEqual([]);
+    expect(differentPitchClasses).toEqual([]);
   });
 });
 
