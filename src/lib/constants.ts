@@ -30,27 +30,8 @@ export const ROOT_NOTES = [
   "B",
 ] as const;
 
-export const CHORD_STAMPS: Record<string, number[]> = {
-  Major: [0, 4, 7],
-  Minor: [0, 3, 7],
-  Maj7: [0, 4, 7, 11],
-  Min7: [0, 3, 7, 10],
-  Dom7: [0, 4, 7, 10],
-  Dim: [0, 3, 6],
-  Aug: [0, 4, 8],
-  Sus2: [0, 2, 7],
-  Sus4: [0, 5, 7],
-};
-
-export const SCALE_STAMPS: Record<string, number[]> = {
-  "Major Scale": [0, 2, 4, 5, 7, 9, 11],
-  "Minor Scale": [0, 2, 3, 5, 7, 8, 10],
-  "Harmonic Minor": [0, 2, 3, 5, 7, 8, 11],
-  "Melodic Minor": [0, 2, 3, 5, 7, 9, 11],
-  "Pentatonic Maj": [0, 2, 4, 7, 9],
-  "Pentatonic Min": [0, 3, 5, 7, 10],
-  Blues: [0, 3, 5, 6, 7, 10],
-};
+// Canonical preset definitions and legacy interval maps share one source.
+export { CHORD_STAMPS, SCALE_STAMPS } from "./stampPresets";
 
 export const NOTE_LENGTH_OPTIONS = [
   { label: "1/1", value: 4 },

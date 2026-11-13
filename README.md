@@ -86,9 +86,19 @@ Learn about the search, phrase constraints, seeded behavior, and limits in [Melo
 | --- | --- |
 | **Draw (B)** | Click or drag to place notes; drag to set a duration |
 | **Select (V)** | Select individual notes or lasso a group, then move or resize them |
-| **Stamp (S)** | Insert chord or scale patterns |
+| **Stamp (S)** | Choose and place a chord, scale, or complete multi-bar progression from the searchable library |
 | **Slice (C)** | Split notes; **Chop** subdivides notes into shorter pieces |
 | **Hand (H)** | Pan the timeline without editing notes |
+
+### Chord & progression stamp library
+
+Press **S** (or click **Stamp**) above the piano roll, then open **Preset** to browse or search a curated collection of **38 standard chord qualities**, **24 ready-made progressions**, and **14 scales/modes**. The groups cover triads, sus/add/6 chords, sevenths, extensions, alterations, major and minor pop sequences, cadences, jazz ii–V–I, and twelve-bar blues.
+
+Select a recipe and **click the piano grid at the desired time and pitch**. The clicked piano note determines the chord root or progression tonic; the horizontal click determines its start, respecting the snap grid. A single chord uses the toolbar's **Length** setting; progressions preserve their predefined quarter-note timing (generally one bar per chord, with half-bar jazz cadences). The editor grows to accommodate the entire pattern and adds conventional chord names to the timeline ruler.
+
+Each stamp is one undoable history operation. It appends editable MIDI notes to the focused track without deleting existing notes or changing generated accompaniment locks. Where an existing *manual* chord label overlaps, the label is trimmed around the new stamp; existing generated/locked labels remain intact. Scale stamps remain short, quiet reference notes without chord labels. MIDI export carries the notes; native project saves additionally retain the chord labels.
+
+**Tip:** The library search accepts chord names, descriptions and Roman-numeral formulas. Choose an earlier bar if the timeline reaches the project maximum of 512 bars.
 
 Use the **velocity lane** below the grid to change the intensity of notes; the precision note editor also supports keyboard access and numeric pitch/timing/velocity edits. Set the **snap grid** from quarter notes to 1/32 notes (or free placement), and use **Duplicate Bar** plus copy/paste to build longer ideas.
 

@@ -1358,6 +1358,48 @@ with sync_playwright() as p:
  expect(meter.locator('.meter-import-warning')).to_contain_text('Imported meter: 3/4')
  record('Imported 3/4 meter warning persists while the 4/4 editor remains explicit')
  meter.close()
+ # Standalone stamp test page: leave the main smoke-test composition intact.
+ stamps=b.new_page(viewport={'width':1280,'height':800})
+ stamps.on('pageerror',lambda error:errors.append(str(error)))
+ stamps.goto(args.url)
+ stamps.get_by_role('button',name='Start blank').click()
+ stamps.get_by_role('button',name='Stamp tool').click()
+ stamps.locator('.stamp-picker-trigger').click()
+ expect(stamps.locator('.stamp-picker-menu')).to_be_visible()
+ stamps.get_by_role('searchbox',name='Search stamp presets').fill('Four-chord pop')
+ expect(stamps.locator('.stamp-picker-option')).to_have_count(1)
+ stamps.locator('.stamp-picker-option').click()
+ expect(stamps.locator('.stamp-picker-menu')).not_to_be_visible()
+ x,y=grid_point(stamps,60,1)
+ stamps.mouse.click(x,y)
+ score=snap(stamps)['progression']
+ assert [c['name'] for c in score['chords']]==['C','G','Am','F'],score['chords']
+ assert [c['timeStart'] for c in score['chords']]==[1,5,9,13],score['chords']
+ assert len(score['notes'])==12 and score['totalBars']==5,score
+ record('Searchable stamp library inserts a transposed four-chord progression')
+ stamps.get_by_role('button',name='Undo',exact=True).click()
+ assert snap(stamps)['progression']['notes']==[]
+ assert snap(stamps)['progression']['chords']==[]
+ stamps.get_by_role('button',name='Redo',exact=True).click()
+ assert len(snap(stamps)['progression']['notes'])==12
+ assert len(snap(stamps)['progression']['chords'])==4
+ stamps.reload()
+ assert len(snap(stamps)['progression']['notes'])==12
+ record('Complete progression undo/redo and local project persistence')
+ stamps.get_by_role('button',name='Stamp tool').click()
+ stamps.locator('.stamp-picker-trigger').click()
+ stamps.get_by_role('searchbox',name='Search stamp presets').fill('Minor triad')
+ stamps.get_by_role('button',name='Minor Minor triad',exact=True).click()
+ x,y=grid_point(stamps,60,1)
+ stamps.mouse.click(x,y)
+ score=snap(stamps)['progression']
+ assert len(score['notes'])==15,len(score['notes'])
+ assert any(c['name']=='Cm' and c['timeStart']==1 for c in score['chords']),score['chords']
+ assert any(c['name']=='C' and c['timeStart']==1.25 for c in score['chords']),score['chords']
+ stamps.get_by_role('button',name='Undo',exact=True).click()
+ assert len(snap(stamps)['progression']['notes'])==12
+ record('Stamp-over-existing-note, non-destructive labels, one-step undo')
+ stamps.close()
  assert not errors,errors
  record('No browser page errors during the complete suite')
  (OUTPUT/'geometry.json').write_text(json.dumps(metrics,indent=2))
