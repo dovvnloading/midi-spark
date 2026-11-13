@@ -8,6 +8,7 @@ import './index.css';
 import './studio.css';
 import './earth.css';
 import './preset-browser.css';
+import './stamp-picker.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
