@@ -183,3 +183,131 @@ export function stampDuration(preset: StampPreset, noteLength: number): number {
   return preset.steps.reduce((total, step) => total + (step[2] ?? 4), 0);
 }
 
+export interface StampPlacement {
+  progression: ProgressionData;
+  addedNotes: NoteEvent[];
+  addedChords: ChordEvent[];
+}
+
+/** Retain every chord tone even when the clicked root is at the MIDI extremes. */
+function withinMidi(notes: number[]): number[] {
+  let shift = 0;
+  const low = Math.min(...notes);
+  const high = Math.max(...notes);
+  while (low + shift < 0) shift += 12;
+  while (high + shift > 127) shift -= 12;
+  return notes.map(pitch => pitch + shift);
+}
+
+/** The clicked piano row is the tonic; other degree roots stay near its octave. */
+function degreeRoot(tonic: number, degree: number): number {
+  return tonic + ((degree + 6) % 12 + 12) % 12 - 6;
+}
+
+/** Smooth sequential inversions without dropping tones or crossing voices. */
+function voiceChord(rootMidi: number, intervals: readonly number[], previous: readonly number[] | null): number[] {
+  const rootPosition = withinMidi(intervals.map(interval => rootMidi + interval));
+  if (!previous || intervals.length < 3) return rootPosition;
+  const pitchClasses = [...new Set(intervals.map(i => ((i % 12) + 12) % 12))].sort((a, b) => a - b);
+  if (pitchClasses.length !== intervals.length) return rootPosition;
+
+  let best = rootPosition;
+  let bestScore = Number.POSITIVE_INFINITY;
+  const reference = [...previous].sort((a, b) => a - b);
+  for (let inversion = 0; inversion < pitchClasses.length; inversion++) {
+    const rotated = [...pitchClasses.slice(inversion), ...pitchClasses.slice(0, inversion).map(i => i + 12)];
+    for (const octave of [-24, -12, 0, 12, 24]) {
+      const notes = rotated.map(interval => rootMidi + interval + octave);
+      if (notes.some(pitch => pitch < 0 || pitch > 127)) continue;
+      const movement = notes.reduce((cost, pitch, index) => {
+        const targetIndex = notes.length === 1 ? 0
+          : Math.round(index * (reference.length - 1) / (notes.length - 1));
+        return cost + Math.abs(pitch - reference[targetIndex]);
+      }, 0);
+      const registerPenalty = notes.reduce((cost, pitch) => cost + Math.abs(pitch - rootMidi), 0) * 0.08;
+      const score = movement + registerPenalty;
+      if (score < bestScore) { best = notes; bestScore = score; }
+    }
+  }
+  return best;
+}
+
+function symbol(rootMidi: number, suffix: string): string {
+  const tonic = Note.fromMidi(((rootMidi % 12) + 12) % 12 + 60);
+  return (tonic?.replace(/-?\d+$/, "") ?? "C") + suffix;
+}
+
+/** One undoable, non-destructive edit. New chord labels replace overlapping
+ * user-authored labels only; generated/locked regions and notes are preserved.
+ * Hard bounds match project-file limits and prevent corrupt MIDI or autosaves. */
+export function placeStamp(
+  data: ProgressionData, id: string, midi: number, timeStart: number,
+  noteLength: number, trackIndex: number,
+): StampPlacement | null {
+  const preset = getStampPreset(id);
+  if (!preset || !Number.isInteger(midi) || midi < 0 || midi > 127 ||
+      !Number.isFinite(timeStart) || timeStart < 0 ||
+      !Number.isFinite(noteLength) || noteLength <= 0 || noteLength > 16 ||
+      !Number.isInteger(trackIndex) || trackIndex < 0) return null;
+  const duration = stampDuration(preset, noteLength);
+  if (duration <= 0 || timeStart + duration > 512 * 4 + 1e-8) return null;
+
+  const addedNotes: NoteEvent[] = [];
+  const addedChords: ChordEvent[] = [];
+  const append = (rootMidi: number, quality: ChordStampPreset, start: number,
+    quarters: number, previous: readonly number[] | null): number[] => {
+    const pitches = voiceChord(rootMidi, quality.intervals, previous);
+    for (const pitch of pitches) {
+      addedNotes.push({
+        midi: pitch, name: Note.fromMidi(pitch) || "C4", timeStart: start,
+        duration: quarters, velocity: 0.8, trackIndex,
+      });
+    }
+    addedChords.push({ name: symbol(rootMidi, quality.suffix), timeStart: start, duration: quarters });
+    return pitches;
+  };
+
+  if (preset.kind === "chord") {
+    append(midi, preset, timeStart, noteLength, null);
+  } else if (preset.kind === "scale") {
+    const pitches = withinMidi(preset.intervals.map(interval => midi + interval));
+    for (const pitch of pitches) {
+      addedNotes.push({
+        midi: pitch, name: Note.fromMidi(pitch) || "C4", timeStart,
+        duration: 1 / 64, velocity: 0.1, trackIndex,
+      });
+    }
+  } else {
+    let start = timeStart;
+    let previous: number[] | null = null;
+    for (const [degree, qualityId, quarters = 4] of preset.steps) {
+      const quality = chordById.get(qualityId);
+      if (!quality || !Number.isFinite(quarters) || quarters <= 0) return null;
+      previous = append(degreeRoot(midi, degree), quality, start, quarters, previous);
+      start += quarters;
+    }
+  }
+  if (!addedNotes.length || data.notes.length + addedNotes.length > 60000) return null;
+
+  const end = timeStart + duration;
+  const survivingChords = data.chords.flatMap(chord => {
+    if (!addedChords.length || chord.generatedSourceTrackIndex !== undefined ||
+        chord.timeStart >= end || chord.timeStart + chord.duration <= timeStart) return [chord];
+    const pieces: ChordEvent[] = [];
+    if (chord.timeStart < timeStart) pieces.push({ ...chord, duration: timeStart - chord.timeStart });
+    const priorEnd = chord.timeStart + chord.duration;
+    if (priorEnd > end) pieces.push({ ...chord, timeStart: end, duration: priorEnd - end });
+    return pieces;
+  });
+  const chords = [...survivingChords, ...addedChords].sort(
+    (a, b) => a.timeStart - b.timeStart || a.duration - b.duration);
+  if (chords.length > 8192) return null;
+
+  return {
+    progression: {
+      ...data, notes: [...data.notes, ...addedNotes], chords,
+      totalBars: Math.max(data.totalBars, Math.ceil(end / 4), 1),
+    },
+    addedNotes, addedChords,
+  };
+}
