@@ -1389,7 +1389,7 @@ with sync_playwright() as p:
  stamps.get_by_role('button',name='Stamp tool').click()
  stamps.locator('.stamp-picker-trigger').click()
  stamps.get_by_role('searchbox',name='Search stamp presets').fill('Minor triad')
- stamps.get_by_text('Minor',exact=True).click()
+ stamps.get_by_role('button',name='Minor Minor triad',exact=True).click()
  x,y=grid_point(stamps,60,1)
  stamps.mouse.click(x,y)
  score=snap(stamps)['progression']
