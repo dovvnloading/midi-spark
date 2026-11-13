@@ -1502,7 +1502,8 @@ export default function App() {
             onToggleChordLock={handleToggleChordLock}
             scrollAnchorKey={scrollAnchorKey} onSelectionChange={setSelectedNoteIndices} commit={commit} onZoomChange={setZoomX}
             onScrub={handleScrub} onScrubStateChange={handleScrubStateChange} onLivePreview={setLivePreview}
-            onAudioPreviewError={message => notify(message, "error")} />
+            onAudioPreviewError={message => notify(message, "error")}
+            onStampError={message => notify(message, "error")} />
         </main>
       </div>
       <footer className="app-status"><span className="save-status">{saveState === "saved" ? <Check size={12} /> : <HardDrive size={12} />}
