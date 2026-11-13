@@ -9,12 +9,12 @@ import {
 import { Note } from "@tonaljs/tonal";
 import { Pencil, LockKeyhole, LockOpen } from "lucide-react";
 import { ensureBarsCoverNotes } from "../lib/transforms";
+import { placeStamp } from "../lib/stampPresets";
 import { ProgressionData, NoteEvent, getScaleChromas } from "../lib/theory";
 import { initAudio, playNote } from "../lib/audio";
 import { trackIndexOf, listTracks } from "../lib/tracks";
 import { normalizeLoopRange, sequenceEndQuarters, type LoopRange } from "../lib/timeline";
 import {
-  CHORD_STAMPS,
   FREE_SNAP,
   KEYBOARD_WIDTH,
   MAX_MIDI,
@@ -24,7 +24,6 @@ import {
   MIN_VELOCITY,
   MIN_ZOOM,
   NOTE_HEIGHT,
-  SCALE_STAMPS,
   VELOCITY_LANE_HEIGHT,
   clamp,
   getTrackColorClasses,
@@ -66,6 +65,7 @@ export interface PianoRollProps {
   onScrubStateChange: (isScrubbing: boolean) => void;
   onLivePreview: (preview: ProgressionData | null) => void;
   onAudioPreviewError?: (message: string) => void;
+  onStampError?: (message: string) => void;
 }
 
 interface LoopDrag {
@@ -119,7 +119,7 @@ const BLACK_KEY_CLASSES = [1, 3, 6, 8, 10];
 const TOOL_HINTS: Record<ToolMode, string> = {
   draw: "Draw · Tap grid to add; drag for length",
   select: "Select · Tap a note; drag to move or lasso",
-  stamp: "Stamp · Tap grid to place chord/scale",
+  stamp: "Stamp · Choose a preset, then tap a row to place a chord or progression",
   cut: "Slice · Drag across notes to split",
   pan: "Hand · Drag canvas to navigate",
 };
@@ -155,6 +155,7 @@ export function PianoRoll({
   onScrubStateChange,
   onLivePreview,
   onAudioPreviewError,
+  onStampError,
 }: PianoRollProps) {
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dragDrawState, setDragDrawState] = useState<DragDrawState | null>(null);
@@ -507,26 +508,29 @@ export function PianoRoll({
     }
 
     if (toolMode === "stamp") {
-      const isScale = !!SCALE_STAMPS[stampType];
-      const intervals = CHORD_STAMPS[stampType] || SCALE_STAMPS[stampType];
-      if (!intervals) return;
-      const newNotes = intervals
-        .map((interval) => midi + interval)
-        .filter((m) => m <= MAX_MIDI)
-        .map((chordMidi) => {
-          const name = Note.fromMidi(chordMidi) || "C4";
-          return {
-            midi: chordMidi,
-            name,
-            timeStart: tick,
-            duration: isScale ? FREE_SNAP : noteLength, // scales place tiny guides
-            velocity: isScale ? 0.1 : 0.8, // low velocity so guides render faint
-            trackIndex: drawTrackIndex,
-          };
-        });
-      commit((prev) => prev ? ensureBarsCoverNotes({ ...prev, notes: [...prev.notes, ...newNotes] }) : prev);
-      if (!isScale) void initAudio().then(() => newNotes.forEach(n => playNote(n.name, 0.5, n.velocity, drawTrackIndex)))
-        .catch(() => onAudioPreviewError?.("Audio preview could not start. Notes are still editable; use Play to retry after enabling audio."));
+      // A single click creates one complete undoable note-and-chord transaction.
+      // The row is the root/tonic, the horizontal position is the start time.
+      const result = placeStamp(progression, stampType, midi, Math.max(0, tick), noteLength, drawTrackIndex);
+      if (!result) {
+        onStampError?.("This stamp cannot fit here. Try an earlier bar or check the project limits.");
+        return;
+      }
+      commit(prev => prev
+        ? placeStamp(prev, stampType, midi, Math.max(0, tick), noteLength, drawTrackIndex)?.progression ?? prev
+        : prev);
+      onSelectionChange(new Set(result.addedNotes.map((_, index) => progression.notes.length + index)));
+
+      // Audition only the first chord of a multi-bar progression: don't trigger
+      // every future chord simultaneously, or overload the active synth.
+      if (result.addedChords.length) {
+        const firstStart = result.addedChords[0].timeStart;
+        const firstChord = result.addedNotes
+          .filter(note => note.timeStart === firstStart).slice(0, 6);
+        void initAudio().then(() => firstChord.forEach(note =>
+          playNote(note.name, 0.5, note.velocity, drawTrackIndex)))
+          .catch(() => onAudioPreviewError?.(
+            "Audio preview could not start. Notes are still editable; use Play to retry after enabling audio."));
+      }
       return;
     }
 
@@ -1221,7 +1225,7 @@ export function PianoRoll({
                             handleNoteDelete(n, i);
                           }
                         }}
-                        className={`absolute z-10 group transition-none ${isDragging ? "opacity-80" : "opacity-100"}`}
+                        className={`absolute z-10 group transition-none ${isDragging ? "opacity-80" : "opacity-100"} ${toolMode === "stamp" ? "pointer-events-none" : ""}`}
                         style={{
                           left: `${renderTick * zoomX}px`,
                           width: `${boxWidth}px`,
