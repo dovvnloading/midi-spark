@@ -95,7 +95,7 @@ describe("timeline stamp placement", () => {
     expect(minor.addedChords.map(chord => pitchClasses(
       minor.addedNotes.filter(note => note.timeStart === chord.timeStart).map(note => note.midi),
     ))).toEqual([
-      [0, 3, 7], [0, 5, 10], [0, 4, 8], [2, 7, 11],
+      [0, 3, 7], [2, 5, 10], [0, 3, 8], [2, 7, 11],
     ]);
     // Dominant in C minor must contain B natural, not the B-flat of natural minor.
     expect(minor.addedChords.at(-1)?.name).toBe("G");
