@@ -2,7 +2,8 @@ import { useRef, useState } from "react";
 import { ChevronDown, Eye, Hand, MousePointer2, Pencil, Scissors, Stamp, ZoomIn, ZoomOut, Scan, PanelLeft, LocateFixed } from "lucide-react";
 import { CustomDropdown } from "./CustomDropdown";
 import { FloatingMenu } from "./FloatingMenu";
-import { CHORD_STAMPS, SCALE_STAMPS, SNAP_OPTIONS, NOTE_LENGTH_OPTIONS, MIN_ZOOM, MAX_ZOOM } from "../lib/constants";
+import { SNAP_OPTIONS, NOTE_LENGTH_OPTIONS, MIN_ZOOM, MAX_ZOOM } from "../lib/constants";
+import { StampPicker } from "./StampPicker";
 export type ToolMode = "draw" | "select" | "stamp" | "cut" | "pan";
 export interface EditToolbarProps {
   toolMode: ToolMode; stampType: string; noteLength: number; snapResolution: number; zoomX: number;
@@ -19,7 +20,7 @@ const TOOLS = [
 const ACTIVE_TOOL_HELP: Record<ToolMode, string> = {
   draw: "Tap the grid to add a note; drag to set its length.",
   select: "Tap a note to select, move or resize it; drag empty space to lasso.",
-  stamp: "Tap the grid to place the chosen chord or scale.",
+  stamp: "Choose a chord, scale, or progression; tap a piano row to place it in that key.",
   cut: "Drag across notes to split them.",
   pan: "Drag the canvas to navigate without editing notes.",
 };
@@ -41,9 +42,9 @@ export function EditToolbar(p: EditToolbarProps) {
     </div>
     <div className="precision-controls"><label><span>Snap</span><CustomDropdown ariaLabel="Grid snap" options={SNAP_OPTIONS.map(o => o.value === 0 ? { ...o, label: "Off" } : o)} value={p.snapResolution} onChange={v => p.onSnapResolutionChange(Number(v))} /></label>
       <label><span>Length</span><CustomDropdown ariaLabel="Draw length" options={NOTE_LENGTH_OPTIONS} value={p.noteLength} onChange={v => p.onNoteLengthChange(Number(v))} /></label>
-      {p.toolMode === "stamp" && <CustomDropdown ariaLabel="Stamp type" options={[
-        { groupLabel: "Chords", options: Object.keys(CHORD_STAMPS) }, { groupLabel: "Scales", options: Object.keys(SCALE_STAMPS) },
-      ]} value={p.stampType} onChange={v => p.onStampTypeChange(String(v))} />}
+      {p.toolMode === "stamp" && <div className="stamp-control"><span>Preset</span>
+        <StampPicker value={p.stampType} onChange={p.onStampTypeChange} />
+      </div>}
     </div>
     <div className="active-tool-readout" role="status" aria-live="polite" aria-atomic="true">
       <strong>{TOOLS.find(tool => tool.mode === p.toolMode)?.label} tool</strong>
