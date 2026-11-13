@@ -54,7 +54,7 @@ export const CHORD_PRESETS: readonly ChordStampPreset[] = [
   C("m6/9", "Minor 6/9", "Sixths & added tones", "m69", [0, 3, 7, 9, 14], "Minor sixth and ninth"),
   C("add9", "Add 9", "Sixths & added tones", "add9", [0, 4, 7, 14], "Major triad with ninth"),
   C("madd9", "Minor add 9", "Sixths & added tones", "madd9", [0, 3, 7, 14], "Minor triad with ninth"),
-  C("maj11", "Major 11", "Extended & altered", "maj11", [0, 4, 7, 11, 14, 17], "Major seventh with ninth and eleventh"),
+  C("maj7#11", "Major 7 sharp 11", "Extended & altered", "maj7#11", [0, 4, 7, 11, 18], "Lydian major seventh"),
   C("madd4", "Minor add 4/11", "Sixths & added tones", "madd4", [0, 3, 7, 17], "Minor triad with upper fourth/eleventh"),
   C("Maj7", "Major 7", "Seventh chords", "maj7", [0, 4, 7, 11], "Major seventh"),
   C("Min7", "Minor 7", "Seventh chords", "m7", [0, 3, 7, 10], "Minor seventh"),
