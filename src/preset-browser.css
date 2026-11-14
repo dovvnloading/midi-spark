@@ -17,7 +17,6 @@
 }
 .sound-picker-trigger > svg { flex-shrink: 0; color: var(--fg-ui-secondary); }
 .sound-picker-title { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.sound-picker-kicker { font: 700 10px var(--font-mono); color: var(--text-muted); letter-spacing: .7px; }
 .sound-picker-title strong { font-size: 13px; font-weight: 700; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
 .sound-picker-title small { font-size: 11px; color: #e5e7e9; }
 .sound-picker-listen {

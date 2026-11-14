@@ -55,7 +55,7 @@ The [browser regression suite](scripts/browser_smoke.py) captures the studio in 
 
 1. **Open the [studio](https://dovvnloading.github.io/midi-spark/).** Choose **Generate pattern** in the empty editor, or begin with **Start blank** to draw everything yourself.
 2. In **Compose → From scratch**, set a **root key**, **Major/Minor** scale, **length** (4, 8, 12, or 16 bars), and **Single track** or **Bass + Harmony** output.
-3. Pick a **Sound** and one of the **Warm**, **Groove**, or **Explore** character presets. Expand **Fine-tune expression** for precise chord tension and rhythmic detail.
+3. Choose an **Instrument** and audition it with the play button beside the patch name. Under **Expression**, pick **Warm**, **Groove**, or **Explore**. Open **Fine-tune** to set chord tension and rhythmic detail individually.
 4. Press **Generate pattern**. Use **Space** to play/pause and the separate **Stop** control to return to the beginning. If the editor already contains music, replacement requires confirmation.
 5. Edit notes in the **piano roll**, switch to **Transform** or **Tracks**, then choose **Export MIDI** when ready. Use **Project → Save MIDI Spark project** if you want to preserve the whole editable studio session.
 
@@ -71,7 +71,7 @@ Choose **Compose → Follow melody** to work with a phrase you already have:
    - **Harmonize** generates separate **Generated Bass** and **Generated Harmony** tracks fitted to the melody.
    - **Continue** extends its contour and rhythm into a new **Melody Continuation** track.
    - **Reimagine** creates a related alternative on a **Melody Variation** track, leaving the original intact.
-4. **Refine the result.** Adjust harmonic fit, chord-change pacing, accompaniment motion, key strategy, and creative distance. More specialized settings are tucked into **Advanced harmony/melody options**.
+4. **Refine the result.** For **Harmonize**, adjust harmonic fit and open **Harmony settings** for chord pacing, accompaniment motion, and key strategy. **Continue** and **Reimagine** use creative distance and provide key selection under **Melody settings**.
 5. **Compare before accepting.** After harmonizing, **Take Lab** can explore three alternative accompaniments, audition and compare their chord changes, and save up to four favorites. Previewing a take does not change the MIDI export; **Accept selected take** commits it as an undoable edit.
 
 For harmonization, use the **padlock in the chord lane** to keep a generated chord *and its bass/harmony notes* unchanged during regeneration. **Chord guide** can pin or exclude chords before generation; unlike a padlock, a guide does not preserve previously generated note events.
@@ -104,7 +104,7 @@ Use the **velocity lane** below the grid to change the intensity of notes; the p
 
 **Transform** offers undoable cleanup tools:
 
-- **Quantize:** pull note starts toward a grid at adjustable strength, without changing their durations.
+- **Quantize** shows the first occupied bar in the current edit scope. Compare its **Before** and **After** rows as you adjust grid and strength, then choose **Apply quantize** to move the note starts.
 - **Transpose:** shift by semitone or octave.
 - **Humanize:** add controlled timing and velocity variation.
 - **Swing / reshape:** change groove and note expression through optional controls.
@@ -119,7 +119,7 @@ The ruler lets you seek and set a repeatable loop. **Shift-drag** a range, drag 
 
 Open **Tracks** to add empty tracks, manage existing ones, and focus one lane in the editor. Each track offers:
 
-- An independently selectable built-in synth sound, level, mute, and solo.
+- A level fader with a decibel readout, plus mute and solo. Open **Channel settings** to choose or audition the instrument.
 - Rename, duplicate, and delete actions; deleting a populated track requires confirmation.
 - Focused-lane note editing so pasted, drawn, stamped, or transformed notes target the intended part.
 

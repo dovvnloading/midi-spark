@@ -83,32 +83,9 @@ button:disabled { opacity: .42; }
   border-right: 1px solid #3b4947;
   box-shadow: 6px 0 18px #00000020;
 }
-.inspector-heading {
-  min-height: 75px; padding: 17px 17px 15px 20px;
-  display: flex; align-items: center; justify-content: space-between;
-  border-bottom: 1px solid var(--studio-line);
-}
-.inspector-heading-copy { display: flex; flex-direction: column; gap: 6px; }
-.inspector-heading-copy strong { color: var(--text-main); font-size: 15px; letter-spacing: -.4px; font-weight: 650; }
-.inspector-overline { display: flex; gap: 8px; align-items: center; color: #acbeae; font-size: 9px; font-weight: 690; letter-spacing: 1.55px; }
-.inspector-live-dot, .ready-indicator { display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; background: var(--accent); box-shadow: 0 0 0 3px #adc3d315; }
+.ready-indicator { display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; background: var(--accent); box-shadow: 0 0 0 3px #adc3d315; }
 .inspector-collapse { border: 1px solid #393d43; background: var(--surface-bg); color: var(--text-muted); }
 .inspector-collapse:hover:not(:disabled) { border-color: var(--border-strong); background: #2f3338; }
-.inspector-tabs-row { height: 63px; padding: 10px 12px; border-bottom: 1px solid #303f3d; }
-.inspector-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; height: 100%; gap: 5px; }
-.inspector-tabs button {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  border: 1px solid transparent; border-radius: 8px; padding: 0 4px;
-  background: transparent; color: #9eaea7; font-size: 11px; font-weight: 620;
-}
-.inspector-tabs button svg { flex: 0 0 auto; opacity: .83; }
-.inspector-tabs button:hover { background: #2a3737; color: #e6f1e6; }
-.inspector-tabs button[aria-selected="true"] {
-  color: #e0f3d4; border-color: #526d50;
-  background: linear-gradient(180deg, #3b513d, #304235);
-  box-shadow: inset 0 1px #ffffff13, 0 2px 6px #00000024;
-}
-.inspector-tabs button[aria-selected="true"]::after { display: none; }
 .inspector-panel { scrollbar-color: #4a5057 transparent; background: transparent; }
 .inspector-resizer {
   position: absolute; width: 10px; right: -5px; top: 0; bottom: 0; z-index: 40;
@@ -131,7 +108,6 @@ button:disabled { opacity: .42; }
 .compose-panel .inspector-content { padding: 22px 19px 28px; }
 .compose-panel .panel-intro { margin-bottom: 17px; }
 .panel-kicker { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.panel-version { font: 600 9px var(--font-mono); color: #789083; letter-spacing: .25px; }
 .eyebrow { color: #b8c9b2; letter-spacing: 1.5px; font-size: 9px; font-weight: 700; }
 .compose-intro h2 { margin: 0 0 8px; font-size: 26px; font-weight: 680; letter-spacing: -1.2px; line-height: 1.18; color: #f0f4f0; }
 .compose-intro h2 em { color: #c8edab; font-weight: 560; font-style: normal; }
@@ -214,7 +190,6 @@ button:disabled { opacity: .42; }
   background: #3c533d; color: #e5f8d6; border-color: #63815d;
   box-shadow: 0 2px 6px #0002, inset 0 1px #ffffff12;
 }
-.arrangement-label { margin: 21px 0 10px; }
 .generation-mode { grid-template-columns: 1fr 1fr; }
 .generation-mode button { min-height: 39px; padding: 6px 5px; }
 .generation-hint { margin: 9px 1px 0; font-size: 10px; color: #92a79a; line-height: 1.55; }
@@ -251,13 +226,7 @@ button:disabled { opacity: .42; }
 .panel-intro h2 { font-size: 23px; letter-spacing: -.75px; font-weight: 650; color: #f0f5ef; }
 .panel-intro p { color: #a0b1a8; }
 .field-section { border-bottom-color: var(--studio-line); }
-.scope-pill { border-radius: 10px; background: #273a30; border-color: #4b6854; padding: 12px; }
-.scope-dot { width: 7px; height: 7px; box-shadow: 0 0 0 3px #d2d4d619; }
 .transform-panel .secondary-button.wide { height: 39px; }
-.transpose-grid { gap: 7px; }
-.transpose-grid button { height: 38px; }
-.track-panel .track-add { height: 43px; background: #304438; border: 1px solid #60865c; color: #e2f4d6; }
-.track-panel .track-add:hover { background: #39553e; }
 .track-strip {
   padding: 15px 12px 14px; margin: 12px 0 0; border: 1px solid #394b48;
   border-radius: 12px; background: #202c2d; box-shadow: inset 0 1px #ffffff06;
@@ -273,7 +242,6 @@ button:disabled { opacity: .42; }
 .track-management button:hover { background: #344847; }
 .track-delete-confirm { border-radius: 9px; }
 .track-audibility { margin-top: 9px; }
-.inspector-empty { border: 1px dashed #4b6455; border-radius: 11px; background: #22302c; margin-top: 12px; }
 .inspector-note, .field-description { color: #a2a8ae; }
 
 /* Editor surface — precision tool, not an HTML form */
@@ -397,8 +365,6 @@ button:disabled { opacity: .42; }
   .inspector-collapse, .inspector-resizer { display: none; }
   .inspector-close { display: inline-flex; min-width: 35px; height: 35px; border: 1px solid #41554d; background: #25342f; }
   .inspector-backdrop { display: block; position: fixed; inset: 102px 0 30px; z-index: 55; background: #07090bcc; backdrop-filter: blur(3px); }
-  .inspector-heading { min-height: 68px; padding: 13px 17px; }
-  .inspector-tabs-row { height: 58px; }
   .compose-panel .inspector-content { padding-top: 19px; }
   .compose-actions { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
   .editor-context { height: 47px; }
@@ -426,7 +392,6 @@ button:disabled { opacity: .42; }
 .melody-adaptive-controls .melody-density { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .melody-adaptive-controls .generation-mode button { min-width: 0; padding-inline: 4px; }
 .melody-key-heading { margin-bottom: -8px; }
-.melody-source-section .generation-hint { margin-top: 0; }
 .generate-button:disabled { opacity: .48; cursor: not-allowed; }
 
 /* Melody action triad and bar-length selector, including narrow mobile sheets. */
@@ -446,8 +411,7 @@ button:disabled { opacity: .42; }
 
 /* UX audit: restore readable supporting text. Avoid scaling the MIDI grid:
    its density has independent zoom/precision semantics. */
-.eyebrow, .inspector-overline, .composition-summary-copy small,
-.section-index, .quick-directions-heading span:first-child { font-size: 10px; }
+.eyebrow, .composition-summary-copy small, .section-index, .quick-directions-heading span:first-child { font-size: 10px; }
 .compose-intro p { font-size: 12px; }
 .range-captions, .generation-hint, .inspector-note { font-size: 11px; line-height: 1.55; }
 .compose-action-note { font-size: 11px; white-space: normal; line-height: 1.4; text-align: center; }
@@ -676,14 +640,11 @@ button:disabled { opacity: .42; }
 
 /* Operational typography and contrast baseline. Keep MIDI key/note pixels and
    note labels independently zoomable for precise piano-roll work. */
-.compose-panel .panel-version,
 .compose-panel .eyebrow,
-.compose-panel .inspector-overline,
 .compose-panel .section-index,
 .compose-panel .composition-summary-copy small,
 .compose-panel .quick-directions-heading span,
-.compose-panel .field-hint,
-.inspector-overline {
+.compose-panel .field-hint {
   font-size: var(--type-ui-ancillary);
   color: var(--fg-ui-muted);
   line-height: 1.4;
@@ -722,7 +683,6 @@ button:disabled { opacity: .42; }
 .compose-panel .generation-mode button[aria-pressed="true"],
 .compose-panel .segmented button[aria-pressed="true"],
 .compose-panel .feel-presets button[aria-pressed="true"] { color: var(--fg-ui-primary); }
-.inspector-tabs button,
 .editor-footnote,
 .app-status,
 .app-status button,

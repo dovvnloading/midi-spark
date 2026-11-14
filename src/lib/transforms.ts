@@ -70,6 +70,12 @@ export function transposeNotes(
     : updated;
 }
 
+/** Apply this fraction of the distance to the nearest gridline, in quarter notes. */
+export function quantizedStart(start: number, grid: number, fraction: number): number {
+  const target = Math.round(start / grid) * grid;
+  return Math.max(0, Math.round((start + (target - start) * fraction) * 1e6) / 1e6);
+}
+
 /** Strength controls how far each note start moves toward the nearest gridline. */
 export function quantizeNotes(
   data: ProgressionData,
@@ -81,11 +87,7 @@ export function quantizeNotes(
   const fraction = clamp(strength, 0, 100) / 100;
   if (fraction === 0) return data;
   return mapNotes(data, selection, (note) => {
-    const target = Math.round(note.timeStart / grid) * grid;
-    const start = Math.max(
-      0,
-      Math.round((note.timeStart + (target - note.timeStart) * fraction) * 1e6) / 1e6,
-    );
+    const start = quantizedStart(note.timeStart, grid, fraction);
     return Math.abs(start - note.timeStart) < 1e-7
       ? note
       : { ...note, timeStart: start };

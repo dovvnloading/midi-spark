@@ -106,6 +106,29 @@ def dimensions(page, locator, name, minimum):
                               "width":round(box["width"],1),"height":round(box["height"],1)})
     return box
 
+def inspector_controls_fit(panel):
+    """Check controls against their own pane, even if the document hides overflow."""
+    clipped = panel.evaluate("""panel => {
+      const bounds = panel.getBoundingClientRect();
+      return Array.from(panel.querySelectorAll('button, input, select, summary')).flatMap(el => {
+        const rect = el.getBoundingClientRect();
+        if (!rect.width || !rect.height || getComputedStyle(el).visibility === 'hidden') return [];
+        if (rect.left >= bounds.left - 1 && rect.right <= bounds.right + 1) return [];
+        return [{name: el.getAttribute('aria-label') || el.textContent.trim(),
+          left: rect.left, right: rect.right, pane: [bounds.left, bounds.right]}];
+      });
+    }""")
+    assert not clipped, clipped
+
+
+def hit_test(locator):
+    """Sample the visible center without implicitly scrolling the page to the target."""
+    return locator.evaluate("""el => {
+      const box = el.getBoundingClientRect();
+      return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+    }""")
+
+
 def tap(page, locator, cdp):
     box=locator.bounding_box()
     assert box, "Missing touch target"
@@ -125,11 +148,11 @@ with sync_playwright() as playwright:
     desktop.goto(args.url)
     desktop.evaluate("document.fonts.ready")
     contrast(desktop,"Desktop composer",[
-        {"selector":".compose-panel .panel-version","minimum":11},
-        {"selector":".compose-panel .eyebrow","minimum":11},
-        {"selector":".compose-panel .section-heading h3","minimum":13},
-        {"selector":".compose-panel .field-control > span","minimum":12},
-        {"selector":".compose-compact-intro p","minimum":12},
+        {"selector":"#tab-compose","minimum":12},
+        {"selector":"#tab-transform","minimum":12},
+        {"selector":'.compose-panel [aria-label="Root key"]',"minimum":12},
+        {"selector":'.compose-panel [aria-label="Generation starting point"] button',"minimum":12},
+        {"selector":".compose-panel .generate-button","minimum":12},
         {"selector":".compose-disclosure > summary > span","minimum":12},
         {"selector":".precision-controls label > span","minimum":12},
         {"selector":".editor-context-right .time-signature","minimum":12},
@@ -140,6 +163,13 @@ with sync_playwright() as playwright:
         {"selector":".precision-controls .select-field select","backdrop":".editor-toolbar"},
         {"selector":".sound-picker-trigger","backdrop":".inspector"},
     ])
+    for control in (
+        desktop.get_by_role("button", name="Preview sound: Classic Analog. Open sound library"),
+        desktop.get_by_role("button", name="Explore", exact=True),
+        desktop.locator(".expression-disclosure > summary"),
+    ):
+        assert hit_test(control), ("Composer control obscured before scrolling", control)
+    record("Desktop instrument, expression presets and fine-tuning reachable before scrolling")
     # Native progressive disclosure is both keyboard-operable and truly
     # hidden from the accessible interaction tree until explicitly expanded.
     optional=desktop.locator(".expression-disclosure")
@@ -201,6 +231,55 @@ with sync_playwright() as playwright:
     zoom.screenshot(path=str(output/"typography-200-percent-reflow.png"))
     record("200% equivalent viewport: no header overlap; primary controls reachable")
     zoom.close()
+
+    # Both the narrowest desktop rail and a short phone sheet must leave the
+    # primary action usable while the lower controls scroll inside the panel.
+    for width, height in ((1024, 640), (320, 568)):
+        rack = browser.new_page(viewport={"width": width, "height": height})
+        rack.on("pageerror", lambda e: errors.append(str(e)))
+        rack.goto(args.url)
+        opener = rack.get_by_role("button", name="Toggle inspector", exact=True)
+        if width == 320:
+            opener.click()
+        else:
+            rack.get_by_role("separator", name="Resize studio sidebar").press("Home")
+        compose_tab = rack.get_by_role("tab", name="Compose", exact=True)
+        panel = rack.get_by_role("tabpanel", name="Compose", exact=True)
+        expect(panel).to_be_visible()
+        tune = panel.locator(".expression-disclosure > summary")
+        tune.click()
+        detail = panel.get_by_role("slider", name="Rhythmic detail", exact=True)
+        detail.scroll_into_view_if_needed()
+        assert hit_test(detail), ("Covered parameter", width, height)
+        assert hit_test(compose_tab), ("Covered navigation", width, height)
+        assert hit_test(panel.get_by_role("button", name="Generate pattern")), ("Covered action", width, height)
+        inspector_controls_fit(panel)
+
+        compose_tab.press("End")
+        tracks_tab = rack.get_by_role("tab", name="Tracks", exact=True)
+        expect(tracks_tab).to_be_focused()
+        tracks = rack.get_by_role("tabpanel", name="Tracks", exact=True)
+        tracks.get_by_role("button", name="Add track", exact=True).click()
+        volume = tracks.get_by_role("slider", name="Track 1 volume", exact=True)
+        expect(volume).to_be_visible()
+        volume.focus()
+        before = float(volume.input_value())
+        volume.press("ArrowLeft" if before else "ArrowRight")
+        assert float(volume.input_value()) != before
+        tracks.locator(".track-settings-disclosure > summary").click()
+        inspector_controls_fit(tracks)
+
+        tracks_tab.press("ArrowLeft")
+        transform = rack.get_by_role("tabpanel", name="Transform", exact=True)
+        expect(transform).to_be_visible()
+        transform.locator(".transform-more-disclosure > summary").click()
+        inspector_controls_fit(transform)
+        if width == 320:
+            rack.keyboard.press("Escape")
+            expect(transform).not_to_be_visible()
+            expect(opener).to_be_focused()
+        record(f"{width}×{height}: tabs, pinned action and lower parameters reachable; mixer level editable")
+        rack.close()
 
     for width in (320,390):
         phone=browser.new_page(viewport={"width":width,"height":844},has_touch=True)

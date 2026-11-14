@@ -13,7 +13,7 @@ OUTPUT=Path(args.output).resolve()
 OUTPUT.mkdir(parents=True, exist_ok=True)
 KEY='midi-spark:session:v1'
 fixture=OUTPUT/'two-tracks.mid'
-subprocess.run(['node','-e', "const fs=require('fs'),{Midi}=require('@tonejs/midi');const m=new Midi();m.header.setTempo(108);const k=m.addTrack();k.name='Keys';k.channel=0;k.instrument.number=4;[[60,0],[64,480],[67,960]].forEach(([midi,ticks])=>k.addNote({midi,ticks,durationTicks:360,velocity:.8}));const b=m.addTrack();b.name='Bass';b.channel=1;b.instrument.number=33;[[48,0],[43,960]].forEach(([midi,ticks])=>b.addNote({midi,ticks,durationTicks:720,velocity:.7}));const e=m.addTrack();e.name='Empty pad';e.channel=2;e.instrument.number=89;fs.writeFileSync(process.argv[1],Buffer.from(m.toArray()));",str(fixture)],cwd=ROOT,check=True)
+subprocess.run(['node','-e', "const fs=require('fs'),{Midi}=require('@tonejs/midi');const m=new Midi();m.header.setTempo(108);const k=m.addTrack();k.name='Keys';k.channel=0;k.instrument.number=4;[[60,0],[64,480],[67,960]].forEach(([midi,ticks])=>k.addNote({midi,ticks,durationTicks:360,velocity:.8}));const b=m.addTrack();b.name='Bass';b.channel=1;b.instrument.number=33;[[48,0],[43,1008]].forEach(([midi,ticks])=>b.addNote({midi,ticks,durationTicks:720,velocity:.7}));const e=m.addTrack();e.name='Empty pad';e.channel=2;e.instrument.number=89;fs.writeFileSync(process.argv[1],Buffer.from(m.toArray()));",str(fixture)],cwd=ROOT,check=True)
 take_fixture=OUTPUT/'take-melody.mid'
 subprocess.run(['node','-e',
  "const fs=require('fs'),{Midi}=require('@tonejs/midi');const m=new Midi();const t=m.addTrack();t.name='Lead';[[72,0],[76,960],[79,1440],[74,1920],[77,2880],[76,3840],[79,4800],[72,5760],[74,6720]].forEach(([midi,ticks])=>t.addNote({midi,ticks,durationTicks:480,velocity:.8}));fs.writeFileSync(process.argv[1],Buffer.from(m.toArray()));",
@@ -85,13 +85,15 @@ def assert_popup_topmost(page, selector, occluder=None):
  return info
 
 def grid_point(page,midi,quarter):
- grid=page.get_by_test_id('piano-grid').bounding_box(); zoom=snap(page)['zoomX'];height=grid['height']/128
- return grid['x']+quarter*zoom,grid['y']+(127-midi+.5)*height
+ zoom=snap(page)['zoomX']
+ grid=page.get_by_test_id('piano-grid').bounding_box()
+ return grid['x']+quarter*zoom,grid['y']+(127-midi+.5)*grid['height']/128
 with sync_playwright() as p:
  b=p.chromium.launch(headless=True, **({'executable_path': os.environ['CHROMIUM_PATH']} if os.environ.get('CHROMIUM_PATH') else {}))
  page=b.new_page(viewport={'width':1440,'height':900},device_scale_factor=1,has_touch=True)
  errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  page.goto(args.url);page.evaluate('document.fonts.ready')
+ page.screenshot(path=str(OUTPUT/'empty-desktop.png'))
  # The editor uses light neutral surfaces, graphite type, and steel-blue actions.
  palette=page.evaluate("""() => {
   const rgb=(selector)=>Array.from(getComputedStyle(document.querySelector(selector))
@@ -101,8 +103,7 @@ with sync_playwright() as p:
     piano:rgb('.piano-editor'),
     toolbar:rgb('.editor-toolbar'),
     canvasText:getComputedStyle(document.querySelector('.editor-main')).color,
-    accent:getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
-    button:getComputedStyle(document.querySelector('.generate-button')).backgroundImage
+    accent:getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()
   };
  }""")
  assert min(palette['editor'])>185 and max(palette['editor'])-min(palette['editor'])<14, palette
@@ -110,10 +111,8 @@ with sync_playwright() as p:
  assert min(palette['toolbar'])>190 and max(palette['toolbar'])-min(palette['toolbar'])<14, palette
  assert palette['canvasText']=='rgb(39, 43, 48)', palette
  assert palette['accent']=='#adc3d3', palette
- assert 'linear-gradient' in palette['button']
  record('Light neutral editor with graphite ink and steel-blue primary controls')
  # One vector ident must be used for browser tab, boot screen and studio header.
- # Generation actions have no decorative sparkle (or replacement) icon.
  ident_url=page.locator('link[rel="icon"]').evaluate('(link)=>link.href')
  assert ident_url.endswith('/favicon.svg?v=3'),ident_url
  header_mark=page.locator('.wordmark img.brand-mark')
@@ -125,16 +124,24 @@ with sync_playwright() as p:
  assert boot_mark.evaluate('(img)=>img.currentSrc')==ident_url
  assert boot_mark.evaluate('(img)=>img.complete && img.naturalWidth>0')
  boot.close()
- assert page.locator('.generate-button svg').count()==0
  assert page.locator('.empty-actions .primary-button svg').count()==0
- assert page.locator('.song-form-build svg').count()==0
  assert page.get_by_role('button',name='Generate pattern').count()>=1
- record('MIDI ident matches browser tab, boot screen, and header; all generation buttons are icon-free')
+ record('MIDI ident matches browser tab, boot screen, and header')
  # The default Compose screen must prioritize essentials over dense specialist controls.
- assert page.locator('.composition-summary, .compose-panel .panel-intro, .empty-motif').count()==0
  assert page.locator('.song-form-disclosure').count()==0
  assert page.locator('.expression-disclosure').get_attribute('open') is None
- expect(page.locator('.compose-compact-intro h2')).to_have_text('Make music.')
+ compose=page.get_by_role('tabpanel',name='Compose',exact=True)
+ expect(compose.get_by_role('combobox',name='Root key')).to_be_visible()
+ expect(compose.get_by_role('group',name='Pattern length')).to_be_visible()
+ root_note=compose.get_by_role('combobox',name='Root key')
+ scale_mode=compose.get_by_role('combobox',name='Scale mode')
+ root_note.select_option('F#')
+ expect(compose.get_by_role('img',name='F# major scale: F#, G#, A#, B, C#, D#, E#')).to_be_visible()
+ scale_mode.select_option('minor')
+ expect(compose.get_by_role('img',name='F# minor scale: F#, G#, A, B, C#, D, E')).to_be_visible()
+ root_note.select_option('C')
+ scale_mode.select_option('major')
+ record('Scale display follows the root and mode and preserves enharmonic spelling')
  expect(page.get_by_role('button',name='Project menu')).to_be_visible()
  expect(page.get_by_role('button',name='Canvas view options')).to_be_visible()
  page.get_by_role('button',name='Canvas view options').click()
@@ -248,13 +255,16 @@ with sync_playwright() as p:
  page.mouse.up()
  assert page.locator('#studio-inspector').bounding_box()['width'] > original_width+25
  resizer.dblclick()
- assert abs(page.locator('#studio-inspector').bounding_box()['width']-312) <= 2
+ assert abs(page.locator('#studio-inspector').bounding_box()['width']-original_width) <= 2
  dock=page.locator('.compose-actions').bounding_box()
  panel=page.locator('.inspector-panel:not([hidden])').bounding_box()
  assert dock['y'] >= panel['y'] and dock['y']+dock['height'] <= panel['y']+panel['height']+2
  record('Keyboard and pointer sidebar resizing, reset, and pinned generation dock')
  # Curated preset library: search, category filtering, independent preview,
  # selection, and saved instrument state, all in the real browser.
+ patch_wave=compose.locator('.patch-wave .sound-library-wave-shape')
+ expect(patch_wave).to_be_visible()
+ initial_wave=patch_wave.get_attribute('d')
  page.get_by_role('button',name='Preview sound: Classic Analog. Open sound library').click()
  expect(page.get_by_role('dialog',name='Sound library')).to_be_visible()
  expect(page.get_by_role('searchbox',name='Search presets')).to_be_focused()
@@ -282,6 +292,7 @@ with sync_playwright() as p:
  page.get_by_role('button',name='Use Glass Piano',exact=True).click()
  expect(page.get_by_role('dialog',name='Sound library')).not_to_be_visible()
  assert 'Glass Piano' in page.locator('.sound-picker-title').first.inner_text()
+ assert patch_wave.get_attribute('d') != initial_wave
  page.wait_for_timeout(650)
  assert snap(page)['synthType']=='glass'
  record('49 expressive sounds remain searchable, categorized, auditionable and persistent')
@@ -320,14 +331,13 @@ with sync_playwright() as p:
  page.locator('.sound-library-select').filter(has_text='Deep Sub').click()
  expect(page.get_by_role('button',name='Use Deep Sub',exact=True)).to_be_visible()
  assert snap(page)['synthType']=='glass'
- page.locator('.inspector-panel:not([hidden])').evaluate("(el) => { el.scrollTop += 40; el.dispatchEvent(new Event('scroll')); }")
+ compose.locator('.compose-content').evaluate("(el) => { el.scrollTop += 40; el.dispatchEvent(new Event('scroll')); }")
  expect(page.get_by_role('dialog',name='Sound library')).to_be_visible()
  page.keyboard.press('Escape')
  expect(page.get_by_role('dialog',name='Sound library')).not_to_be_visible()
  assert snap(page)['synthType']=='glass'
  expect(page.locator('.sound-picker-trigger').first).to_be_focused()
  record('Escape cancels staged presets, restores focus, and browser survives inspector scrolling')
- page.screenshot(path=str(OUTPUT/'empty-desktop.png'))
  page.get_by_role('button',name='Start blank',exact=True).click();page.wait_for_timeout(250)
  x,y=grid_point(page,60,1)
  page.mouse.move(x,y);page.mouse.down();page.mouse.move(x+80,y,steps=5);page.wait_for_timeout(80);page.mouse.up()
@@ -384,12 +394,26 @@ with sync_playwright() as p:
  page.get_by_role('combobox',name='Edit track',exact=True).select_option('1')
  assert 'Edit: Bass' in page.locator('.edit-target-indicator').inner_text()
  page.get_by_role('tab',name='Transform',exact=True).click()
+ timing=page.get_by_role('tabpanel',name='Transform',exact=True)
+ strength=timing.get_by_role('slider',name='Quantize strength',exact=True)
+ preview=timing.get_by_role('img',name='Note starts before and after 100% quantization in bar 1')
+ expect(preview).to_be_visible()
+ before_ticks=timing.locator('.timing-before').get_attribute('d')
+ after_ticks=timing.locator('.timing-after').get_attribute('d')
+ strength.fill('0')
+ expect(timing.get_by_role('img',name='Note starts before and after 0% quantization in bar 1')).to_be_visible()
+ assert timing.locator('.timing-before').get_attribute('d')==before_ticks
+ assert timing.locator('.timing-after').get_attribute('d')!=after_ticks
+ assert snap(page)['progression']['notes']==original
+ strength.fill('100')
+ record('Quantize preview moves off-grid attacks in the after lane without applying edits')
  page.get_by_role('button',name='Transpose up 1 semitones',exact=True).click()
  after=snap(page)['progression']['notes']
  for a,n in zip(original,after): assert n['midi']==a['midi']+(1 if a['trackIndex']==1 else 0)
  record('Focused-track transpose changes only visible notes')
  page.get_by_role('combobox',name='Edit track',exact=True).select_option('2')
  expect(page.get_by_role('button',name='Apply quantize',exact=True)).to_be_disabled()
+ expect(timing.get_by_role('img')).to_have_count(0)
  open_composer_group(page,'.transform-more-disclosure')
  expect(page.get_by_role('button',name='Apply humanize',exact=True)).to_be_disabled()
  assert snap(page)['progression']['notes']==after
@@ -695,7 +719,9 @@ with sync_playwright() as p:
  original=snap(adaptive)['progression']
  adaptive.get_by_role('tab',name='Compose',exact=True).click()
  adaptive.get_by_role('button',name='Follow melody',exact=True).click()
- assert adaptive.locator('.melody-step-heading h4').all_inner_texts()==['Source','Action','Harmonic fit']
+ expect(adaptive.get_by_role('combobox',name='Source melody track')).to_be_visible()
+ expect(adaptive.get_by_role('group',name='Melody operation')).to_be_visible()
+ expect(adaptive.get_by_role('slider',name='Harmonic fit to melody')).to_be_visible()
  expect(adaptive.locator('.melody-advanced > summary')).to_be_visible()
  assert adaptive.locator('.melody-advanced').get_attribute('open') is None
  adaptive.locator('.melody-advanced > summary').click()
@@ -1276,7 +1302,9 @@ with sync_playwright() as p:
  melody_mobile.get_by_role('button',name='Toggle inspector',exact=True).click()
  melody_mobile.get_by_role('tab',name='Compose',exact=True).click()
  melody_mobile.get_by_role('button',name='Follow melody',exact=True).click()
- assert melody_mobile.locator('.melody-step-heading h4').all_inner_texts()==['Source','Action','Harmonic fit']
+ expect(melody_mobile.get_by_role('combobox',name='Source melody track')).to_be_visible()
+ expect(melody_mobile.get_by_role('group',name='Melody operation')).to_be_visible()
+ expect(melody_mobile.get_by_role('slider',name='Harmonic fit to melody')).to_be_visible()
  assert melody_mobile.locator('.melody-advanced').get_attribute('open') is None
  expect(melody_mobile.get_by_role('button',name='Harmonize melody',exact=False)).to_be_visible()
  melody_mobile.get_by_role('button',name='Continue',exact=True).click()
@@ -1289,12 +1317,12 @@ with sync_playwright() as p:
  reading=b.new_page(viewport={'width':1440,'height':900},has_touch=True)
  reading.on('pageerror',lambda error:errors.append(str(error)))
  reading.goto(args.url)
- samples=reading.evaluate("""() => {
+ samples=reading.evaluate(r"""() => {
   const tests=[
-   ['.compose-panel .panel-version',11],
-   ['.compose-compact-intro .eyebrow',11],
-   ['.compose-panel .field-control > span',12],
-   ['.compose-compact-intro p',12],
+   ['#tab-compose',12],
+   ['#tab-transform',12],
+   ['.compose-panel [aria-label="Root key"]',12],
+   ['.compose-panel [aria-label="Generation starting point"] button',12],
    ['.compose-disclosure > summary > span',12],
    ['.editor-footnote',12],
    ['.app-status',12]
@@ -1327,7 +1355,7 @@ with sync_playwright() as p:
   });
  }""")
  assert all(not s.get('missing') and s['fontSize']>=s['minSize'] and s['contrast']>=4.5 for s in samples),samples
- record('Computed inspector and status typography meets sampled 11/12px sizes and 4.5:1 contrast')
+ record('Sampled inspector and status labels meet 12px and 4.5:1 contrast')
  for width,height in ((320,740),(390,844),(768,1024),(1440,900)):
   reading.set_viewport_size({'width':width,'height':height})
   reading.wait_for_timeout(120)
@@ -1377,6 +1405,8 @@ with sync_playwright() as p:
  expect(stamps.locator('.stamp-picker-menu')).not_to_be_visible()
  x,y=grid_point(stamps,60,1)
  stamps.mouse.click(x,y)
+ expect(stamps.get_by_test_id('piano-note')).to_have_count(12)
+ stamps.wait_for_function("key => JSON.parse(localStorage.getItem(key))?.progression?.chords?.length === 4",arg=KEY)
  score=snap(stamps)['progression']
  assert [c['name'] for c in score['chords']]==['C','G','Am','F'],score['chords']
  assert [c['timeStart'] for c in score['chords']]==[1,5,9,13],score['chords']

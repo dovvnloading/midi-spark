@@ -298,8 +298,10 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
           className="sound-picker-trigger"
           onClick={toggle}
         >
+          <span className="patch-wave" title={applied.patch.wave + " oscillator"}>
+            <SoundSignature wave={applied.patch.wave} />
+          </span>
           <span className="sound-picker-title">
-            <span className="sound-picker-kicker">CURRENT PRESET</span>
             <strong>{applied.label}</strong>
             <small>{applied.category}</small>
           </span>

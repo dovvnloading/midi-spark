@@ -1,0 +1,308 @@
+/* Track mixer and note tools share the same reading edge as the composer. */
+.inspector .inspector-content:is(.track-panel, .transform-panel) {
+  padding: 22px 18px 28px;
+}
+.inspector .rack-tool-header, .inspector .note-tool-title,
+.inspector .note-tool-row, .inspector .mixer-overview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.inspector .rack-tool-header { min-height: 32px; margin-bottom: 16px; }
+.inspector .rack-tool-header h2 {
+  margin: 0;
+  color: var(--rack-text);
+  font-size: 21px;
+  line-height: 1.18;
+  font-weight: 600;
+  letter-spacing: -.75px;
+}
+
+.inspector .edit-scope {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 5px;
+  background: var(--rack-surface);
+  color: var(--rack-accent);
+}
+.inspector .edit-scope div { display: grid; gap: 3px; min-width: 0; }
+.inspector .edit-scope div span, .inspector .mixer-overview > span {
+  font-size: 11px;
+  color: var(--rack-muted);
+}
+.inspector .edit-scope strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--rack-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+.inspector .edit-scope > span, .inspector .note-tool-row output,
+.inspector .note-tool-title output, .inspector .channel-gain output {
+  color: var(--rack-accent);
+  font: 500 11px/1.35 var(--font-mono);
+  white-space: nowrap;
+}
+.inspector .note-tool-section {
+  display: grid;
+  gap: 9px;
+  padding: 17px 0;
+  border-bottom: 1px solid var(--rack-line);
+}
+.inspector .note-tool-section h3 {
+  margin: 0;
+  color: var(--rack-text);
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 620;
+}
+.inspector .note-tool-row > span, .inspector .note-tool-title > span {
+  color: var(--rack-muted);
+  font-size: 12px;
+}
+.inspector .note-tool-row > .select-field { width: 98px; }
+.inspector .note-tool-section .select-field select {
+  height: 35px;
+  border-radius: 4px;
+  background: var(--rack-surface);
+  color: var(--rack-text);
+}
+.inspector .note-tool-section .range-field::-webkit-slider-thumb {
+  width: 11px;
+  height: 11px;
+  margin-top: -3px;
+  box-shadow: 0 0 0 2px var(--rack-bg);
+}
+.inspector .note-tool-section .range-field { margin: -5px 0 -2px; }
+.inspector .note-tool-section .note-tool-apply {
+  justify-content: space-between;
+  height: 34px;
+  margin: 0;
+  padding-inline: 11px;
+  border-radius: 4px;
+}
+.inspector .transpose-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--rack-line);
+  border: 1px solid var(--rack-line);
+  border-radius: 5px;
+  overflow: clip;
+}
+.inspector .transpose-steps button {
+  min-height: 33px;
+  border: 0;
+  background: var(--rack-surface);
+  color: var(--rack-text);
+  font: 500 12px var(--font-mono);
+}
+.inspector .transpose-steps button:hover:enabled { background: #3d444c; }
+.inspector .transpose-steps button:active:enabled { background: #48515a; }
+.inspector .transpose-steps button:focus-visible { outline-offset: -3px; }
+.inspector .transpose-steps button:disabled { color: #949aa1; cursor: default; }
+
+.inspector .timing-preview, .inspector .timing-empty {
+  margin: 0 0 2px;
+  padding: 9px 11px;
+  background: #1a1d21;
+  border: 1px solid var(--rack-line);
+  border-radius: 4px;
+}
+.inspector .timing-preview figcaption { display: flex; justify-content: space-between; }
+.inspector .timing-preview figcaption, .inspector .timing-axis {
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--rack-muted);
+}
+.inspector .timing-preview figcaption span:last-child { font-family: var(--font-mono); }
+.inspector .timing-display { display: flex; align-items: center; gap: 9px; margin-top: 8px; }
+.inspector .timing-axis { display: grid; align-content: stretch; line-height: 18px; }
+.inspector .timing-display svg { display: block; width: 100%; min-width: 0; height: 36px; }
+.inspector .timing-display line, .inspector .timing-display path { vector-effect: non-scaling-stroke; }
+.inspector .timing-step { stroke: #333940; }
+.inspector .timing-beat { stroke: #505760; }
+.inspector .timing-before { stroke: #89919b; stroke-width: 2; }
+.inspector .timing-after { stroke: var(--rack-accent); stroke-width: 2.5; }
+.inspector .timing-empty { color: var(--rack-muted); font-size: 12px; line-height: 1.5; }
+.inspector .transform-more-disclosure {
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--rack-line);
+  border-radius: 0;
+  background: transparent;
+}
+.inspector .transform-more-disclosure > summary { min-height: 45px; padding: 8px 20px 8px 0; }
+.inspector .transform-more-disclosure > summary::after { right: 4px; }
+.inspector .transform-more-disclosure > .compose-disclosure-body { padding: 0; border: 0; }
+.inspector .transform-more-disclosure .note-tool-section:last-child { border: 0; }
+
+.inspector .mixer-add, .inspector .mixer-overview button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 9px;
+  min-height: 31px;
+  border: 1px solid #59616a;
+  border-radius: 4px;
+  background: var(--rack-surface);
+  color: var(--rack-text);
+  font-size: 12px;
+  font-weight: 550;
+}
+.inspector .mixer-add:hover, .inspector .mixer-overview button:hover { background: #363c44; }
+.inspector .mixer-overview { min-height: 30px; padding-bottom: 6px; }
+.inspector .mixer-overview button { padding: 0 5px; background: none; border-color: transparent; min-height: 26px; }
+.inspector .mixer-empty {
+  border-top: 1px solid var(--rack-line);
+  padding: 32px 14px;
+  text-align: center;
+  color: var(--rack-muted);
+}
+.inspector .mixer-empty svg { margin: 0 auto 11px; }
+.inspector .mixer-empty h3 { margin: 0; color: var(--rack-text); font-size: 14px; font-weight: 600; }
+.inspector .mixer-empty p { margin: 5px 0; font-size: 12px; line-height: 1.55; }
+
+.inspector .track-panel .track-list { gap: 0; border-top: 1px solid var(--rack-line); }
+.inspector .track-panel .track-strip {
+  min-width: 0;
+  margin: 0;
+  padding: 11px 0 3px;
+  border: 0;
+  border-bottom: 1px solid var(--rack-line);
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.inspector .track-name-button { gap: 9px; min-width: 0; }
+.inspector .track-name-button .channel-index {
+  display: grid;
+  place-items: center;
+  flex: 0 0 29px;
+  height: 29px;
+  border-radius: 4px;
+  color: #1a2025;
+  font: 650 12px/1 var(--font-mono);
+}
+.inspector .channel-name { min-width: 0; }
+.inspector .track-name-button > svg { flex-shrink: 0; }
+.inspector .channel-name strong { max-width: none; color: var(--rack-text); font-size: 13px; }
+.inspector .channel-name small { color: var(--rack-muted); margin: 2px 0 0; font-size: 11px; }
+.inspector .track-strip.focused .channel-name strong, .inspector .track-name-button svg { color: var(--rack-accent); }
+.inspector .track-panel .track-toggles { gap: 4px; }
+.inspector .track-panel .track-toggles button {
+  min-width: 29px;
+  width: 29px;
+  height: 29px;
+  border: 1px solid #606771;
+  border-radius: 4px;
+  background: var(--rack-surface);
+  color: var(--rack-muted);
+  font: 600 12px var(--font-mono);
+}
+.inspector .track-panel .track-toggles button:hover { background: #3d444c; }
+.inspector .track-panel .track-toggles button[aria-pressed="true"] {
+  background: var(--rack-accent);
+  border-color: var(--rack-accent);
+  color: #20252b;
+}
+.inspector .channel-gain {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 55px;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+  margin-top: 4px;
+  color: var(--rack-muted);
+  font-size: 11px;
+}
+.inspector .channel-gain output { text-align: right; }
+.inspector .channel-gain .range-field { margin: 0; }
+.inspector .channel-gain .range-field::-webkit-slider-runnable-track { height: 3px; }
+.inspector .channel-gain .range-field::-moz-range-track,
+.inspector .channel-gain .range-field::-moz-range-progress { height: 3px; }
+.inspector .channel-gain .range-field::-webkit-slider-thumb {
+  width: 8px;
+  height: 15px;
+  margin-top: -6px;
+  border: 1px solid #d3dce3;
+  border-radius: 2px;
+  background: var(--rack-accent);
+  box-shadow: 0 0 0 2px var(--rack-bg);
+}
+.inspector .channel-gain .range-field::-moz-range-thumb {
+  width: 6px;
+  height: 13px;
+  border: 1px solid #d3dce3;
+  border-radius: 2px;
+  background: var(--rack-accent);
+}
+.inspector .track-panel .track-settings-disclosure {
+  margin: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.inspector .track-panel .track-settings-disclosure > summary {
+  min-height: 32px;
+  padding: 4px 18px 4px 0;
+  gap: 6px;
+}
+.inspector .track-panel .track-settings-disclosure > summary span {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--rack-muted);
+  font-weight: 550;
+}
+.inspector .track-panel .track-settings-disclosure > summary small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--rack-text);
+  font-size: 11px;
+}
+.inspector .track-panel .track-settings-disclosure > summary::after { right: 4px; }
+.inspector .track-panel .track-settings-disclosure .compose-disclosure-body {
+  padding: 6px 0 9px; border: 0;
+}
+.inspector .track-settings-disclosure .sound-picker-helper,
+.inspector .track-panel .track-settings-disclosure .track-midi-export-note {
+  padding: 0;
+  margin: 6px 0;
+  background: transparent;
+  color: var(--rack-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.inspector .track-panel .track-settings-disclosure .track-management {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin: 9px 0 0;
+  padding: 0;
+  border: 0;
+}
+.inspector .track-management button {
+  min-width: 0;
+  background: var(--rack-surface);
+  border-color: var(--rack-line);
+  color: var(--rack-text);
+  border-radius: 4px;
+  font-size: 11px;
+}
+.inspector .track-management button:hover { background: #363c44; }
+.inspector .track-delete-confirm { margin: 7px 0 0; }
+
+@media (max-width: 760px), (pointer: coarse) {
+  .inspector .track-panel .track-toggles button { width: 44px; height: 44px; }
+  .inspector .mixer-add, .inspector .mixer-overview button,
+  .inspector .track-management button, .inspector .track-panel .track-settings-disclosure > summary,
+  .inspector .channel-gain .range-field, .inspector .transpose-steps button,
+  .inspector .note-tool-section .note-tool-apply { min-height: 44px; }
+}

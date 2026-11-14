@@ -9,6 +9,9 @@ import './studio.css';
 import './earth.css';
 import './preset-browser.css';
 import './stamp-picker.css';
+import './inspector.css';
+import './inspector-compose.css';
+import './inspector-tools.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -101,19 +101,11 @@ body { background: var(--app-bg); }
   border-right-color: var(--border-color);
   box-shadow: 5px 0 21px #27292b29;
 }
-.inspector-heading, .inspector-tabs-row { border-bottom-color: #4a5057; }
-.inspector-overline { color: var(--fg-ui-secondary); }
 .inspector-resizer span { background: #626870; border-color: #b1b7bd; }
-.inspector-tabs button { color: var(--fg-ui-secondary); }
-.inspector-tabs button:hover { background: #42474d; color: #ffffff; }
-.inspector-tabs button[aria-selected="true"] {
-  background: linear-gradient(180deg, var(--active-hover), var(--active-surface));
-  border-color: #8da5b8; color: #ffffff;
-}
 .panel-intro h2, .compose-intro h2 { color: var(--text-main); }
 .compose-intro h2 em { color: var(--accent); }
 .compose-intro p, .panel-intro p { color: var(--fg-ui-secondary); }
-.panel-version, .eyebrow, .section-index { color: var(--text-muted); }
+.eyebrow, .section-index { color: var(--text-muted); }
 .composition-summary {
   background: linear-gradient(110deg, #42474d, var(--surface-soft));
   border-color: var(--stroke-ui-control);
@@ -186,7 +178,6 @@ body { background: var(--app-bg); }
 .variation-button:hover:not(:disabled) { background: #52585f; border-color: #c9cdd1; color: #ffffff; }
 
 /* Supporting panels. */
-.scope-pill { background: #42474d; border-color: #a2a8ae; color: var(--text-main); }
 .track-strip { background: var(--surface-soft); border-color: #626870; }
 .track-strip.focused { background: var(--active-surface); border-color: var(--accent); }
 .track-name-button strong { color: var(--text-main); }
@@ -194,9 +185,6 @@ body { background: var(--app-bg); }
 .track-management button, .track-toggles button { background: #42474d; border-color: var(--stroke-ui-control); color: var(--text-main); }
 .track-management button:hover { background: var(--surface-bg-hover); }
 .track-toggles button[aria-pressed="true"] { background: var(--active-surface); border-color: var(--accent); color: white; }
-.track-panel .track-add { background: var(--surface-soft); border-color: var(--stroke-ui-control); color: #fafbfc; }
-.track-panel .track-add:hover { background: var(--surface-bg-hover); }
-.inspector-empty { background: var(--surface-soft); border-color: var(--stroke-ui-control); color: var(--text-main); }
 .source-loop-editor, .melody-advanced {
   background: var(--surface-soft); border-color: #a2a8ae; color: var(--text-main);
 }
@@ -399,20 +387,7 @@ body { background: var(--app-bg); }
 /* Focused creation workflow: hierarchy, not stacked feature advertisements.
  * These are layout refinements only; section-specific musical controls remain
  * fully keyboard accessible inside native expandable disclosures. */
-.inspector-heading { min-height: 54px; padding: 11px 17px; }
-.inspector-heading-copy { gap: 2px; }
-.inspector-heading-copy strong { font-size: 14px; }
-.inspector-overline { font-size: 9px; letter-spacing: 1px; }
-.inspector-tabs-row { height: 50px; padding: 6px 12px; }
-.inspector-tabs button { font-size: 12px; gap: 6px; }
 .compose-panel .inspector-content { padding: 16px 17px 25px; }
-.compose-compact-intro { margin: 0 0 18px; }
-.compose-intro-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
-.compose-intro-label .eyebrow { font-size: 11px; color: var(--fg-ui-secondary); }
-.compose-intro-label .panel-version { font-size: 11px; color: var(--text-muted); }
-.compose-compact-intro h2 { margin: 0; color: var(--text-main); font-size: 20px; font-weight: 680; letter-spacing: -.65px; }
-.compose-compact-intro p { margin: 5px 0 0; font-size: 12px; color: var(--fg-ui-secondary); text-transform: capitalize; }
-.compose-compact-intro p span { margin-inline: 4px; color: #a2a8ae; }
 
 .compose-panel .compose-section { padding-bottom: 14px; margin-bottom: 14px; }
 .compose-panel .section-heading { margin-bottom: 9px; }
@@ -428,7 +403,6 @@ body { background: var(--app-bg); }
 .compose-panel .sound-picker-trigger { min-height: 45px; }
 .compose-panel .sound-section { padding-bottom: 14px; margin-bottom: 14px; }
 .compose-panel .feel-presets button { min-height: 36px; }
-.compose-panel .arrangement-label { margin-top: 13px; margin-bottom: 8px; }
 .compose-panel .range-captions { margin-top: 1px; }
 
 .follow-workflow-section .melody-adaptive-controls { gap: 10px; padding-top: 0; }
@@ -492,13 +466,8 @@ body { background: var(--app-bg); }
 }
 .variation-button:hover:not(:disabled) { background: #42474d; color: #ffffff; }
 
-/* Keep text, not pictograms, as the primary navigation language. */
-.inspector-tabs button svg { opacity: .68; }
 @media (max-width: 760px) {
-  .inspector-heading { min-height: 52px; padding: 10px 16px; }
-  .inspector-tabs-row { height: 48px; padding: 6px 10px; }
   .compose-panel .inspector-content { padding: 14px 16px 22px; }
-  .compose-compact-intro { margin-bottom: 14px; }
   .compose-panel .compose-section { padding-bottom: 12px; margin-bottom: 12px; }
   .compose-actions { padding: 10px 16px max(12px, env(safe-area-inset-bottom)); }
 }
@@ -562,19 +531,12 @@ body { background: var(--app-bg); }
 }
 
 /* Note Lab and Tracks use the same progressive hierarchy as Compose. */
-.tool-panel-intro { margin-bottom: 14px; }
-.tool-panel-intro .eyebrow { display: block; color: var(--text-muted); font-size: 10px; margin-bottom: 5px; }
-.tool-panel-intro h2 { color: var(--text-main); margin: 0; font-size: 18px; line-height: 1.2; letter-spacing: -.55px; }
-.transform-panel .scope-pill { margin-bottom: 16px; padding: 10px; }
 .transform-panel .field-section { padding-bottom: 16px; margin-bottom: 16px; }
 .transform-panel .field-section h3 { color: var(--text-main); font-size: 13px; margin-bottom: 9px; }
 .transform-more-disclosure { margin-top: 3px; }
 .transform-more-disclosure .field-section { margin-bottom: 14px; padding-bottom: 14px; }
 .transform-more-disclosure .field-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
 .transform-more-disclosure .secondary-button.wide { margin-top: 9px; }
-
-.track-panel .track-add { margin-bottom: 10px; }
-.track-panel .track-show-all { justify-content: space-between; min-height: 36px; margin-bottom: 8px; }
 .track-panel .track-list { display: grid; gap: 9px; }
 .track-panel .track-strip {
   margin: 0; padding: 11px; border-radius: 10px;
