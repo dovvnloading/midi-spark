@@ -575,8 +575,10 @@ with sync_playwright() as p:
  # Fit repositions the scroll container on the next layout/effect frame.
  page.wait_for_timeout(300)
  x,y=grid_point(page,64,1)
+ assert page.get_by_test_id('piano-grid').evaluate('(grid,pt)=>grid.contains(document.elementFromPoint(...pt))',[x,y])
  page.mouse.click(x,y)
- page.wait_for_timeout(120)
+ expect(page.locator('[data-testid="piano-note"][data-track="2"]')).to_have_count(1)
+ page.wait_for_function("key => JSON.parse(localStorage.getItem(key))?.progression?.notes?.some(n => n.trackIndex === 2)",arg=KEY)
  drawn=snap(page)['progression']
  assert len([n for n in drawn['notes'] if n['trackIndex']==2])==1
  record('Adding an empty track focuses a new lane and drawing writes to it')
