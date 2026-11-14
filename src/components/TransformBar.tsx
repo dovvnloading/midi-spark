@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, CopyPlus, Scissors } from "lucide-react";
+import { ArrowDown, ArrowUp, CopyPlus, Slice } from "./StudioIcons";
 import { useState } from "react";
 import { CustomDropdown } from "./CustomDropdown";
 import { CustomSlider } from "./CustomSlider";
@@ -85,7 +85,7 @@ export function TransformBar(p: TransformBarProps) {
               onChange={v => p.onNoteLengthChange(Number(v))}
               options={NOTE_LENGTH_OPTIONS} />
             <button type="button" className="secondary-button" disabled={disabled}
-              onClick={p.onChop}><Scissors size={14} />Chop</button>
+              onClick={p.onChop}><Slice size={14} />Chop</button>
           </div>
           <button type="button" className="text-button wide" disabled={disabled}
             onClick={p.onDuplicateBar}>

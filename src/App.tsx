@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Upload, Check, HardDrive, Music2 } from "lucide-react";
+import { Upload, Check, Storage, PianoRollIcon } from "./components/StudioIcons";
 import {
   generateSequence,
   ProgressionData,
@@ -1464,7 +1464,7 @@ export default function App() {
         />
         <main className={"editor-main" + (previewTake ? " take-preview-active" : "")}
           inert={!!previewTake} aria-label="MIDI editor">
-          <div className="editor-context"><div className="editor-title"><Music2 size={16} /><h1>Piano roll</h1><span className="context-separator">/</span>
+          <div className="editor-context"><div className="editor-title"><PianoRollIcon size={16} /><h1>Piano roll</h1><span className="context-separator">/</span>
             <span>{displayProgression ? displayRoot + " " + displayMode : "New session"}</span>
             {previewTake && <span className="take-preview-label" aria-hidden="true">
               Auditioning Take {(previewTakeIndex ?? 0) + 1} · Read only
@@ -1506,7 +1506,7 @@ export default function App() {
             onStampError={message => notify(message, "error")} />
         </main>
       </div>
-      <footer className="app-status"><span className="save-status">{saveState === "saved" ? <Check size={12} /> : <HardDrive size={12} />}
+      <footer className="app-status"><span className="save-status">{saveState === "saved" ? <Check size={12} /> : <Storage size={12} />}
         {saveState === "saved" ? "Saved in this browser" : saveState === "unavailable" ? "Autosave unavailable — export to keep your work" : saveState === "cleared" ? "Browser autosave cleared" : "Saving…"}</span>
         <span className="status-hints"><kbd>Space</kbd> Play / pause <i>·</i><kbd>B</kbd> Draw <i>·</i><kbd>V</kbd> Select <i>·</i><kbd>H</kbd> Hand</span>
         <button onClick={() => setShortcutsOpen(true)} aria-label="Open keyboard shortcuts"><kbd>?</kbd><span>Shortcuts</span></button>

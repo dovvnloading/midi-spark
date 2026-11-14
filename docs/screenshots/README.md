@@ -1,8 +1,6 @@
 # README screenshot sources
 
-The images in this directory are **real Chromium screenshots**, not mockups or design renders.
-
-Updated **2026-11-09** from successful [Browser UX checks run #42700759239](https://github.com/dovvnloading/midi-spark/actions/runs/42700759239), which tested main commit [`e6d8c28`](https://github.com/dovvnloading/midi-spark/commit/e6d8c28f498d5ea77d9180f2b6d105a0f0e28375). The run's `browser-review` artifact supplied the pixels.
+These Chromium captures show the studio’s graphite and steel-blue palette and custom icons. They were captured on 2026-11-14 from a production build using the repository’s browser and accessibility checks.
 
 | Image referenced by README | Source screenshot in browser-review | Browser viewport |
 | --- | --- | --- |
@@ -19,6 +17,7 @@ Updated **2026-11-09** from successful [Browser UX checks run #42700759239](http
 1. From the repository root, run `npm ci && npm run build`.
 2. Start `npm run preview -- --host 127.0.0.1 --port 4173`.
 3. Install Playwright (`python -m pip install playwright==1.57.0 && python -m playwright install chromium`), then run `python scripts/browser_smoke.py --url http://127.0.0.1:4173 --output browser-report` in a separate terminal. Set `CHROMIUM_PATH` for system Chrome/Chromium if needed.
-4. Inspect the resulting PNGs; replace the named files using the mapping above. Update this note's source revision and date, and check README image links.
+4. Run `python scripts/browser_accessibility.py --url http://127.0.0.1:4173 --output browser-report` for the mobile Tracks capture.
+5. Inspect the PNGs and replace the named files using the mapping above. Update the capture date and check the README image links.
 
 The suite creates a randomized music pattern in some frames; changing notes between runs is expected. Treat these captures as *documentation of browser-observed UI*, not musical-quality test results or a promise of identical pixels across environments.

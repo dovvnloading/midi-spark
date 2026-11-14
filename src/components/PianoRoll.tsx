@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { Note } from "@tonaljs/tonal";
-import { Pencil, LockKeyhole, LockOpen } from "lucide-react";
+import { Draw, Lock, Unlock } from "./StudioIcons";
 import { ensureBarsCoverNotes } from "../lib/transforms";
 import { placeStamp } from "../lib/stampPresets";
 import { ProgressionData, NoteEvent, getScaleChromas } from "../lib/theory";
@@ -115,6 +115,8 @@ interface BoxState {
   currentY: number;
 }
 
+const SELECTED_NOTE_COLORS = "bg-[#3b5265] border-[#213646]";
+const ACTIVE_NOTE_COLORS = "bg-[#29333c] border-[#182127]";
 const BLACK_KEY_CLASSES = [1, 3, 6, 8, 10];
 const TOOL_HINTS: Record<ToolMode, string> = {
   draw: "Draw · Tap grid to add; drag for length",
@@ -937,7 +939,7 @@ export function PianoRoll({
               <p>Generate an idea, draw notes, or import MIDI.</p>
               <div className="empty-actions">
                 <button className="primary-button" onClick={onGenerate}>Generate pattern</button>
-                <button className="secondary-button" onClick={onStartBlank}><Pencil size={14} />Start blank</button>
+                <button className="secondary-button" onClick={onStartBlank}><Draw size={14} />Start blank</button>
               </div>
               <input type="file" ref={emptyImportRef} accept=".mid,.midi" className="hidden" aria-label="Import MIDI into empty project" onChange={event => {
                 const file = event.target.files?.[0]; if (file) onLoadFile(file); event.target.value = "";
@@ -1008,8 +1010,8 @@ export function PianoRoll({
                         onClick={event => { event.stopPropagation(); onToggleChordLock(i); }}>
                         <span className="chord-dot" aria-hidden="true" />
                         <span className="chord-name">{chord.name}</span>
-                        {chord.locked ? <LockKeyhole size={11} aria-hidden="true" />
-                          : <LockOpen size={11} aria-hidden="true" />}
+                        {chord.locked ? <Lock size={11} aria-hidden="true" />
+                          : <Unlock size={11} aria-hidden="true" />}
                       </button>
                       : <div key={i} className="chord-chip"
                         style={{ left: chord.timeStart * zoomX, width: chord.duration * zoomX }}>
@@ -1023,7 +1025,7 @@ export function PianoRoll({
               <div className="flex relative">
                 {/* Left Sticky Keyboard */}
                 <div
-                  className="sticky left-0 z-40 bg-[#c5c8c2] border-r border-[var(--border-strong)] flex-shrink-0"
+                  className="sticky left-0 z-40 bg-[var(--app-bg)] border-r border-[var(--border-strong)] flex-shrink-0"
                   style={{
                     width: `${KEYBOARD_WIDTH}px`,
                     height: `${(MIDI_RANGE * rowHeight)}px`,
@@ -1050,9 +1052,9 @@ export function PianoRoll({
                           if (name) playNote(name);
                         }}
                         className={`piano-key absolute w-full border-b border-[var(--border-color)] flex items-center justify-end pr-1 text-[8px] font-mono hover:brightness-125 cursor-pointer active:brightness-90
-                        ${isBlack ? "piano-key-black bg-[#19211f] text-[var(--text-muted)]" : "piano-key-white bg-[var(--piano-white)] text-[var(--text-main)]"}
-                        ${isC ? "octave-key font-bold text-[var(--accent)] border-t border-[var(--border-color)]" : ""}
-                        ${isInScale ? "shadow-[inset_0_0_0_999px_rgba(94,124,246,0.08)]" : ""}`}
+                        ${isBlack ? "piano-key-black" : "piano-key-white"}
+                        ${isC ? "octave-key font-bold border-t border-[var(--border-color)]" : ""}
+                        ${isInScale ? "shadow-[inset_0_0_0_999px_rgba(71,102,126,0.08)]" : ""}`}
                         style={{
                           top: `${i * rowHeight}px`,
                           height: `${rowHeight}px`,
@@ -1074,11 +1076,6 @@ export function PianoRoll({
                     height: `${(MIDI_RANGE * rowHeight)}px`,
                     touchAction: "none",
                     cursor: toolMode === "pan" ? "grab" : toolMode === "select" ? "default" : "crosshair",
-                    backgroundImage: `
-                      linear-gradient(to bottom, rgba(163,185,169,0.08) 1px, transparent 1px),
-                      linear-gradient(to right, var(--border-strong) 1px, transparent 1px),
-                      linear-gradient(to right, rgba(163,185,169,0.05) 1px, transparent 1px)
-                    `,
                     backgroundSize: `100% ${rowHeight}px, ${zoomX * 4}px 100%, ${zoomX}px 100%`,
                     backgroundPosition: "0 0, 0 0, 0 0",
                   }}
@@ -1113,10 +1110,10 @@ export function PianoRoll({
                   {/* Playhead */}
                   {progression && (
                     <div
-                      className="absolute top-0 bottom-0 w-0 border-l-[2px] border-[#8e6e53] z-30 pointer-events-none"
+                      className="absolute top-0 bottom-0 w-0 border-l-[2px] border-[#344b5d] z-30 pointer-events-none"
                       style={{ left: `${currentTick * zoomX}px` }}
                     >
-                      <div className="absolute top-0 left-[-6px] w-[13px] h-[13px] bg-[#8e6e53] rounded-b-sm"></div>
+                      <div className="absolute top-0 left-[-6px] w-[13px] h-[13px] bg-[#344b5d] rounded-b-sm"></div>
                     </div>
                   )}
 
@@ -1131,14 +1128,14 @@ export function PianoRoll({
                         height: `${rowHeight}px`,
                       }}
                     >
-                      <div className="absolute inset-[1px] bg-emerald-400/80 border border-emerald-300 shadow-sm rounded-[3px]" />
+                      <div className="absolute inset-[1px] bg-[#7995a9]/80 border border-[#3b5265] shadow-sm rounded-[3px]" />
                     </div>
                   )}
 
                   {/* Lasso Box */}
                   {lassoState && (
                     <div
-                      className="absolute border border-blue-500 bg-blue-500/20 z-50 pointer-events-none transition-none"
+                      className="absolute border border-[#47667e] bg-[#47667e]/20 z-50 pointer-events-none transition-none"
                       style={{
                         left: Math.min(lassoState.startX, lassoState.currentX),
                         top: Math.min(lassoState.startY, lassoState.currentY),
@@ -1156,7 +1153,7 @@ export function PianoRoll({
                         y1={sliceState.startY}
                         x2={sliceState.currentX}
                         y2={sliceState.currentY}
-                        stroke="#ef4444"
+                        stroke="#914c4c"
                         strokeWidth="2"
                         strokeDasharray="4 2"
                       />
@@ -1231,7 +1228,7 @@ export function PianoRoll({
                           width: `${boxWidth}px`,
                           top: `${(MAX_MIDI - renderMidi) * rowHeight}px`,
                           height: `${rowHeight}px`,
-                          opacity: isPlayingNote ? 1 : Math.max(0.65, n.velocity),
+                          opacity: isPlayingNote ? 1 : Math.max(0.8, n.velocity),
                         }}
                       >
                         {/* Visual Box */}
@@ -1239,20 +1236,15 @@ export function PianoRoll({
                           className={`piano-note absolute inset-[1px] rounded-[3px] border transition-colors duration-100 overflow-hidden
                             ${
                               isPlayingNote
-                                ? "bg-[#bc986d] border-[#e0c6a3] z-30"
+                                ? `${ACTIVE_NOTE_COLORS} z-30`
                                 : isSelected
-                                  ? "piano-note-selected bg-[#8d8eb9] border-[#c1c2e2] z-20"
-                                  : hasTrackColors && n.trackIndex !== undefined
-                                    ? `${getTrackColorClasses(n.trackIndex)} group-hover:brightness-110`
-                                    : "bg-[#849e80] border-[#547052] group-hover:brightness-110"
+                                  ? `piano-note-selected ${SELECTED_NOTE_COLORS} z-20`
+                                  : `${getTrackColorClasses(hasTrackColors ? trackIndexOf(n) : 0)} group-hover:brightness-110`
                             }
                           `}
                         >
                           {showLabel && (
-                            <span className={
-                              "piano-note-label pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 select-none font-mono text-[10px] font-semibold " +
-                              (isSelected ? "text-white" : "text-[#172237]")
-                            }>
+                            <span className="piano-note-label pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 select-none font-mono text-[10px] font-semibold">
                               {Note.fromMidi(renderMidi) || ""}
                             </span>
                           )}
@@ -1283,7 +1275,7 @@ export function PianoRoll({
               {/* Velocity Lane */}
               <div className="flex sticky bottom-0 z-40">
                 <div
-                  className="sticky left-0 z-40 bg-[#c5c8c2] border-t border-r border-[var(--border-strong)] flex-shrink-0 flex items-center justify-center"
+                  className="sticky left-0 z-40 bg-[var(--app-bg)] border-t border-r border-[var(--border-strong)] flex-shrink-0 flex items-center justify-center"
                   style={{
                     width: `${KEYBOARD_WIDTH}px`,
                     height: `${VELOCITY_LANE_HEIGHT}px`,
@@ -1352,12 +1344,10 @@ export function PianoRoll({
                           className={`absolute inset-x-[1px] bottom-0 rounded-t-[2px] border-t shadow-sm transition-colors
                             ${
                               isVelocityDragging
-                                ? "bg-emerald-400 border-emerald-300"
+                                ? ACTIVE_NOTE_COLORS
                                 : isSelected
-                                  ? "bg-violet-500 border-violet-400"
-                                  : hasTrackColors && n.trackIndex !== undefined
-                                    ? `${getTrackColorClasses(n.trackIndex)} group-hover:brightness-110`
-                                    : "bg-[#849e80] border-[#547052] group-hover:brightness-110"
+                                  ? SELECTED_NOTE_COLORS
+                                  : `${getTrackColorClasses(hasTrackColors ? trackIndexOf(n) : 0)} group-hover:brightness-110`
                             }
                           `}
                           style={{ height: `${barHeight}px` }}

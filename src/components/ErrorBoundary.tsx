@@ -18,17 +18,17 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.error) {
       return (
-        <div className="h-screen w-full flex items-center justify-center bg-[var(--app-bg)] text-[var(--text-main)] font-sans">
+        <div className="h-screen w-full flex items-center justify-center bg-[var(--app-bg)] text-[var(--editor-ink)] font-sans">
           <div className="hardware-panel p-8 max-w-md flex flex-col gap-4 items-center text-center">
             <h1 className="text-lg font-bold uppercase tracking-widest">
               Something went wrong
             </h1>
-            <p className="text-xs text-[var(--text-muted)] font-mono break-all">
+            <p className="text-xs text-[var(--editor-muted)] font-mono break-all">
               {this.state.error.message}
             </p>
             <button
               onClick={() => window.location.reload()}
-              className="hardware-btn hardware-btn-primary h-10 px-6 text-[10px] uppercase tracking-widest font-bold"
+              className="hardware-btn hardware-btn-primary bg-[var(--surface-bg)] text-[var(--text-main)] h-10 px-6 text-[10px] uppercase tracking-widest font-bold"
             >
               Reload App
             </button>

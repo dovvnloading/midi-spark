@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { X, Keyboard } from "lucide-react";
+import { Close, Keyboard } from "./StudioIcons";
 const GROUPS = [
   { title: "Playback & generation", items: [
     ["Space", "Play / pause"], ["Ctrl / ⌘ G", "Generate or regenerate"],
@@ -44,7 +44,7 @@ export function ShortcutHelp({ open, onClose }: { open: boolean; onClose: () => 
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     }} aria-labelledby="shortcut-heading">
-    <div className="dialog-content"><header><Keyboard size={20} /><h2 id="shortcut-heading">Shortcuts & gestures</h2><button className="icon-button" aria-label="Close shortcuts" onClick={onClose}><X size={18} /></button></header>
+    <div className="dialog-content"><header><Keyboard size={20} /><h2 id="shortcut-heading">Shortcuts & gestures</h2><button className="icon-button" aria-label="Close shortcuts" onClick={onClose}><Close size={18} /></button></header>
       <p>Shortcuts work in the editor. Text fields keep their own keyboard behavior.</p>
       {GROUPS.map(group => <section key={group.title}><h3>{group.title}</h3><dl>{group.items.map(([keys, action]) => <div key={keys}><dt>{action}</dt><dd><kbd>{keys}</kbd></dd></div>)}</dl></section>)}
       <footer>On touch screens, choose Hand to pan. For melody loop selection, use

@@ -92,8 +92,7 @@ with sync_playwright() as p:
  page=b.new_page(viewport={'width':1440,'height':900},device_scale_factor=1,has_touch=True)
  errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  page.goto(args.url);page.evaluate('document.fonts.ready')
- # Slate & Earth deliberately makes the editor light neutral gray while
- # retaining warm stone accents and an accessible dark graphite inspector.
+ # The editor uses light neutral surfaces, graphite type, and steel-blue actions.
  palette=page.evaluate("""() => {
   const rgb=(selector)=>Array.from(getComputedStyle(document.querySelector(selector))
     .backgroundColor.match(/\\d+/g) || []).slice(0,3).map(Number);
@@ -109,22 +108,28 @@ with sync_playwright() as p:
  assert min(palette['editor'])>185 and max(palette['editor'])-min(palette['editor'])<14, palette
  assert min(palette['piano'])>175 and max(palette['piano'])-min(palette['piano'])<14, palette
  assert min(palette['toolbar'])>190 and max(palette['toolbar'])-min(palette['toolbar'])<14, palette
- assert 'rgb(40, 46, 44)' in palette['canvasText'], palette
- assert palette['accent']=='#cfac88', palette
+ assert palette['canvasText']=='rgb(39, 43, 48)', palette
+ assert palette['accent']=='#adc3d3', palette
  assert 'linear-gradient' in palette['button']
- record('Slate & Earth: light neutral-gray editor with graphite ink and warm clay actions')
+ record('Light neutral editor with graphite ink and steel-blue primary controls')
  # One vector ident must be used for browser tab, boot screen and studio header.
  # Generation actions have no decorative sparkle (or replacement) icon.
- icon_href=page.locator('link[rel="icon"]').get_attribute('href')
- assert icon_href=='favicon.svg?v=2'
- assert page.locator('.wordmark img.brand-mark').get_attribute('src')==icon_href
- assert page.locator('.wordmark img.brand-mark').evaluate('(img)=>img.complete && img.naturalWidth>0')
- assert page.request.get(args.url.rstrip('/')+'/'+icon_href).ok
+ ident_url=page.locator('link[rel="icon"]').evaluate('(link)=>link.href')
+ assert ident_url.endswith('/favicon.svg?v=3'),ident_url
+ header_mark=page.locator('.wordmark img.brand-mark')
+ assert header_mark.evaluate('(img)=>img.currentSrc')==ident_url
+ assert header_mark.evaluate('(img)=>img.complete && img.naturalWidth>0')
+ boot=b.new_page(java_script_enabled=False)
+ boot.goto(args.url)
+ boot_mark=boot.locator('img.boot-mark')
+ assert boot_mark.evaluate('(img)=>img.currentSrc')==ident_url
+ assert boot_mark.evaluate('(img)=>img.complete && img.naturalWidth>0')
+ boot.close()
  assert page.locator('.generate-button svg').count()==0
  assert page.locator('.empty-actions .primary-button svg').count()==0
  assert page.locator('.song-form-build svg').count()==0
  assert page.get_by_role('button',name='Generate pattern').count()>=1
- record('MIDI ident matches favicon/header; all generation buttons are icon-free')
+ record('MIDI ident matches browser tab, boot screen, and header; all generation buttons are icon-free')
  # The default Compose screen must prioritize essentials over dense specialist controls.
  assert page.locator('.composition-summary, .compose-panel .panel-intro, .empty-motif').count()==0
  assert page.locator('.song-form-disclosure').count()==0
@@ -327,8 +332,8 @@ with sync_playwright() as p:
  x,y=grid_point(page,60,1)
  page.mouse.move(x,y);page.mouse.down();page.mouse.move(x+80,y,steps=5);page.wait_for_timeout(80);page.mouse.up()
  assert page.get_by_test_id('piano-note').count()==1
- assert page.locator('.piano-key-white').first.evaluate("(el) => getComputedStyle(el).backgroundColor")=='rgb(236, 238, 233)'
- assert page.locator('.piano-key-black').first.evaluate("(el) => getComputedStyle(el).backgroundColor")=='rgb(70, 76, 74)'
+ assert page.locator('.piano-key-white').first.evaluate("(el) => getComputedStyle(el).backgroundColor")=='rgb(241, 243, 244)'
+ assert page.locator('.piano-key-black').first.evaluate("(el) => getComputedStyle(el).backgroundColor")=='rgb(66, 71, 77)'
  record('Light piano keys retain distinct dark/white-note surfaces')
  record('Mouse draw commits one note without waiting for audio startup')
  # Merely selecting a note must not add a redundant undo operation.
@@ -1279,7 +1284,7 @@ with sync_playwright() as p:
  expect(melody_mobile.get_by_role('button',name='Continue melody',exact=False)).to_be_visible()
  record('390px melody workflow exposes task essentials and expandable advanced settings')
  melody_mobile.close()
- # Measure each label against the rendered neutral/earth surface it sits
+ # Measure each label against the rendered studio surface it sits
  # on, not a hard-coded dark-green backdrop from the previous theme.
  reading=b.new_page(viewport={'width':1440,'height':900},has_touch=True)
  reading.on('pageerror',lambda error:errors.append(str(error)))

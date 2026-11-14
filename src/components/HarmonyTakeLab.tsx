@@ -1,4 +1,4 @@
-import { BookmarkPlus, Check, Headphones, Play, Shuffle, Trash2, X } from "lucide-react";
+import { SaveTake, Check, Headphones, Play, Shuffle, Trash, Close, ChevronLeft, ChevronRight } from "./StudioIcons";
 import type { HarmonyTakeDifference } from "../lib/harmonyTakes";
 
 export interface HarmonyTakeView {
@@ -53,11 +53,11 @@ export function HarmonyTakeLab(p: HarmonyTakeLabProps) {
     {p.takes.length > 0 && <>
       <div className="take-switcher" role="group" aria-label="Quick A/B listening">
         <button type="button" className="text-button" onClick={() => p.onAudition(previous)}>
-          <Play size={12} aria-hidden="true" /> Previous
+          <ChevronLeft size={12} aria-hidden="true" /> Previous
         </button>
         <span className="field-hint">{selected ? selected.label : "Original"}</span>
         <button type="button" className="text-button" onClick={() => p.onAudition(next)}>
-          Next <Play size={12} aria-hidden="true" />
+          Next <ChevronRight size={12} aria-hidden="true" />
         </button>
       </div>
       <div className="take-choices" role="group" aria-label="Audition harmony takes">
@@ -92,7 +92,7 @@ export function HarmonyTakeLab(p: HarmonyTakeLabProps) {
           {take.savedId && <button type="button" className="text-button take-remove"
             aria-label={"Remove favorite " + (index + 1)}
             onClick={() => p.onRemoveSaved(take.savedId!)}>
-            <Trash2 size={12} aria-hidden="true" /> Remove saved
+            <Trash size={12} aria-hidden="true" /> Remove saved
           </button>}
         </div>)}
       </div>
@@ -105,10 +105,10 @@ export function HarmonyTakeLab(p: HarmonyTakeLabProps) {
           onClick={p.onAccept}><Check size={14} aria-hidden="true" />Accept selected take</button>
         <button type="button" className="secondary-button"
           disabled={p.previewIndex === null || !!selected?.savedId || savedCount >= 4}
-          onClick={p.onSave}><BookmarkPlus size={14} aria-hidden="true" />Save favorite</button>
+          onClick={p.onSave}><SaveTake size={14} aria-hidden="true" />Save favorite</button>
         <button type="button" className="text-button" onClick={p.onDiscard}
           disabled={freshCount === 0}>
-          <X size={14} aria-hidden="true" />Clear takes
+          <Close size={14} aria-hidden="true" />Clear takes
         </button>
       </div>
       <p className="generation-hint">

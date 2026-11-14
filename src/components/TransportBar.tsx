@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ChevronDown, Download, FolderOpen, Play, Pause, Square, Repeat2, Undo2, Redo2, Upload, Keyboard, Trash2, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, Download, ProjectFolder, Play, Pause, Stop, Loop, Undo, Redo, Upload, Keyboard, Trash, Sliders } from "./StudioIcons";
 import { MIN_BPM, MAX_BPM } from "../lib/constants";
 import { FloatingMenu } from "./FloatingMenu";
 export interface TransportBarProps {
@@ -28,15 +28,15 @@ export function TransportBar(p: TransportBarProps) {
   };
   const bar = Math.floor(p.currentTick / 4) + 1, beat = Math.floor(p.currentTick % 4) + 1;
   return <header className="app-header">
-    <div className="wordmark"><img className="brand-mark" src="favicon.svg?v=2" width={37} height={37} alt="" aria-hidden="true" /><span>midi<span className="wordmark-light">spark</span><span className="edition">STUDIO</span></span></div>
+    <div className="wordmark"><img className="brand-mark" src="favicon.svg?v=3" width={37} height={37} alt="" aria-hidden="true" /><span>midi<span className="wordmark-light">spark</span><span className="edition">STUDIO</span></span></div>
     <div className="transport" role="group" aria-label="Playback controls">
       <button className={"play-button" + (p.isPlaying ? " playing" : "")} onClick={p.isPlaying ? p.onPause : p.onPlay} disabled={!p.canPlay}
         aria-label={p.isPlaying ? "Pause playback" : p.isPaused ? "Resume playback" : "Play pattern"} title="Play / pause (Space)">
         {p.isPlaying ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
       </button>
       <button className="icon-button" onClick={p.onStop} disabled={!p.isPlaying && !p.isPaused && p.currentTick === 0}
-        aria-label="Stop playback" title="Stop and return to bar 1"><Square size={14} fill="currentColor" /></button>
-      <button className="icon-button loop-button" aria-pressed={p.isLooping} onClick={p.onToggleLoop} aria-label="Loop playback" title="Loop playback"><Repeat2 size={17} /></button>
+        aria-label="Stop playback" title="Stop and return to bar 1"><Stop size={14} fill="currentColor" /></button>
+      <button className="icon-button loop-button" aria-pressed={p.isLooping} onClick={p.onToggleLoop} aria-label="Loop playback" title="Loop playback"><Loop size={17} /></button>
       <span className="control-divider" />
       <label className="tempo-field"><input type="number" aria-label="Tempo" aria-describedby="tempo-input-help"
         min={MIN_BPM} max={MAX_BPM} step={1}
@@ -63,8 +63,8 @@ export function TransportBar(p: TransportBarProps) {
       <div className="position-display" aria-label={"Bar " + bar + ", beat " + beat}><span>{String(bar).padStart(2, "0")}</span><i>:</i><span>{String(beat).padStart(2, "0")}</span><small>BAR / BEAT</small></div>
     </div>
     <div className="project-actions">
-      <div className="history-actions"><button className="icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo" title="Undo (Ctrl/⌘ Z)"><Undo2 size={17} /></button>
-        <button className="icon-button" onClick={p.onRedo} disabled={!p.canRedo} aria-label="Redo" title="Redo (Ctrl/⌘ Shift Z)"><Redo2 size={17} /></button></div>
+      <div className="history-actions"><button className="icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo" title="Undo (Ctrl/⌘ Z)"><Undo size={17} /></button>
+        <button className="icon-button" onClick={p.onRedo} disabled={!p.canRedo} aria-label="Redo" title="Redo (Ctrl/⌘ Shift Z)"><Redo size={17} /></button></div>
       <span className="control-divider history-divider" />
        <button className="primary-button export-button" onClick={p.onExport} disabled={!p.canPlay} aria-label="Export MIDI" title="Export editable MIDI notes and General MIDI programs; browser synth sounds are not embedded"><Download size={15} /><span>Export MIDI</span></button>
       <details className="project-menu" ref={moreRef}
@@ -79,7 +79,7 @@ export function TransportBar(p: TransportBarProps) {
         }}>
         <summary role="button" className="secondary-button project-menu-trigger"
           aria-label="Project menu" aria-controls="project-menu-popup">
-          <FolderOpen size={16} aria-hidden="true" /><span>Project</span>
+          <ProjectFolder size={16} aria-hidden="true" /><span>Project</span>
           <ChevronDown size={13} aria-hidden="true" />
         </summary>
         {projectOpen && <FloatingMenu anchorRef={moreRef} className="project-menu-content"
@@ -92,8 +92,8 @@ export function TransportBar(p: TransportBarProps) {
             <Download size={15} />Save MIDI Spark project</button>
           <p>Native .midispark projects preserve locks, guides, mixer, song sections, and saved takes.</p>
           <button onClick={() => { dismissProject(); p.onOpenShortcuts(); }}><Keyboard size={15} />Keyboard shortcuts <kbd>?</kbd></button>
-          <button onClick={() => { dismissProject(); p.onToggleInspector(); }}><SlidersHorizontal size={15} />Toggle inspector</button>
-          <button className="menu-danger" onClick={() => { dismissProject(); p.onClearSavedSession(); }}><Trash2 size={15} />Clear browser autosave</button>
+          <button onClick={() => { dismissProject(); p.onToggleInspector(); }}><Sliders size={15} />Toggle inspector</button>
+          <button className="menu-danger" onClick={() => { dismissProject(); p.onClearSavedSession(); }}><Trash size={15} />Clear browser autosave</button>
           <p>Clearing autosave keeps this session open.</p>
         </FloatingMenu>}
       </details>

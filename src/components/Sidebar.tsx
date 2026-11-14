@@ -1,4 +1,4 @@
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "./StudioIcons";
 import { CustomDropdown } from "./CustomDropdown";
 import { SoundPicker } from "./SoundPicker";
 import { CustomSlider } from "./CustomSlider";

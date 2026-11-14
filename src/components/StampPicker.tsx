@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Search, Stamp } from "lucide-react";
+import { Check, ChevronDown, Search, Stamp } from "./StudioIcons";
 import { FloatingMenu } from "./FloatingMenu";
 import {
   getStampPreset, searchStampPresets, STAMP_GROUPS, STAMP_PRESETS,
@@ -92,7 +92,7 @@ export function StampPicker({ value, onChange }: StampPickerProps) {
               <strong>{preset.label}</strong>
               <small>{detail(preset)}</small>
             </span>
-            {preset.id === selected.id && <span className="stamp-picker-selected" aria-hidden="true">✓</span>}
+            {preset.id === selected.id && <Check size={14} className="stamp-picker-selected" />}
           </button>)}
         </section>;
       })}
