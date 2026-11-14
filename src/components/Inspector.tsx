@@ -1,11 +1,11 @@
-import { useEffect, useRef, type ReactNode } from "react";
-import { CollapsePanel, Close } from "./StudioIcons";
+import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
+import { CollapsePanel, Close, Layers, PianoRollIcon, Sliders } from "./StudioIcons";
 
 export type InspectorTab = "compose" | "transform" | "tracks";
 const tabs = [
-  { id: "compose", label: "Compose" },
-  { id: "transform", label: "Transform" },
-  { id: "tracks", label: "Tracks" },
+  { id: "compose", label: "Compose", Icon: PianoRollIcon },
+  { id: "transform", label: "Transform", Icon: Sliders },
+  { id: "tracks", label: "Tracks", Icon: Layers },
 ] as const;
 
 interface Props {
@@ -20,50 +20,60 @@ interface Props {
   transform: ReactNode;
   tracks: ReactNode;
 }
-const MIN_WIDTH = 270;
-const MAX_WIDTH = 420;
-const DEFAULT_WIDTH = 312;
+export const MIN_WIDTH = 270;
+export const MAX_WIDTH = 420;
+export const DEFAULT_WIDTH = 312;
 const clamp = (value: number) => Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, Math.round(value)));
+
+const drawerQuery = "(max-width: 760px)";
+const isDrawer = () => window.matchMedia(drawerQuery).matches;
+function subscribeToLayout(update: () => void) {
+  const query = window.matchMedia(drawerQuery);
+  query.addEventListener("change", update);
+  return () => query.removeEventListener("change", update);
+}
+export function useInspectorDrawer() {
+  return useSyncExternalStore(subscribeToLayout, isDrawer);
+}
 
 export function Inspector({ tab, onTabChange, mobileOpen, onClose, onToggle, width, onResize, compose, transform, tracks }: Props) {
   const ref = useRef<HTMLElement>(null);
-  const opener = useRef<HTMLElement | null>(null);
   const resizeStart = useRef<{ x: number; width: number } | null>(null);
 
   useEffect(() => {
-    if (!mobileOpen || !window.matchMedia("(max-width: 760px)").matches) return;
-    opener.current = document.activeElement as HTMLElement;
-    ref.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus();
-    return () => opener.current?.focus();
+    if (!mobileOpen) return;
+    const opener = document.activeElement;
+    const panel = ref.current;
+    panel?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus({ preventScroll: true });
+    return () => {
+      if (!isDrawer()) return;
+      const target = opener instanceof HTMLElement && opener !== document.body &&
+        opener.isConnected && !panel?.contains(opener) ? opener : document.getElementById("inspector-toggle");
+      target?.focus({ preventScroll: true });
+    };
   }, [mobileOpen]);
 
   const contents = { compose, transform, tracks };
 
   return <>
-    {mobileOpen && <button className="inspector-backdrop" aria-label="Close inspector" onClick={onClose} />}
+    {mobileOpen && <button type="button" className="inspector-backdrop" tabIndex={-1} aria-label="Close inspector" onClick={onClose} />}
     <aside id="studio-inspector" ref={ref} className={"inspector" + (mobileOpen ? " is-open" : "")}
       aria-label="Studio controls"
       onKeyDown={event => {
-        if (!mobileOpen || !window.matchMedia("(max-width: 760px)").matches) return;
+        // Portaled dialogs manage their own focus even though React events bubble here.
+        if (!mobileOpen || !event.currentTarget.contains(event.target as Node)) return;
         if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); onClose(); }
         if (event.key === "Tab") {
           const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
             'button:not(:disabled), summary, input:not(:disabled), select:not(:disabled), [tabindex="0"]',
-          )).filter(element => element.getClientRects().length > 0 && getComputedStyle(element).visibility !== "hidden");
+          )).filter(element => element.tabIndex >= 0 && element.checkVisibility({ visibilityProperty: true }));
           const first = focusable[0], last = focusable.at(-1);
           if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
           else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
         }
       }}>
-      <div className="inspector-heading">
-        <div className="inspector-heading-copy"><strong>Workspace</strong></div>
-        <button type="button" className="icon-button inspector-collapse" aria-label="Collapse sidebar"
-          title="Hide studio controls" onClick={onToggle}><CollapsePanel size={17} /></button>
-        <button type="button" className="icon-button inspector-close" aria-label="Close inspector"
-          onClick={onClose}><Close size={18} /></button>
-      </div>
-      <div className="inspector-tabs-row">
-        <div role="tablist" aria-label="Studio workspace" className="inspector-tabs">
+      <div className="inspector-nav">
+        <div role="tablist" aria-label="Studio workspace" className="inspector-tablist">
           {tabs.map((item, index) => <button key={item.id} type="button" role="tab" id={"tab-" + item.id}
             aria-selected={tab === item.id} aria-controls={"panel-" + item.id} tabIndex={tab === item.id ? 0 : -1}
             onClick={() => onTabChange(item.id)} onKeyDown={event => {
@@ -76,8 +86,15 @@ export function Inspector({ tab, onTabChange, mobileOpen, onClose, onToggle, wid
               event.preventDefault();
               onTabChange(tabs[next].id);
               document.getElementById("tab-" + tabs[next].id)?.focus();
-            }}><span>{item.label}</span></button>)}
+            }}><item.Icon size={15} /><span>{item.label}</span></button>)}
         </div>
+        <button type="button" className="inspector-nav-button inspector-collapse" aria-label="Collapse sidebar"
+          title="Hide studio controls" onClick={() => {
+            onToggle();
+            document.getElementById("inspector-toggle")?.focus({ preventScroll: true });
+          }}><CollapsePanel size={16} /></button>
+        <button type="button" className="inspector-nav-button inspector-close" aria-label="Close inspector"
+          title="Close studio controls" onClick={onClose}><Close size={16} /></button>
       </div>
       {tabs.map(item => <div key={item.id} role="tabpanel" id={"panel-" + item.id}
         aria-labelledby={"tab-" + item.id} hidden={tab !== item.id}
@@ -87,7 +104,7 @@ export function Inspector({ tab, onTabChange, mobileOpen, onClose, onToggle, wid
         aria-controls="studio-inspector" aria-valuemin={MIN_WIDTH} aria-valuemax={MAX_WIDTH} aria-valuenow={width}
         title="Drag to resize · Double-click to reset"
         onPointerDown={event => {
-          if (event.button !== 0 || window.matchMedia("(max-width: 760px)").matches) return;
+          if (event.button !== 0) return;
           resizeStart.current = { x: event.clientX, width };
           event.currentTarget.setPointerCapture(event.pointerId);
           event.preventDefault();

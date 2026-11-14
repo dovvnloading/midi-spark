@@ -59,7 +59,7 @@ import {
 } from "./lib/tracks";
 import { addTrack, deleteTrack, duplicateTrack, renameTrack } from "./lib/trackOperations";
 import { Sidebar } from "./components/Sidebar";
-import { Inspector, type InspectorTab } from "./components/Inspector";
+import { DEFAULT_WIDTH, Inspector, MAX_WIDTH, MIN_WIDTH, type InspectorTab, useInspectorDrawer } from "./components/Inspector";
 import { editScope } from "./lib/editScope";
 import { TransportBar } from "./components/TransportBar";
 import { EditToolbar, ToolMode } from "./components/EditToolbar";
@@ -233,13 +233,14 @@ export default function App() {
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("compose");
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
   const [desktopInspectorOpen, setDesktopInspectorOpen] = useState(true);
+  const inDrawerLayout = useInspectorDrawer();
   // Studio chrome is a workspace preference, separate from the musical session.
   const [inspectorWidth, setInspectorWidth] = useState(() => {
     try {
       const stored = Number(window.localStorage.getItem("midi-spark:inspector-width"));
-      return stored >= 270 && stored <= 420 ? stored : 312;
+      return stored >= MIN_WIDTH && stored <= MAX_WIDTH ? stored : DEFAULT_WIDTH;
     } catch {
-      return 312;
+      return DEFAULT_WIDTH;
     }
   });
   useEffect(() => {
@@ -249,12 +250,19 @@ export default function App() {
   const [fitRequest, setFitRequest] = useState(0);
   const [saveState, setSaveState] = useState<"saving" | "saved" | "unavailable" | "cleared">("saved");
   const editTargets = useMemo(() => editScope(progression?.notes ?? [], selectedNoteIndices, visibleFocusedTrack), [progression, selectedNoteIndices, visibleFocusedTrack]);
+  const transformStarts = useMemo(() => progression && inspectorTab === "transform"
+    ? Array.from(editTargets, index => progression.notes[index].timeStart)
+    : [], [progression, editTargets, inspectorTab]);
   const scopeLabel = selectedNoteIndices.size > 0 ? "Selected notes" : visibleFocusedTrack !== null ? (tracks.find(t => t.index === visibleFocusedTrack)?.name ?? "Focused track") : "Entire pattern";
   const toggleInspector = () => {
-    if (window.matchMedia("(max-width: 760px)").matches) setMobileInspectorOpen(open => !open);
+    if (inDrawerLayout) setMobileInspectorOpen(open => !open);
     else setDesktopInspectorOpen(open => !open);
   };
-  const openTracks = () => { setInspectorTab("tracks"); setDesktopInspectorOpen(true); setMobileInspectorOpen(true); };
+  const openTracks = useCallback(() => {
+    setInspectorTab("tracks");
+    setDesktopInspectorOpen(true);
+    setMobileInspectorOpen(inDrawerLayout);
+  }, [inDrawerLayout]);
 
   // Bumped when a new sequence should re-center the piano roll.
   const [scrollAnchorKey, setScrollAnchorKey] = useState(0);
@@ -539,7 +547,7 @@ export default function App() {
     setSelectedNoteIndices(new Set());
     openTracks();
     notify("Added a new track. Draw or stamp notes into the focused lane.", "success");
-  }, [progression, bars, commit, synthType, notify]);
+  }, [progression, bars, commit, synthType, notify, openTracks]);
 
   const handleRenameTrack = useCallback((index: number, name: string) => {
     commit(prev => prev ? renameTrack(prev, index, name) : prev);
@@ -1402,7 +1410,7 @@ export default function App() {
         canExportProject={progression !== null}
         onClearSavedSession={handleClearSavedSession} onOpenShortcuts={() => setShortcutsOpen(true)} onToggleInspector={toggleInspector} />
       <div className="workspace">
-        <Inspector tab={inspectorTab} onTabChange={setInspectorTab} mobileOpen={mobileInspectorOpen} onClose={() => setMobileInspectorOpen(false)}
+        <Inspector tab={inspectorTab} onTabChange={setInspectorTab} mobileOpen={inDrawerLayout && mobileInspectorOpen} onClose={() => setMobileInspectorOpen(false)}
           onToggle={toggleInspector} width={inspectorWidth} onResize={setInspectorWidth}
           compose={<Sidebar root={root} mode={mode} dissonance={dissonance} complexity={complexity} bars={bars} canVary={hasNotes}
             generationMode={generationMode} onGenerationModeChange={setGenerationMode}
@@ -1449,7 +1457,7 @@ export default function App() {
             synthType={displayedSynth} multiTrack={tracks.length > 1} onSynthChange={handleSynthChange} onOpenTracks={openTracks}
             onRootChange={setRoot} onModeChange={setMode} onDissonanceChange={setDissonance} onComplexityChange={setComplexity} onBarsChange={setBars}
             onGenerate={handleGenerate} onAddVariation={handleGenerateVariations} onPreviewError={message => notify(message, "error")} />}
-          transform={<TransformBar noteCount={editTargets.size} selectedCount={selectedNoteIndices.size} scopeLabel={scopeLabel}
+          transform={<TransformBar noteStarts={transformStarts} scopeLabel={scopeLabel}
             onQuantize={handleQuantize} onTranspose={handleTranspose} onHumanize={handleHumanize} swingAmount={swingAmount}
             onSwingAmountChange={setSwingAmount} onApplySwing={handleApplySwing} noteLength={noteLength} onNoteLengthChange={setNoteLength}
             onChop={handleChopSelected} onDuplicateBar={handleDuplicateBar} />}
@@ -1489,7 +1497,7 @@ export default function App() {
             Notes retain their quarter-note timing, but the editor uses 4/4 bars; original measure boundaries and time signatures are not preserved on export.
           </p>}
           <EditToolbar toolMode={toolMode} stampType={stampType} noteLength={noteLength} snapResolution={snapResolution} zoomX={zoomX}
-            followPlayback={followPlayback} inspectorOpen={desktopInspectorOpen} onToolModeChange={setToolMode} onStampTypeChange={setStampType}
+            followPlayback={followPlayback} inspectorOpen={inDrawerLayout ? mobileInspectorOpen : desktopInspectorOpen} onToolModeChange={setToolMode} onStampTypeChange={setStampType}
             onNoteLengthChange={setNoteLength} onSnapResolutionChange={setSnapResolution} onZoomChange={setZoomX}
             onToggleFollow={() => setFollowPlayback(f => !f)} onFit={() => setFitRequest(k => k + 1)} onToggleInspector={toggleInspector} />
           <PianoRoll progression={displayProgression} focusedTrack={visibleFocusedTrack}

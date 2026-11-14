@@ -1,0 +1,232 @@
+/* The compose tab uses one scrolling control surface above a fixed action row. */
+#panel-compose { overflow: hidden; }
+.inspector .compose-panel { height: 100%; min-height: 0; }
+.inspector .compose-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #50565e transparent;
+  padding: 22px 18px 18px;
+}
+.compose-device-header { margin-bottom: 16px; }
+.compose-device-title {
+  margin: 0 0 16px;
+  color: var(--rack-text);
+  font-size: 21px;
+  font-weight: 610;
+  line-height: 1.18;
+  letter-spacing: -.7px;
+}
+.compose-panel :is(.generation-mode, .segmented, .feel-presets) {
+  align-items: stretch;
+  gap: 2px;
+  padding: 3px;
+  background: #191c20;
+  border: 1px solid var(--rack-line);
+  border-radius: 6px;
+}
+.compose-panel :is(.generation-mode, .segmented, .feel-presets) > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 28px;
+  height: auto;
+  padding: 4px;
+  line-height: 1.25;
+  font-size: 12px;
+  font-weight: 520;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--rack-muted);
+  box-shadow: none;
+}
+.compose-panel :is(.generation-mode, .segmented, .feel-presets) > button:hover { color: var(--rack-text); background: var(--rack-surface); }
+.compose-panel :is(.generation-mode, .segmented, .feel-presets) > button[aria-pressed="true"] {
+  background: #414b55;
+  color: #f4f6f8;
+  box-shadow: inset 0 0 0 1px #696f77;
+  font-weight: 640;
+}
+.compose-panel :is(.generation-mode, .segmented, .feel-presets) > button:focus-visible { outline-offset: -2px; }
+.compose-source-switch button svg { flex-shrink: 0; }
+.compose-key-module {
+  overflow: hidden;
+  border: 1px solid var(--rack-line);
+  border-radius: 7px;
+  background: #1a1e22;
+}
+.compose-key-fields { display: grid; grid-template-columns: 1fr 1.25fr; background: var(--rack-surface); }
+.compose-key-fields label { position: relative; display: block; }
+.compose-key-fields label + label { border-left: 1px solid var(--rack-line); }
+.compose-panel .compose-key-fields .field-control > span {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  color: var(--rack-muted);
+  font-size: 12px;
+  font-weight: 470;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 1;
+}
+.compose-key-fields .select-field select {
+  height: 55px;
+  padding: 19px 27px 3px 12px;
+  font-size: 17px;
+  font-weight: 580;
+  letter-spacing: -.3px;
+  color: var(--rack-text);
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.compose-key-fields .select-field select:hover { background: #343a41; }
+.compose-key-fields .select-field select:focus-visible { outline-offset: -2px; }
+.compose-key-fields .select-field > svg { right: 12px; color: var(--rack-muted); }
+.compose-scale-readout {
+  padding: 10px 11px 7px;
+  border-top: 1px solid var(--rack-line);
+  color: #aec1ce;
+}
+.compose-scale-grid, .compose-scale-notes { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.compose-scale-grid {
+  height: 30px;
+  background-image: repeating-linear-gradient(to top, #ffffff0c 0 1px, transparent 1px 25%);
+}
+.compose-scale-degree { position: relative; height: 100%; border-left: 1px solid #ffffff0d; }
+.compose-scale-degree:last-child { border-right: 1px solid #ffffff0d; }
+.compose-scale-pitch {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  height: 3px;
+  border-radius: 1px;
+  background: #92a6b4;
+}
+.compose-scale-notes { margin-top: 6px; font: 500 11px/1.05 var(--font-mono); text-align: center; }
+.compose-scale-degree:first-child .compose-scale-pitch { background: #e5edf2; }
+.compose-scale-notes > span:first-child { color: #e5edf2; }
+.compose-panel .compose-detect-hint { margin: 7px 0 0; font-size: 12px; color: var(--rack-muted); }
+.compose-module, .compose-panel .follow-workflow-section {
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--rack-line);
+  padding: 16px 0;
+}
+.compose-panel .sound-section { margin: 0; padding: 15px 0; }
+.compose-panel .section-heading { margin: 0 0 9px; }
+.compose-panel .section-heading h3 { margin: 0; color: var(--rack-text); font-size: 13px; font-weight: 625; }
+.compose-arrangement { display: grid; gap: 9px; }
+.compose-param-row {
+  display: grid;
+  align-items: center;
+  grid-template-columns: minmax(36px, 1fr) minmax(0, 4fr);
+  gap: 6px;
+}
+.compose-param-row > h3 { margin: 0; font-size: 12px; font-weight: 550; color: var(--rack-muted); }
+.compose-parts-switch { grid-template-columns: .85fr 1.15fr; }
+.compose-param-row .generation-mode button { padding-inline: 2px; }
+.compose-panel .sound-picker-control { gap: 6px; min-height: 44px; }
+.compose-panel .sound-picker-trigger, .compose-panel .sound-picker-listen, .compose-panel .track-studio-link {
+  background: var(--rack-surface);
+  border: 1px solid #737b84;
+  border-radius: 5px;
+  box-shadow: none;
+  color: var(--rack-text);
+}
+.compose-panel .sound-picker-trigger { min-height: 44px; padding: 6px 10px; }
+.compose-panel .sound-picker-listen { min-height: 44px; flex-basis: 44px; color: var(--rack-accent); }
+.compose-panel .sound-picker-control button:hover, .compose-panel .track-studio-link:hover {
+  background: #353c44;
+  border-color: var(--rack-accent);
+}
+.compose-panel .sound-picker-title { line-height: 1.3; gap: 0; }
+.compose-panel .sound-picker-title strong { font-size: 13px; font-weight: 590; }
+.compose-panel .sound-picker-title small { color: var(--rack-muted); font-size: 11px; }
+.compose-panel .sound-picker-helper { margin: 6px 0 0; color: var(--rack-muted); font-size: 12px; line-height: 1.4; }
+.compose-panel .compose-expression { border-bottom: 0; padding-bottom: 0; }
+.compose-panel .compose-disclosure, .compose-panel .melody-advanced {
+  border: 0;
+  border-bottom: 1px solid var(--rack-line);
+  border-radius: 0;
+  margin: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.compose-panel .compose-disclosure > summary, .compose-panel .melody-advanced > summary {
+  min-height: 39px;
+  padding: 8px 19px 8px 0;
+  gap: 6px;
+}
+.compose-panel .compose-disclosure > summary::after, .compose-panel .melody-advanced > summary::after {
+  right: 3px;
+  color: var(--rack-muted);
+}
+.compose-panel .compose-disclosure > summary small, .compose-panel .melody-advanced > summary span {
+  font-size: 11px;
+  color: var(--rack-muted);
+}
+.compose-panel .compose-disclosure-body, .compose-panel .melody-advanced-content {
+  border: 0;
+  padding: 5px 0 13px;
+}
+.compose-panel .melody-advanced > summary {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+.compose-panel .melody-advanced > summary > span { color: var(--rack-text); font-size: 12px; }
+.compose-panel .melody-advanced > summary::before { content: none; }
+.compose-panel .melody-advanced > summary::after { content: ""; }
+.compose-panel .follow-workflow-section .melody-advanced { border-bottom: 0; }
+.compose-panel .melody-adaptive-controls { gap: 8px; }
+.compose-panel .follow-workflow-section .generation-hint { line-height: 1.45; color: var(--rack-muted); }
+.compose-panel .field-heading output { color: var(--rack-accent); }
+.compose-panel .compose-actions {
+  flex: 0 0 auto;
+  position: static;
+  margin: 0;
+  padding: 12px 18px max(12px, env(safe-area-inset-bottom));
+  background: var(--rack-bg);
+  border-top: 1px solid var(--rack-line);
+  box-shadow: none;
+}
+.compose-panel .generate-button {
+  height: 40px;
+  padding: 0 12px;
+  color: #1a2530;
+  background: #c1d1df;
+  border: 1px solid #c1d1df;
+  border-radius: 5px;
+  font-weight: 670;
+  font-size: 13px;
+  box-shadow: none;
+}
+.compose-panel .generate-button:hover:not(:disabled) { background: #d6e2ea; border-color: #d6e2ea; transform: none; }
+.compose-panel .generate-button kbd {
+  color: #3a4a59;
+  padding: 2px 4px;
+  font: 500 10px/1.4 var(--font-mono);
+  border: 1px solid #94a6b5;
+  border-radius: 3px;
+  background: transparent;
+}
+.compose-panel .variation-button { margin: 5px 0 -4px; min-height: 28px; color: var(--rack-muted); }
+
+@container inspector (max-width: 290px) {
+  .compose-source-switch button svg { display: none; }
+  .compose-param-row { grid-template-columns: 31px minmax(0, 1fr); }
+}
+
+@media (max-width: 760px) {
+  .compose-panel :is(.generation-mode, .segmented, .feel-presets) > button { min-height: 40px; }
+  .compose-panel .compose-disclosure > summary, .compose-panel .melody-advanced > summary { min-height: 44px; }
+  .compose-panel .generate-button { min-height: 44px; }
+}

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Layers, View, Plus, Draw, Copy, Trash, Check, Close } from "./StudioIcons";
+import { PRESET_BY_ID } from "../lib/presets";
 import { getTrackColorClasses } from "../lib/constants";
 import type { SynthType } from "../lib/audio";
 import { SoundPicker } from "./SoundPicker";
@@ -26,6 +27,7 @@ export function TrackStudio(p: TrackStudioProps) {
   const [renaming, setRenaming] = useState<number | null>(null);
   const [draftName, setDraftName] = useState("");
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
+  const hasSoloTracks = Object.values(p.mixer).some(track => track.solo);
   const finishRename = () => {
     if (renaming === null || !draftName.trim()) return;
     p.onRenameTrack(renaming, draftName);
@@ -33,28 +35,35 @@ export function TrackStudio(p: TrackStudioProps) {
   };
 
   return <div className="inspector-content track-panel">
-    <header className="tool-panel-intro">
-      <span className="eyebrow">TRACKS</span>
-      <h2>Arrange &amp; mix.</h2>
+    <header className="rack-tool-header">
+      <h2>Track mixer</h2>
+      <button type="button" className="mixer-add" onClick={p.onAddTrack} aria-label="Add track">
+        <Plus size={14} />Add track
+      </button>
     </header>
-    <button type="button" className="secondary-button wide track-add"
-      onClick={p.onAddTrack} aria-label="Add track"><Plus size={15} />Add track</button>
     {p.tracks.length === 0
-      ? <div className="inspector-empty"><Layers size={24} />
-        <p>Add a track to draw notes or import a MIDI file.</p>
+      ? <div className="mixer-empty"><Layers size={26} />
+        <h3>No tracks yet</h3>
+        <p>Add a track to draw notes, or import a MIDI file.</p>
       </div>
       : <>
-        {p.focusedTrack !== null && <button type="button"
-          className="text-button wide track-show-all"
-          onClick={() => p.onFocusTrack(null)}>Show all tracks
-          <span className="count-badge">{p.tracks.length}</span>
-        </button>}
+        <div className="mixer-overview">
+          <span>{p.tracks.length} {p.tracks.length === 1 ? "track" : "tracks"}</span>
+          {p.focusedTrack !== null && <button type="button" onClick={() => p.onFocusTrack(null)}>
+            <View size={13} />Show all tracks
+          </button>}
+        </div>
         <div className="track-list">
           {p.tracks.map(track => {
             const setting = p.mixer[track.index] ??
               defaultTrackSettings(track.index, p.defaultSynth);
             const focused = p.focusedTrack === track.index;
             const program = p.midiPrograms[track.index];
+            const excludedBySolo = hasSoloTracks && !setting.solo;
+            const audibility = setting.muted ? "Muted" : excludedBySolo ? "Excluded by solo" : null;
+            const preset = PRESET_BY_ID[setting.synthType] ?? PRESET_BY_ID.classic;
+            const gainDb = setting.level > 0 ? (20 * Math.log10(setting.level)).toFixed(1) : null;
+            const gainText = gainDb === null ? "Silent" : gainDb + " decibels";
             return <section className={"track-strip" + (focused ? " focused" : "")}
               key={track.index} aria-label={track.name + " controls"}>
               <div className="track-strip-heading">
@@ -75,35 +84,39 @@ export function TrackStudio(p: TrackStudioProps) {
                   aria-pressed={focused}
                   onClick={() => p.onFocusTrack(focused ? null : track.index)}
                   title="Focus this track in the piano roll">
-                  <span className={`track-color ${getTrackColorClasses(track.index)}`} />
-                  <span><strong>{track.name}</strong>
-                    <small>{track.noteCount} notes{focused ? " · Focused" : ""}</small></span>
+                  <span aria-hidden="true" className={`channel-index ${getTrackColorClasses(track.index)}`}>
+                    {String(track.index + 1).padStart(2, "0")}
+                  </span>
+                  <span className="channel-name"><strong>{track.name}</strong>
+                    <small>{track.noteCount} {track.noteCount === 1 ? "note" : "notes"}{audibility && " · " + audibility}</small></span>
                   {focused && <View size={13} aria-hidden="true" />}
                 </button>}
                 <div className="track-toggles">
-                  <button type="button" aria-label={(setting.muted ? "Unmute " : "Mute ") + track.name}
+                  <button type="button" title={setting.muted ? "Unmute track" : "Mute track"} aria-label={(setting.muted ? "Unmute " : "Mute ") + track.name}
                     aria-pressed={setting.muted}
                     onClick={() => p.onChange(track.index, { muted: !setting.muted })}>M</button>
-                  <button type="button" aria-label={(setting.solo ? "Unsolo " : "Solo ") + track.name}
+                  <button type="button" title={setting.solo ? "Unsolo track" : "Solo track"} aria-label={(setting.solo ? "Unsolo " : "Solo ") + track.name}
                     aria-pressed={setting.solo}
                     onClick={() => p.onChange(track.index, { solo: !setting.solo })}>S</button>
                 </div>
               </div>
+              <div className="channel-gain">
+                <span>Level</span>
+                <CustomSlider min={0} max={100} value={Math.round(setting.level * 100)}
+                  label={track.name + " volume"} valueText={gainText}
+                  onChange={value => p.onChange(track.index, { level: value / 100 })} />
+                <output aria-hidden="true">{gainDb === null ? "−∞" : gainDb.replace("-", "−")} dB</output>
+              </div>
               <details className="compose-disclosure track-settings-disclosure">
-                <summary><span>Sound &amp; actions</span><small>{Math.round(setting.level * 100)}% level</small></summary>
+                <summary><span>Channel settings</span><small>{preset.label}</small></summary>
                 <div className="compose-disclosure-body">
                   <SoundPicker label={track.name + " instrument"} value={setting.synthType}
                     onChange={type => p.onChange(track.index, { synthType: type })}
                     onPreviewError={p.onPreviewError} />
                   <p className="track-midi-export-note">
-                    Browser playback sound · MIDI export: {program === null || program === undefined
-                      ? "default GM program" : "GM program " + (program + 1)}
+                    Browser playback sound · Exports with {program === null || program === undefined
+                      ? "the default GM program" : "GM program " + (program + 1)}
                   </p>
-                  <div className="field-heading"><label>Level</label>
-                    <output>{Math.round(setting.level * 100)}<span>%</span></output></div>
-                  <CustomSlider min={0} max={100} value={Math.round(setting.level * 100)}
-                    label={track.name + " volume"}
-                    onChange={value => p.onChange(track.index, { level: value / 100 })} />
                   <div className="track-management" role="group"
                     aria-label={track.name + " management"}>
                     <button type="button" onClick={() => {

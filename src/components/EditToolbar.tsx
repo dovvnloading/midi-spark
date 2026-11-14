@@ -33,7 +33,9 @@ export function EditToolbar(p: EditToolbarProps) {
     setViewOpen(false);
   };
   return <div className="editor-toolbar" aria-label="Editing controls">
-    <div className="tool-cluster"><button className="icon-button inspector-toggle" aria-label="Toggle inspector" aria-pressed={p.inspectorOpen} onClick={p.onToggleInspector} title="Inspector"><InspectorPanel size={16} /></button>
+    <div className="tool-cluster"><button type="button" id="inspector-toggle" className="icon-button inspector-toggle"
+      aria-label="Toggle inspector" aria-expanded={p.inspectorOpen} aria-controls="studio-inspector"
+      onClick={p.onToggleInspector} title="Inspector"><InspectorPanel size={16} /></button>
       <span className="control-divider" />
       <div className="tool-segment" role="group" aria-label="Editing tool">
         {TOOLS.map(({ mode, label, key, Icon }) => <button key={mode} onClick={() => p.onToolModeChange(mode)} aria-label={label + " tool"}
