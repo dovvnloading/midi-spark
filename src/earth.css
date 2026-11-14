@@ -271,19 +271,69 @@ body { background: var(--app-bg); }
 
 /* Piano roll. */
 .piano-editor { background: var(--app-bg); }
+/* All three lanes use the same beat width and zero point at the first bar.
+   A zero-sized subdivision layer also keeps free placement and distant zooms quiet. */
+.piano-content {
+  --bar-line: linear-gradient(to right, #505d684d 1px, transparent 1px);
+  --beat-line: linear-gradient(to right, #505d682b 1px, transparent 1px);
+  --bar-width: calc(4 * var(--beat-width));
+}
 .piano-grid {
   background-color: var(--editor-grid);
   background-image:
-    linear-gradient(to bottom, rgba(66, 70, 75, .12) 1px, transparent 1px),
-    linear-gradient(to right, rgba(66, 70, 75, .36) 1px, transparent 1px),
-    linear-gradient(to right, rgba(66, 70, 75, .13) 1px, transparent 1px) !important;
+    var(--bar-line),
+    var(--beat-line),
+    linear-gradient(to right, #505d6816 1px, transparent 1px),
+    linear-gradient(to bottom, #505d681c 1px, transparent 1px);
+  background-size: var(--bar-width) 100%, var(--beat-width) 100%, var(--snap-width) 100%, 100% var(--row-height);
 }
 .piano-timeline {
   background: var(--editor-ruler) !important;
   border-bottom-color: #8c949a !important;
 }
+.piano-content[data-has-chords="false"] .piano-timeline { height: 35px !important; }
+.piano-content[data-has-chords="false"] .chord-strip { display: none; }
 .piano-timeline .measure-number {
-  color: var(--editor-ink); border-color: #8c949a;
+  top: 3px;
+  height: 23px;
+  padding-inline-start: 9px;
+  color: var(--editor-ink);
+  border-color: #8c949a;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+.ruler-beat {
+  position: absolute;
+  inset-block-end: 1px;
+  padding-left: 4px;
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--editor-muted);
+}
+.piano-timeline:not(.sticky)::before {
+  content: "";
+  position: absolute;
+  inset: 21px 0 auto;
+  height: 6px;
+  pointer-events: none;
+  background: var(--beat-line) 0 0 / var(--beat-width) 100%;
+}
+.ruler-playhead {
+  position: absolute;
+  z-index: 7;
+  inset-block: 0;
+  width: 2px;
+  pointer-events: none;
+  background: #344b5d;
+}
+.ruler-playhead::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  width: 10px;
+  height: 9px;
+  background: inherit;
+  clip-path: polygon(0 0, 100% 0, 100% 45%, 50% 100%, 0 45%);
 }
 .chord-strip {
   background: #c6cbd0; border-top-color: #a1a7ae;
@@ -304,14 +354,123 @@ body { background: var(--app-bg); }
 .piano-key.piano-key-black {
   background-color: var(--piano-black) !important; color: var(--text-main) !important;
 }
-.piano-key.octave-key { color: var(--editor-ink) !important; border-top-color: #90979e; }
+.piano-key.octave-key { color: var(--editor-ink) !important; border-bottom-color: #85919a; border-top-color: transparent; }
 .piano-key.piano-key-black.octave-key { color: var(--text-main) !important; }
-.velocity-grid { background-color: var(--editor-ruler) !important; border-top-color: var(--editor-line); }
+.piano-key[data-highlighted="true"] {
+  box-shadow: inset -4px 0 var(--editor-focus), inset 0 0 0 100px #adc3d345;
+  font-weight: 750;
+}
+.piano-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* MIDI 127 is G. The lower edge of the eighth row is the C octave boundary. */
+  background: linear-gradient(to bottom, #53657538 1px, transparent 1px)
+    0 calc(8 * var(--row-height)) / 100% calc(12 * var(--row-height));
+}
+.roll-note[data-selected="true"] { z-index: 21; }
+.roll-note[data-editing="true"], .roll-note:focus-visible { z-index: 25; }
+.roll-note .piano-note {
+  border-radius: 3px !important;
+  box-shadow: inset 0 1px #ffffff32 !important;
+}
+.roll-note[data-selected="true"] .piano-note {
+  border-color: #253b4c;
+  box-shadow: inset 2px 0 #d9e9f5, inset 0 1px #ffffff24 !important;
+}
+.roll-note[data-editing="true"] .piano-note {
+  box-shadow: inset 2px 0 #e6f0f7, 0 0 0 1px #273f52 !important;
+}
+.roll-note[data-playing="true"] .piano-note-label { color: #fff !important; }
+.roll-note .note-resize-hit { opacity: 0; }
+.piano-grid:is([data-tool="draw"], [data-tool="select"]) .roll-note:is([data-selected="true"], :focus-visible) .note-resize-hit { opacity: 1; }
+@media (hover: hover) {
+  .piano-grid:is([data-tool="draw"], [data-tool="select"]) .roll-note:hover .note-resize-hit { opacity: 1; }
+  .piano-grid:is([data-tool="draw"], [data-tool="select"]) .roll-note:hover .piano-note { border-color: #314b5f; }
+}
+.note-resize-hit > div {
+  width: 2px;
+  max-width: 60%;
+  height: 52%;
+  background: #f4f8fb;
+  box-shadow: 0 0 0 1px #253b4c99;
+}
+.piano-grid:is([data-tool="cut"], [data-tool="pan"]) .roll-note * { cursor: inherit; }
+.piano-grid[data-tool="cut"] .roll-note { cursor: crosshair; }
+.piano-grid[data-tool="pan"] .roll-note { cursor: grab; }
+.piano-grid[data-tool="pan"]:active, .piano-grid[data-tool="pan"]:active .roll-note { cursor: grabbing; }
+.placement-ghost {
+  z-index: 19;
+  position: absolute;
+  pointer-events: none;
+}
+.placement-ghost::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border: 1px dashed #3f607c;
+  border-radius: 3px;
+  background: #6989a42e;
+}
+.placement-ghost[data-active="true"]::before {
+  background: #92abbdc9;
+  border: 1px solid #3b5265;
+  box-shadow: inset 2px 0 #edf4f8;
+}
+.velocity-grid {
+  background-color: var(--editor-ruler) !important;
+  background-image: var(--bar-line), var(--beat-line);
+  background-size: var(--bar-width) 100%, var(--beat-width) 100%;
+  border-top-color: var(--editor-control-line);
+}
+.velocity-hit-target > div { inset-inline: 0 min(1px, 10%); }
+.velocity-hit-target[aria-pressed="true"] > div {
+  box-shadow: inset 0 2px #e8f2f9;
+}
 .velocity-label { color: var(--editor-muted); }
 .editor-footnote {
   background: var(--editor-ruler); border-top-color: var(--editor-line); color: var(--editor-muted);
 }
 .editor-footnote strong { color: #2f3338; }
+.editor-footnote { gap: 12px; }
+.editor-footnote .edit-readout {
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+@container (max-width: 650px) {
+  .editor-footnote { gap: 6px; }
+  .editor-footnote > span:last-child {
+    flex: 0 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .editor-footnote > .editor-active-tool {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .editor-footnote:has(.edit-readout) .edit-readout { max-width: none; flex: none; }
+}
+@media (max-width: 760px) and (max-height: 700px) {
+  /* Keep the canvas stationary when the live gesture feedback appears. */
+  .editor-footnote:has(.edit-readout) {
+    display: flex;
+    position: absolute;
+    z-index: 45;
+    inset: auto 4px 4px auto;
+    padding: 3px 6px;
+    border: 1px solid var(--editor-control-line);
+    border-radius: 4px;
+    pointer-events: none;
+  }
+  .editor-footnote:has(.edit-readout) > span:last-child:not(.edit-readout) { display: none; }
+}
 .editor-main .editor-footnote,
 .editor-main .editor-footnote > span { color: #393d43; }
 .pattern-empty {
@@ -334,8 +493,28 @@ body { background: var(--app-bg); }
 .note-precision-editor {
   background: #d7dbde; color: #2f3338; border-bottom-color: var(--stroke-ui-control);
 }
-.note-precision-summary { color: #25282d; background: #d7dbde; }
-.note-precision-summary span { color: #42474d; }
+.note-precision-summary { flex-wrap: nowrap; color: #25282d; background: #d7dbde; }
+.note-precision-summary:hover { background: #cdd3d8; }
+.note-precision-summary::-webkit-details-marker { display: none; }
+.note-precision-summary::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  margin-inline: 1px 3px;
+  border: solid var(--editor-muted);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(-45deg);
+}
+.note-precision-editor[open] > .note-precision-summary::before { transform: rotate(45deg); }
+.note-precision-summary span {
+  color: #42474d;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .note-precision-body { border-top-color: var(--stroke-ui-control); }
 .note-precision-editor select, .note-precision-editor input {
   background: #f3f4f5; color: #25282d; border-color: var(--border-color);
@@ -345,6 +524,25 @@ body { background: var(--app-bg); }
 }
 .velocity-nudge-controls button:hover { background: #52585f; }
 .precision-note-help, .precision-selection-count { color: #393d43; }
+
+.precision-note-add, .precision-note-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--editor-control-line);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.precision-note-add { background: var(--active-surface); color: #fff; }
+.precision-note-add:hover:not(:disabled) { background: #374e61; }
+.precision-note-add:disabled { opacity: .55; cursor: default; }
+.precision-note-delete { background: var(--editor-paper); color: #723b37; }
+.precision-note-delete:hover { background: #f6e9e7; border-color: #894f4a; }
 
 /* Status and dialogs. */
 .app-status {
@@ -515,7 +713,8 @@ body { background: var(--app-bg); }
   border: 1px solid transparent; border-radius: 6px;
   color: #25282d; font-size: 12px; font-weight: 620;
 }
-.canvas-view-menu-content button:hover, .canvas-view-menu-content button:focus-visible {
+.canvas-view-menu-content button:disabled { opacity: .5; cursor: default; }
+.canvas-view-menu-content button:hover:not(:disabled), .canvas-view-menu-content button:focus-visible {
   background: #d7dbde; border-color: #a2a8ae;
 }
 .canvas-view-menu-content button[aria-pressed="true"] {
@@ -528,6 +727,11 @@ body { background: var(--app-bg); }
   .project-menu-trigger { min-width: 37px; padding: 0 8px; }
   .project-menu-trigger span, .project-menu-trigger > svg:last-child { display: none; }
   .canvas-view-trigger { padding: 0 8px; }
+}
+/* The two-row phone header has room for undo and redo beside Export. */
+@media (max-width: 760px) {
+  .project-actions .history-actions { display: flex; gap: 0; }
+  .project-actions .history-actions .icon-button { min-width: 38px; min-height: 40px; }
 }
 
 /* Note Lab and Tracks use the same progressive hierarchy as Compose. */
@@ -584,6 +788,45 @@ body { background: var(--app-bg); }
   .editor-toolbar .view-controls .canvas-view-trigger > svg:last-child { display: none; }
 }
 
+
+/* Keep the canvas controls on the tools row when an open inspector narrows
+   the editor. The preset and its instructions can use the next row on phones. */
+@container (min-width: 651px) and (max-width: 940px) {
+  .editor-toolbar .view-controls { gap: 3px; }
+  .editor-toolbar .view-controls .fit-button,
+  .editor-toolbar .view-controls .canvas-view-trigger {
+    width: 40px;
+    min-width: 40px;
+    padding-inline: 0;
+    justify-content: center;
+  }
+  .editor-toolbar .view-controls .fit-button > span,
+  .editor-toolbar .view-controls .canvas-view-trigger > span,
+  .editor-toolbar .view-controls .canvas-view-trigger > svg:last-child { display: none; }
+}
+@container (max-width: 425px) {
+  .editor-toolbar[data-tool="stamp"] .active-tool-readout {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 6px;
+    min-height: 0;
+  }
+}
+.floating-menu-panel.canvas-view-menu-content .compact-fit-action { display: none; }
+@media (max-width: 430px) {
+  .editor-context-right { min-width: 0; gap: 5px; }
+  .editor-context .time-signature .meter-detail { display: none; }
+  .editor-context .edit-target-indicator { max-width: 108px; }
+  .editor-context-right select { flex-shrink: 0; }
+}
+@media (max-width: 359px) {
+  .editor-context { padding-inline: 7px; }
+  .editor-context .editor-title { gap: 4px; }
+  .transport { gap: 5px; }
+  .position-display small { white-space: nowrap; font-size: 9px; margin-top: 2px; }
+  .editor-toolbar .view-controls .fit-button { display: none; }
+  .floating-menu-panel.canvas-view-menu-content .compact-fit-action { display: flex; }
+}
 
 /* Short phones: prioritize the playable note grid over the optional verbose
  * tool hint. All five tools still expose names through their buttons, and the

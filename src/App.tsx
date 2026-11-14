@@ -1008,7 +1008,6 @@ export default function App() {
     setFocusedTrack(null);
     setSelectedNoteIndices(new Set());
     setCurrentTick(0);
-    setFitRequest(k => k + 1);
     setScrollAnchorKey(k => k + 1);
     setMobileInspectorOpen(false);
     if (session.melodySourceMode === "follow") setInspectorTab("compose");
@@ -1391,7 +1390,9 @@ export default function App() {
     handleStop();
     commit({ notes: [], chords: [], totalBars: bars });
     setSelectedNoteIndices(new Set()); setTrackOverrides({}); setFocusedTrack(null); setMelodySourceTrackIndex(null); setLoopRegion(null);
-    setToolMode("draw"); setScrollAnchorKey(k => k + 1); setFitRequest(k => k + 1); setMobileInspectorOpen(false);
+    setToolMode("draw");
+    setScrollAnchorKey(k => k + 1);
+    setMobileInspectorOpen(false);
   };
   const hasNotes = !!displayProgression?.notes.length;
   const unsupportedMeters = progression ? unsupportedSourceMeters(progression) : [];
@@ -1489,7 +1490,7 @@ export default function App() {
                   ? "New → " + (tracks[0]?.name ?? "Track 1")
                   : "Edit: " + (tracks.find(t => t.index === visibleFocusedTrack)?.name ?? "Track")}
               </strong></>}
-              <span className="time-signature" title="The editor uses four quarter notes per bar, regardless of the original MIDI meter">4/4 editor grid</span>
+              <span className="time-signature" title="The editor uses four quarter notes per bar, regardless of the original MIDI meter">4/4<span className="meter-detail"> editor grid</span></span>
             </div>
           </div>
           {unsupportedMeters.length > 0 && <p className="meter-import-warning" role="status">

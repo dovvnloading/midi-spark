@@ -85,9 +85,12 @@ def assert_popup_topmost(page, selector, occluder=None):
  return info
 
 def grid_point(page,midi,quarter):
- zoom=snap(page)['zoomX']
+ # Aim inside the cell, not on a fractional CSS-pixel boundary. Use current
+ # ruler geometry, which can change before a fitted zoom reaches autosave.
+ bars=page.locator('.measure-number')
+ zoom=(bars.nth(1).bounding_box()['x']-bars.first.bounding_box()['x'])/4
  grid=page.get_by_test_id('piano-grid').bounding_box()
- return grid['x']+quarter*zoom,grid['y']+(127-midi+.5)*grid['height']/128
+ return grid['x']+(quarter+.05)*zoom,grid['y']+(127-midi+.5)*grid['height']/128
 with sync_playwright() as p:
  b=p.chromium.launch(headless=True, **({'executable_path': os.environ['CHROMIUM_PATH']} if os.environ.get('CHROMIUM_PATH') else {}))
  page=b.new_page(viewport={'width':1440,'height':900},device_scale_factor=1,has_touch=True)
@@ -572,8 +575,10 @@ with sync_playwright() as p:
  # Fit repositions the scroll container on the next layout/effect frame.
  page.wait_for_timeout(300)
  x,y=grid_point(page,64,1)
+ assert page.get_by_test_id('piano-grid').evaluate('(grid,pt)=>grid.contains(document.elementFromPoint(...pt))',[x,y])
  page.mouse.click(x,y)
- page.wait_for_timeout(120)
+ expect(page.locator('[data-testid="piano-note"][data-track="2"]')).to_have_count(1)
+ page.wait_for_function("key => JSON.parse(localStorage.getItem(key))?.progression?.notes?.some(n => n.trackIndex === 2)",arg=KEY)
  drawn=snap(page)['progression']
  assert len([n for n in drawn['notes'] if n['trackIndex']==2])==1
  record('Adding an empty track focuses a new lane and drawing writes to it')
@@ -1427,6 +1432,8 @@ with sync_playwright() as p:
  stamps.get_by_role('button',name='Minor Minor triad',exact=True).click()
  x,y=grid_point(stamps,60,1)
  stamps.mouse.click(x,y)
+ expect(stamps.get_by_test_id('piano-note')).to_have_count(15)
+ stamps.wait_for_function("key => JSON.parse(localStorage.getItem(key))?.progression?.notes?.length === 15",arg=KEY)
  score=snap(stamps)['progression']
  assert len(score['notes'])==15,len(score['notes'])
  assert any(c['name']=='Cm' and c['timeStart']==1 for c in score['chords']),score['chords']

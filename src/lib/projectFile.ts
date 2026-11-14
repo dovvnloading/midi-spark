@@ -1,5 +1,5 @@
 import { isValidSession, type SavedSession } from "./persistence";
-import { MAX_BPM, MAX_ZOOM, MIN_BPM, MIN_ZOOM, ROOT_NOTES } from "./constants";
+import { MAX_BPM, MAX_PROJECT_BARS, MAX_PROJECT_NOTES, MAX_ZOOM, MIN_BPM, MIN_ZOOM, ROOT_NOTES } from "./constants";
 
 export const PROJECT_EXTENSION = ".midispark";
 export const PROJECT_FORMAT = "midi-spark-project";
@@ -29,8 +29,8 @@ function safeNativeSession(session: SavedSession): boolean {
     session.snapResolution < 0 || session.snapResolution > 4) return false;
   const p = session.progression;
   if (!p) return true;
-  if (!Number.isInteger(p.totalBars) || p.totalBars < 1 || p.totalBars > 512 ||
-    p.notes.length > 60000 || p.chords.length > 8192 || (p.tracks?.length ?? 0) > 128)
+  if (!Number.isInteger(p.totalBars) || p.totalBars < 1 || p.totalBars > MAX_PROJECT_BARS ||
+    p.notes.length > MAX_PROJECT_NOTES || p.chords.length > 8192 || (p.tracks?.length ?? 0) > 128)
     return false;
   const end = p.totalBars * 4;
   if (p.notes.some(note => !Number.isInteger(note.midi) ||

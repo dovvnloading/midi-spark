@@ -18,11 +18,11 @@ const TOOLS = [
   { mode: "pan", label: "Hand", key: "H", Icon: Pan },
 ] as const;
 const ACTIVE_TOOL_HELP: Record<ToolMode, string> = {
-  draw: "Tap the grid to add a note; drag to set its length.",
-  select: "Tap a note to select, move or resize it; drag empty space to lasso.",
-  stamp: "Choose a chord, scale, or progression; tap a piano row to place it in that key.",
+  draw: "Tap a grid cell to add a note. Drag to set its length.",
+  select: "Drag notes to move. Drag a right edge to resize, or empty space to select.",
+  stamp: "Choose a preset. Tap a row to place it at that pitch.",
   cut: "Drag across notes to split them.",
-  pan: "Drag the canvas to navigate without editing notes.",
+  pan: "Drag the grid to scroll in time and pitch.",
 };
 
 export function EditToolbar(p: EditToolbarProps) {
@@ -32,14 +32,14 @@ export function EditToolbar(p: EditToolbarProps) {
     if (viewRef.current) viewRef.current.open = false;
     setViewOpen(false);
   };
-  return <div className="editor-toolbar" aria-label="Editing controls">
+  return <div className="editor-toolbar" data-tool={p.toolMode} aria-label="Editing controls">
     <div className="tool-cluster"><button type="button" id="inspector-toggle" className="icon-button inspector-toggle"
       aria-label="Toggle inspector" aria-expanded={p.inspectorOpen} aria-controls="studio-inspector"
       onClick={p.onToggleInspector} title="Inspector"><InspectorPanel size={16} /></button>
       <span className="control-divider" />
       <div className="tool-segment" role="group" aria-label="Editing tool">
         {TOOLS.map(({ mode, label, key, Icon }) => <button key={mode} onClick={() => p.onToolModeChange(mode)} aria-label={label + " tool"}
-          aria-pressed={p.toolMode === mode} title={label + " (" + key + ")"}><Icon size={16} /><span>{label}</span></button>)}
+          aria-pressed={p.toolMode === mode} aria-keyshortcuts={key} title={label + " (" + key + ")"}><Icon size={16} /><span>{label}</span></button>)}
       </div>
     </div>
     <div className="precision-controls"><label><span>Snap</span><CustomDropdown ariaLabel="Grid snap" options={SNAP_OPTIONS.map(o => o.value === 0 ? { ...o, label: "Off" } : o)} value={p.snapResolution} onChange={v => p.onSnapResolutionChange(Number(v))} /></label>
@@ -66,7 +66,7 @@ export function EditToolbar(p: EditToolbarProps) {
           }
         }}>
         <summary role="button" className="secondary-button canvas-view-trigger"
-          aria-label="Canvas view options" aria-controls="canvas-view-popup">
+          aria-label="Canvas view options" aria-expanded={viewOpen} aria-controls="canvas-view-popup">
           <View size={16} aria-hidden="true" /><span>View</span><ChevronDown size={13} aria-hidden="true" />
         </summary>
         {viewOpen && <FloatingMenu anchorRef={viewRef} className="canvas-view-menu-content"
@@ -74,12 +74,17 @@ export function EditToolbar(p: EditToolbarProps) {
           <button type="button" aria-pressed={p.followPlayback} onClick={p.onToggleFollow}>
             <Locate size={16} aria-hidden="true" />Follow playback
           </button>
-          <button type="button" onClick={() => p.onZoomChange(Math.max(MIN_ZOOM, p.zoomX / 1.25))}>
+          <button type="button" disabled={p.zoomX <= MIN_ZOOM} onClick={() => p.onZoomChange(Math.max(MIN_ZOOM, p.zoomX / 1.25))}>
             <ZoomOut size={16} aria-hidden="true" />Zoom out
           </button>
-          <button type="button" onClick={() => p.onZoomChange(Math.min(MAX_ZOOM, p.zoomX * 1.25))}>
+          <button type="button" disabled={p.zoomX >= MAX_ZOOM} onClick={() => p.onZoomChange(Math.min(MAX_ZOOM, p.zoomX * 1.25))}>
             <ZoomIn size={16} aria-hidden="true" />Zoom in
           </button>
+          <button type="button" className="compact-fit-action" onClick={() => {
+            p.onFit();
+            dismissView();
+            viewRef.current?.querySelector("summary")?.focus();
+          }}><FitPattern size={16} aria-hidden="true" />Fit pattern</button>
         </FloatingMenu>}
       </details>
     </div>

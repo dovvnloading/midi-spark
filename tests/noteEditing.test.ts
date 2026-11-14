@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { ProgressionData } from "../src/lib/theory";
-import { editNoteField, nudgeNoteVelocities } from "../src/lib/noteEditing";
+import { editNoteField, nudgeNoteSelection, nudgeNoteVelocities } from "../src/lib/noteEditing";
+import { MAX_PROJECT_BEATS } from "../src/lib/constants";
 
 const score: ProgressionData = {
   notes: [
@@ -47,5 +48,25 @@ describe("precise note edits", () => {
     expect(editNoteField(score, [0], "velocity", 0.8)).toBe(score);
     expect(editNoteField(score, [0], "duration", -4).notes[0].duration).toBeGreaterThan(0);
     expect(nudgeNoteVelocities(editNoteField(score, [0], "velocity", 1), [0], 10).notes[0].velocity).toBe(1);
+  });
+
+  it("allows precise entry beyond bar 256 and keeps the full note inside the project", () => {
+    const moved = editNoteField(score, [0], "timeStart", 1500);
+    expect(moved.notes[0].timeStart).toBe(1500);
+    const last = editNoteField(moved, [0], "timeStart", MAX_PROJECT_BEATS);
+    expect(last.notes[0].timeStart).toBe(MAX_PROJECT_BEATS - 1);
+    expect(editNoteField(last, [0], "duration", 5)).toBe(last);
+  });
+
+  it("nudges the entire selection without overwriting its voicing or off-grid timing", () => {
+    const group = new Set([0, 1]);
+    const offset = editNoteField(score, [1], "timeStart", 0.14);
+    const moved = nudgeNoteSelection(offset, group, "timeStart", 0.5);
+    expect(moved.notes.map(note => note.timeStart)).toEqual([0.5, 0.64, 0]);
+    const pitched = nudgeNoteSelection(moved, group, "midi", 1);
+    expect(pitched.notes.map(note => note.midi)).toEqual([61, 65, 55]);
+    expect(pitched.notes[2]).toBe(score.notes[2]);
+    const short = editNoteField(pitched, [0], "duration", 0.125);
+    expect(nudgeNoteSelection(short, group, "duration", -0.5)).toBe(short);
   });
 });

@@ -31,7 +31,7 @@ jobs:
           python -m pip install playwright==1.57.0
           command -v google-chrome || command -v chromium
       - name: Validate browser regression script
-        run: python -m py_compile scripts/browser_smoke.py scripts/browser_accessibility.py scripts/library_qa.py
+        run: python -m py_compile scripts/browser_smoke.py scripts/browser_accessibility.py scripts/library_qa.py scripts/timeline_qa.py
       - name: Start production preview
         run: |
           npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/preview.log 2>&1 &
@@ -41,6 +41,8 @@ jobs:
           done
           cat /tmp/preview.log
           exit 1
+      - name: Timeline note interactions and touch acceptance
+        run: CHROMIUM_PATH=/usr/bin/google-chrome python scripts/timeline_qa.py --url http://127.0.0.1:4173 --output browser-report
       - name: Browser interaction and responsive acceptance
         run: CHROMIUM_PATH=/usr/bin/google-chrome python scripts/browser_smoke.py --url http://127.0.0.1:4173 --output browser-report
       - name: Computed accessibility and simulated touch acceptance
