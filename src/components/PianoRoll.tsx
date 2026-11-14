@@ -1,4 +1,5 @@
 import {
+  type CSSProperties,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -9,7 +10,7 @@ import {
 import { Note } from "@tonaljs/tonal";
 import { Draw, Lock, Unlock } from "./StudioIcons";
 import { ensureBarsCoverNotes } from "../lib/transforms";
-import { placeStamp } from "../lib/stampPresets";
+import { placeStamp, previewStamp } from "../lib/stampPresets";
 import { ProgressionData, NoteEvent, getScaleChromas } from "../lib/theory";
 import { initAudio, playNote } from "../lib/audio";
 import { trackIndexOf, listTracks } from "../lib/tracks";
@@ -18,19 +19,22 @@ import {
   FREE_SNAP,
   KEYBOARD_WIDTH,
   MAX_MIDI,
-  MAX_VELOCITY,
+  MAX_PROJECT_BEATS,
+  MAX_PROJECT_NOTES,
   MAX_ZOOM,
   MIDI_RANGE,
-  MIN_VELOCITY,
   MIN_ZOOM,
   NOTE_HEIGHT,
   VELOCITY_LANE_HEIGHT,
   clamp,
   getTrackColorClasses,
 } from "../lib/constants";
+import { crossedThreshold, draggedNotes, drawNote, lassoSelection, placementTick, replaceDraggedNotes, sliceNotes,
+  type GridGesture, type GridPoint, type NoteDrag } from "../lib/pianoGestures";
+import { layoutVelocityStems } from "../lib/velocityLayout";
 import { ToolMode } from "./EditToolbar";
 import { NotePrecisionEditor } from "./NotePrecisionEditor";
-import { editNoteField, type NoteField } from "../lib/noteEditing";
+import { nudgeNoteSelection, type NoteField } from "../lib/noteEditing";
 
 export interface PianoRollProps {
   progression: ProgressionData | null;
@@ -74,46 +78,18 @@ interface LoopDrag {
   range: LoopRange;
 }
 
-interface DragState {
-  notes: {
-    index: number;
-    startTick: number;
-    startMidi: number;
-    startDuration: number;
-  }[];
-  startX: number;
-  startY: number;
-  tickDelta: number;
-  midiDelta: number;
+type EditGesture = NoteDrag
+  | (GridGesture & { kind: "draw" | "stamp"; midi: number; track: number })
+  | (GridGesture & { kind: "lasso" | "slice"; initial: Set<number> });
+
+function isNoteDrag(gesture: EditGesture): gesture is NoteDrag {
+  return gesture.kind === "move" || gesture.kind === "resize" || gesture.kind === "velocity";
 }
 
-interface DragDrawState {
-  startX: number;
-  currentX: number;
-  startTick: number;
-  startMidi: number;
-  startDuration: number;
-  trackIndex?: number;
-}
+const validPlacement = (note: Pick<NoteEvent, "timeStart" | "duration">) =>
+  note.timeStart + note.duration <= MAX_PROJECT_BEATS;
 
-interface DragResizeState {
-  notes: { index: number; startDuration: number }[];
-  startX: number;
-  durationDelta: number;
-}
-
-interface DragVelocityState {
-  notes: { index: number; startVelocity: number }[];
-  startY: number;
-  velocityDelta: number;
-}
-
-interface BoxState {
-  startX: number;
-  startY: number;
-  currentX: number;
-  currentY: number;
-}
+const emptyChanges: ReadonlyMap<number, NoteEvent> = new Map();
 
 const SELECTED_NOTE_COLORS = "bg-[#3b5265] border-[#213646]";
 const ACTIVE_NOTE_COLORS = "bg-[#29333c] border-[#182127]";
@@ -159,12 +135,13 @@ export function PianoRoll({
   onAudioPreviewError,
   onStampError,
 }: PianoRollProps) {
-  const [dragState, setDragState] = useState<DragState | null>(null);
-  const [dragDrawState, setDragDrawState] = useState<DragDrawState | null>(null);
-  const [dragResizeState, setDragResizeState] = useState<DragResizeState | null>(null);
-  const [dragVelocityState, setDragVelocityState] = useState<DragVelocityState | null>(null);
-  const [lassoState, setLassoState] = useState<BoxState | null>(null);
-  const [sliceState, setSliceState] = useState<BoxState | null>(null);
+  const [gesture, setGesture] = useState<EditGesture | null>(null);
+  const gestureRef = useRef<EditGesture | null>(null);
+  const updateGesture = (next: EditGesture | null) => {
+    gestureRef.current = next;
+    setGesture(next);
+  };
+  const [hover, setHover] = useState<{ beat: number; midi: number } | null>(null);
   const [loopPreview, setLoopPreview] = useState<LoopRange | null>(null);
   const [containerWidth, setContainerWidth] = useState(1200);
   const [rowHeight, setRowHeight] = useState(NOTE_HEIGHT);
@@ -196,11 +173,20 @@ export function PianoRoll({
   const loopDragRef = useRef<LoopDrag | null>(null);
   const activePointer = useRef<number | null>(null);
   const panRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
+  const edgeFrame = useRef<number | null>(null);
+  const pointerClient = useRef<GridPoint | null>(null);
+  const captureTarget = useRef<HTMLElement | null>(null);
   const beginGesture = (event: React.PointerEvent) => {
+    if (!event.isPrimary || activePointer.current !== null) return false;
     event.preventDefault();
     activePointer.current = event.pointerId;
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    scrollRef.current?.focus({ preventScroll: true });
+    setHover(null);
+    const element = event.currentTarget as HTMLElement;
+    captureTarget.current = element;
+    element.setPointerCapture(event.pointerId);
+    if (element instanceof HTMLButtonElement && element.matches(".loop-handle")) element.focus({ preventScroll: true });
+    else scrollRef.current?.focus({ preventScroll: true });
+    return true;
   };
   const zoomAnchorRef = useRef<{ tick: number; offsetPx: number } | null>(null);
 
@@ -248,29 +234,35 @@ export function PianoRoll({
   }, []);
 
   // Center vertically on the sequence whenever a new one arrives.
-  useEffect(() => {
-    if (!progression || !scrollRef.current) return;
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!progression || !el) return;
     const avgMidi = progression.notes.length
       ? progression.notes.reduce((sum, n) => sum + n.midi, 0) /
         progression.notes.length
-      : 64;
-    scrollRef.current.scrollTop = Math.max(
-      0,
-      (MAX_MIDI - avgMidi) * rowHeight - scrollRef.current.clientHeight / 2,
-    );
-    scrollRef.current.scrollLeft = 0;
+      : 60;
+    const usableHeight = el.clientHeight - VELOCITY_LANE_HEIGHT - (timelineRef.current?.offsetHeight ?? 0);
+    el.scrollTop = Math.max(0, (MAX_MIDI - avgMidi + 0.5) * rowHeight - usableHeight / 2);
+    el.scrollLeft = 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recenter only on new sequences
   }, [scrollAnchorKey]);
 
   useLayoutEffect(() => {
     const el = scrollRef.current;
-    if (!el || !progression) return;
-    const end = Math.max(progression.totalBars * 4, ...progression.notes.map(n => n.timeStart + n.duration), 4);
+    // The initial zero is a restored workspace. Only a new Fit request
+    // should overwrite the zoom from an autosave or native project.
+    if (!el || !progression || fitRequest === 0) return;
+    const end = Math.max(4, sequenceEndQuarters(progression));
     onZoomChange(clamp((el.clientWidth - KEYBOARD_WIDTH - 30) / end, MIN_ZOOM, MAX_ZOOM));
-    const visibleNotes = progression.notes.filter(n => focusedTrack === null || trackIndexOf(n) === focusedTrack);
-    const center = visibleNotes.length ? (Math.min(...visibleNotes.map(n => n.midi)) + Math.max(...visibleNotes.map(n => n.midi))) / 2 : 60;
-    const pitchSpan = visibleNotes.length ? Math.max(...visibleNotes.map(n => n.midi)) - Math.min(...visibleNotes.map(n => n.midi)) + 7 : 28;
-    const usableHeight = el.clientHeight - VELOCITY_LANE_HEIGHT - 64;
+    let low = Infinity, high = -Infinity;
+    for (const note of progression.notes) {
+      if (focusedTrack !== null && trackIndexOf(note) !== focusedTrack) continue;
+      low = Math.min(low, note.midi);
+      high = Math.max(high, note.midi);
+    }
+    const center = low <= high ? (low + high) / 2 : 60;
+    const pitchSpan = low <= high ? high - low + 7 : 28;
+    const usableHeight = el.clientHeight - VELOCITY_LANE_HEIGHT - (timelineRef.current?.offsetHeight ?? 0);
     const fittedHeight = Math.round(clamp(usableHeight / pitchSpan, 10, 24));
     setRowHeight(fittedHeight);
     el.scrollLeft = 0;
@@ -281,20 +273,26 @@ export function PianoRoll({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Fit is an explicit action, not a reaction to every edited note.
   }, [fitRequest]);
 
-  // Separate stems that share a quantized onset so chord velocities remain individually reachable.
-  const velocityOffsets = useMemo(() => {
-    const counts = new Map<number, number>();
-    return progression?.notes.map(note => {
-      const tick = Math.round(note.timeStart * 16);
-      const rank = counts.get(tick) ?? 0;
-      counts.set(tick, rank + 1);
-      return rank * 17;
-    }) ?? [];
-  }, [progression]);
+  const velocityLayout = useMemo(() => layoutVelocityStems(
+    progression?.notes ?? [], focusedTrack, zoomX,
+  ), [progression, focusedTrack, zoomX]);
+
+  // A first chord opens the chord strip. Preserve the pitch under the cursor
+  // as the header grows (and again if undo removes the last chord).
+  const hasChords = !!progression?.chords.length;
+  const lastRuler = useRef<{ height: number; anchor: number } | null>(null);
+  useLayoutEffect(() => {
+    const height = timelineRef.current?.offsetHeight;
+    const el = scrollRef.current;
+    const previous = lastRuler.current;
+    if (el && height && previous?.anchor === scrollAnchorKey)
+      el.scrollTop += height - previous.height;
+    lastRuler.current = height ? { height, anchor: scrollAnchorKey } : null;
+  }, [hasChords, scrollAnchorKey]);
 
   // Follow the playhead.
   useEffect(() => {
-    if (isPlaying && followPlayback && !isScrubbingRef.current && !loopDragRef.current && scrollRef.current) {
+    if (isPlaying && followPlayback && activePointer.current === null && !isScrubbingRef.current && !loopDragRef.current && scrollRef.current) {
       const targetScroll =
         currentTick * zoomX - scrollRef.current.clientWidth / 2;
       scrollRef.current.scrollLeft = Math.max(0, targetScroll);
@@ -310,7 +308,9 @@ export function PianoRoll({
     const el = scrollRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
+      if (activePointer.current !== null) { e.preventDefault(); return; }
       if (e.ctrlKey || e.metaKey) {
+        setHover(null);
         e.preventDefault();
         const rect = el.getBoundingClientRect();
         const pointerOffset = e.clientX - rect.left - KEYBOARD_WIDTH;
@@ -346,70 +346,26 @@ export function PianoRoll({
     }
   }, [zoomX]);
 
-  // Report the in-progress edit so audio can preview it live.
+  const changes = useMemo(() => gesture && isNoteDrag(gesture)
+    ? draggedNotes(gesture, zoomX, rowHeight, snapResolution) : emptyChanges,
+  [gesture, zoomX, rowHeight, snapResolution]);
+  const drawing = useMemo(() => gesture?.kind === "draw"
+    ? drawNote(gesture, gesture.midi, zoomX, snapResolution, noteLength, gesture.track) : null,
+  [gesture, zoomX, snapResolution, noteLength]);
+  const liveSelection = useMemo(() => {
+    if (gesture && isNoteDrag(gesture)) return new Set(gesture.indices);
+    if (gesture?.kind === "lasso" && progression)
+      return lassoSelection(progression.notes, gesture, gesture.initial, zoomX, rowHeight, focusedTrack);
+    return selectedIndices;
+  }, [gesture, selectedIndices, progression, zoomX, rowHeight, focusedTrack]);
+
   useEffect(() => {
-    if (!progression) {
-      onLivePreview(null);
-      return;
-    }
     let preview: ProgressionData | null = null;
-
-    if (dragState) {
-      const newNotes = [...progression.notes];
-      dragState.notes.forEach((dn) => {
-        const newTick = Math.max(0, dn.startTick + dragState.tickDelta);
-        const newMidi = clamp(dn.startMidi + dragState.midiDelta, 0, MAX_MIDI);
-        newNotes[dn.index] = {
-          ...newNotes[dn.index],
-          timeStart: newTick,
-          midi: newMidi,
-          name: Note.fromMidi(newMidi) || newNotes[dn.index].name,
-        };
-      });
-      preview = { ...progression, notes: newNotes };
-    } else if (dragResizeState) {
-      const newNotes = [...progression.notes];
-      dragResizeState.notes.forEach((dn) => {
-        newNotes[dn.index] = {
-          ...newNotes[dn.index],
-          duration: Math.max(
-            snapTick,
-            dn.startDuration + dragResizeState.durationDelta,
-          ),
-        };
-      });
-      preview = { ...progression, notes: newNotes };
-    } else if (dragDrawState) {
-      preview = {
-        ...progression,
-        notes: [...progression.notes, drawnNote(dragDrawState, snapTick, zoomX)],
-      };
-    } else if (dragVelocityState) {
-      const newNotes = [...progression.notes];
-      dragVelocityState.notes.forEach((dn) => {
-        newNotes[dn.index] = {
-          ...newNotes[dn.index],
-          velocity: clamp(
-            dn.startVelocity + dragVelocityState.velocityDelta,
-            MIN_VELOCITY,
-            MAX_VELOCITY,
-          ),
-        };
-      });
-      preview = { ...progression, notes: newNotes };
-    }
-
+    if (progression && drawing && validPlacement(drawing) && progression.notes.length < MAX_PROJECT_NOTES)
+      preview = ensureBarsCoverNotes({ ...progression, notes: [...progression.notes, drawing] });
+    else if (progression && changes.size) preview = replaceDraggedNotes(progression, changes);
     onLivePreview(preview);
-  }, [
-    dragState,
-    dragResizeState,
-    dragDrawState,
-    dragVelocityState,
-    progression,
-    snapTick,
-    zoomX,
-    onLivePreview,
-  ]);
+  }, [changes, drawing, progression, onLivePreview]);
 
   // ----- Interaction handlers -----
 
@@ -439,7 +395,7 @@ export function PianoRoll({
   const handleLoopHandleDown = (e: React.PointerEvent<HTMLButtonElement>, mode: "in" | "out") => {
     if (e.button !== 0 || !e.isPrimary || !progression) return;
     e.stopPropagation();
-    beginGesture(e);
+    if (!beginGesture(e)) return;
     loopDragRef.current = { mode, origin: mode === "in" ? displayedLoop.start : displayedLoop.end, range: displayedLoop };
   };
 
@@ -461,7 +417,7 @@ export function PianoRoll({
 
   const handleTimelinePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 || !e.isPrimary || !progression) return;
-    beginGesture(e);
+    if (!beginGesture(e)) return;
     if (e.shiftKey) {
       const tick = snappedLoopTick(e.clientX);
       const start = Math.min(tick, sequenceEnd - 1);
@@ -475,164 +431,67 @@ export function PianoRoll({
     updateScrubPosition(e.clientX);
   };
 
+  const pointerPoint = (event: { clientX: number; clientY: number }, velocity = false): GridPoint => {
+    if (velocity) return { x: event.clientX, y: event.clientY };
+    const rect = gridRef.current!.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  };
+  const pointerOrigin = (event: React.PointerEvent, velocity = false): GridGesture => {
+    const origin = pointerPoint(event, velocity);
+    return { origin, point: origin, threshold: event.pointerType === "touch" ? 7 : 4 };
+  };
+  const pitchAt = (y: number) => clamp(MAX_MIDI - Math.floor(y / rowHeight), 0, MAX_MIDI);
+  const audition = (notes: Pick<NoteEvent, "name" | "velocity" | "trackIndex">[]) => {
+    if (isPlaying) return;
+    void initAudio().then(() => notes.slice(0, 8).forEach(note =>
+      playNote(note.name, 0.25, note.velocity, note.trackIndex ?? 0)))
+      .catch(() => onAudioPreviewError?.("Audio preview could not start. Use Play to retry after enabling audio."));
+  };
+
   const handleGridPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if ((e.button !== 0 && e.button !== 1) || !e.isPrimary) return;
-    if (!progression) return;
-    beginGesture(e);
-    if ((toolMode === "pan" || e.button === 1) && scrollRef.current) {
-      panRef.current = { x: e.clientX, y: e.clientY, left: scrollRef.current.scrollLeft, top: scrollRef.current.scrollTop };
+    if (!progression || (e.button !== 0 && e.button !== 1) || !beginGesture(e)) return;
+    if (toolMode === "pan" || e.button === 1) {
+      const el = scrollRef.current!;
+      panRef.current = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop };
       return;
     }
-
-    if (!e.shiftKey && toolMode !== "select") {
-      onSelectionChange(new Set());
-    }
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const tick =
-      snapResolution > 0
-        ? Math.round(x / (zoomX * snapTick)) * snapTick
-        : x / zoomX;
-    const midi = clamp(MAX_MIDI - Math.floor(y / rowHeight), 0, MAX_MIDI);
-
-    if (toolMode === "select") {
-      setLassoState({ startX: x, startY: y, currentX: x, currentY: y });
-      if (!e.shiftKey) onSelectionChange(new Set());
+    const base = pointerOrigin(e);
+    if (toolMode === "select" || toolMode === "cut") {
+      updateGesture({ ...base, kind: toolMode === "cut" ? "slice" : "lasso",
+        initial: e.shiftKey ? new Set(selectedIndices) : new Set() });
       return;
     }
-
-    if (toolMode === "cut") {
-      setSliceState({ startX: x, startY: y, currentX: x, currentY: y });
-      return;
-    }
-
-    if (toolMode === "stamp") {
-      // A single click creates one complete undoable note-and-chord transaction.
-      // The row is the root/tonic, the horizontal position is the start time.
-      const result = placeStamp(progression, stampType, midi, Math.max(0, tick), noteLength, drawTrackIndex);
-      if (!result) {
-        onStampError?.("This stamp cannot fit here. Try an earlier bar or check the project limits.");
-        return;
-      }
-      commit(prev => prev
-        ? placeStamp(prev, stampType, midi, Math.max(0, tick), noteLength, drawTrackIndex)?.progression ?? prev
-        : prev);
-      onSelectionChange(new Set(result.addedNotes.map((_, index) => progression.notes.length + index)));
-
-      // Audition only the first chord of a multi-bar progression: don't trigger
-      // every future chord simultaneously, or overload the active synth.
-      if (result.addedChords.length) {
-        const firstStart = result.addedChords[0].timeStart;
-        const firstChord = result.addedNotes
-          .filter(note => note.timeStart === firstStart).slice(0, 6);
-        void initAudio().then(() => firstChord.forEach(note =>
-          playNote(note.name, 0.5, note.velocity, drawTrackIndex)))
-          .catch(() => onAudioPreviewError?.(
-            "Audio preview could not start. Notes are still editable; use Play to retry after enabling audio."));
-      }
-      return;
-    }
-
-    // Default: draw a single note.
-    const name = Note.fromMidi(midi) || "C4";
-    void initAudio().then(() => playNote(name, 0.25, 0.8, drawTrackIndex))
-      .catch(() => onAudioPreviewError?.("Audio preview could not start. Notes are still editable; use Play to retry after enabling audio."));
-    setDragDrawState({
-      startTick: tick,
-      startMidi: midi,
-      startX: e.clientX,
-      currentX: e.clientX,
-      startDuration: noteLength,
-      trackIndex: drawTrackIndex,
-    });
+    const midi = pitchAt(base.origin.y);
+    updateGesture({ ...base, kind: toolMode, midi, track: drawTrackIndex });
+    if (toolMode === "draw") audition([{ name: Note.fromMidi(midi) || "C4", velocity: 0.8, trackIndex: drawTrackIndex }]);
   };
 
-  const handleNotePointerDown = (e: React.PointerEvent, index: number) => {
-    if (toolMode === "cut" || toolMode === "pan" || e.button === 1) return;
-    e.stopPropagation();
-    if (e.button !== 0) return;
-    if (!progression) return;
-    beginGesture(e);
-
-    let targets: number[] = [index];
-    if (selectedIndices.has(index)) {
-      targets = Array.from(selectedIndices);
-    } else if (e.shiftKey) {
-      const newSel = new Set(selectedIndices);
-      newSel.add(index);
-      onSelectionChange(newSel);
-      targets = Array.from(newSel);
-    } else {
-      onSelectionChange(new Set([index]));
+  const handleGridHover = (event: React.PointerEvent<HTMLDivElement>) => {
+    if ((toolMode !== "draw" && toolMode !== "stamp") || event.pointerType === "touch" || event.buttons || activePointer.current !== null ||
+      (event.target as HTMLElement).closest(".roll-note")) {
+      setHover(null);
+      return;
     }
-
-    setDragState({
-      notes: targets.map((idx) => ({
-        index: idx,
-        startTick: progression.notes[idx].timeStart,
-        startMidi: progression.notes[idx].midi,
-        startDuration: progression.notes[idx].duration,
-      })),
-      startX: e.clientX,
-      startY: e.clientY,
-      tickDelta: 0,
-      midiDelta: 0,
-    });
+    const point = pointerPoint(event);
+    const midi = pitchAt(point.y);
+    const beat = placementTick(point.x, zoomX, snapResolution);
+    setHover(prev => prev?.midi === midi && prev.beat === beat ? prev : { midi, beat });
   };
 
-  const handleNoteResizePointerDown = (e: React.PointerEvent, index: number) => {
-    if (toolMode === "cut" || toolMode === "pan" || e.button === 1) return;
+  const handleNoteDown = (e: React.PointerEvent, index: number, kind: NoteDrag["kind"]) => {
+    if (e.button === 2) return;
+    if (kind !== "velocity" && (toolMode === "cut" || toolMode === "pan" || e.button === 1)) return;
     e.stopPropagation();
-    if (e.button !== 0) return;
-    if (!progression) return;
-    beginGesture(e);
-
-    let targets: number[] = [index];
-    if (selectedIndices.has(index)) {
-      targets = Array.from(selectedIndices);
-    } else {
-      onSelectionChange(new Set([index]));
-    }
-
-    setDragResizeState({
-      notes: targets.map((idx) => ({
-        index: idx,
-        startDuration: progression.notes[idx].duration,
-      })),
-      startX: e.clientX,
-      durationDelta: 0,
+    if (!progression || e.button !== 0 || !beginGesture(e)) return;
+    const selected = new Set(e.shiftKey || selectedIndices.has(index) ? selectedIndices : []);
+    selected.add(index);
+    const indices = Array.from(selected).filter(i => {
+      const n = progression.notes[i];
+      return n && (focusedTrack === null || trackIndexOf(n) === focusedTrack);
     });
-  };
-
-  const handleVelocityBarPointerDown = (e: React.PointerEvent, index: number) => {
-    e.stopPropagation();
-    if (e.button !== 0) return;
-    if (!progression) return;
-    beginGesture(e);
-
-    let targets: number[] = [index];
-    if (selectedIndices.has(index)) {
-      targets = Array.from(selectedIndices);
-    } else if (e.shiftKey) {
-      const newSel = new Set(selectedIndices);
-      newSel.add(index);
-      onSelectionChange(newSel);
-      targets = Array.from(newSel);
-    } else {
-      onSelectionChange(new Set([index]));
-    }
-
-    setDragVelocityState({
-      notes: targets.map((idx) => ({
-        index: idx,
-        startVelocity: progression.notes[idx].velocity,
-      })),
-      startY: e.clientY,
-      velocityDelta: 0,
-    });
+    updateGesture({ ...pointerOrigin(e, kind === "velocity"), kind, clicked: index, shift: e.shiftKey,
+      indices, notes: indices.map(i => progression.notes[i]) });
+    if (kind === "move") audition([progression.notes[index]]);
   };
 
   const handleNoteDelete = (targetNote: NoteEvent, index: number) => {
@@ -651,27 +510,38 @@ export function PianoRoll({
     onSelectionChange(new Set());
   };
 
+  const nudgeFromKey = (event: React.KeyboardEvent, targets: ReadonlySet<number>) => {
+    if (event.ctrlKey || event.metaKey || !targets.size) return false;
+    let field: Exclude<NoteField, "velocity">;
+    let delta: number;
+    if (event.key === "[" || event.key === "]") {
+      field = "duration";
+      delta = event.key === "]" ? snapTick : -snapTick;
+    } else if (event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+      field = "midi";
+      delta = event.key === "ArrowUp" ? 1 : -1;
+    } else if (event.altKey && (event.key === "ArrowRight" || event.key === "ArrowLeft")) {
+      field = "timeStart";
+      delta = event.key === "ArrowRight" ? snapTick : -snapTick;
+    } else {
+      return false;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    commit(prev => prev ? nudgeNoteSelection(prev, targets, field, delta) : prev);
+    return true;
+  };
+
   const handleNoteKeyDown = (event: React.KeyboardEvent<HTMLDivElement>, index: number) => {
     if (!progression || event.ctrlKey || event.metaKey) return;
     const note = progression.notes[index];
     if (!note) return;
-    const arrow = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"].includes(event.key);
-    if (arrow && event.altKey || event.key === "[" || event.key === "]") {
-      event.preventDefault();
-      event.stopPropagation();
-      let field: NoteField;
-      let value: number;
-      if (event.key === "[" || event.key === "]") {
-        field = "duration"; value = note.duration + (event.key === "]" ? snapTick : -snapTick);
-      } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-        field = "midi"; value = note.midi + (event.key === "ArrowUp" ? 1 : -1);
-      } else {
-        field = "timeStart"; value = note.timeStart + (event.key === "ArrowRight" ? snapTick : -snapTick);
-      }
-      commit(prev => prev ? editNoteField(prev, [index], field, value) : prev);
-      onSelectionChange(new Set([index]));
+    const targets = selectedIndices.has(index) ? selectedIndices : new Set([index]);
+    if (nudgeFromKey(event, targets)) {
+      if (targets !== selectedIndices) onSelectionChange(targets);
       return;
     }
+    const arrow = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"].includes(event.key);
     if (arrow) {
       event.preventDefault();
       event.stopPropagation();
@@ -703,228 +573,208 @@ export function PianoRoll({
     }
   };
 
-  // ----- Window-level drag handling -----
-  // The handlers live in a ref so the single mount-time listener always sees
-  // fresh state (no stale-closure bugs, no listener churn per drag frame).
-  const dragHandlersRef = useRef({
-    onMove: (_e: PointerEvent) => {},
-    onUp: (_e: PointerEvent) => {},
-  });
-
-  const onDragMove = (e: PointerEvent) => {
-    if (e.pointerId !== activePointer.current) return;
-    if (loopDragRef.current) {
-      const drag = loopDragRef.current;
-      const tick = snappedLoopTick(e.clientX);
+  const updateNavigation = (event: PointerEvent) => {
+    const drag = loopDragRef.current;
+    if (drag) {
+      const tick = snappedLoopTick(event.clientX);
       let next: LoopRange;
-      if (drag.mode === "in") {
-        next = { start: Math.min(tick, drag.range.end - 1), end: drag.range.end };
-      } else if (drag.mode === "out") {
-        next = { start: drag.range.start, end: Math.max(tick, drag.range.start + 1) };
-      } else if (tick >= drag.origin) {
-        next = { start: drag.origin, end: Math.max(drag.origin + 1, tick) };
-      } else {
-        next = { start: Math.min(tick, drag.origin - 1), end: drag.origin };
-      }
+      if (drag.mode === "in") next = { start: Math.min(tick, drag.range.end - 1), end: drag.range.end };
+      else if (drag.mode === "out") next = { start: drag.range.start, end: Math.max(tick, drag.range.start + 1) };
+      else if (tick >= drag.origin) next = { start: drag.origin, end: Math.max(drag.origin + 1, tick) };
+      else next = { start: Math.min(tick, drag.origin - 1), end: drag.origin };
       drag.range = normalizeLoopRange(next, sequenceEnd);
       setLoopPreview(drag.range);
-      return;
-    }
-    if (panRef.current && scrollRef.current) {
-      scrollRef.current.scrollLeft = panRef.current.left - (e.clientX - panRef.current.x);
-      scrollRef.current.scrollTop = panRef.current.top - (e.clientY - panRef.current.y);
-      return;
-    }
-    if (dragState) {
-      const dx = e.clientX - dragState.startX;
-      const dy = e.clientY - dragState.startY;
-      const tickDelta = Math.round(dx / (zoomX * snapTick)) * snapTick;
-      const midiDelta = -Math.round(dy / rowHeight);
-      setDragState((prev) => (prev ? { ...prev, tickDelta, midiDelta } : null));
-    } else if (dragResizeState) {
-      const dx = e.clientX - dragResizeState.startX;
-      const durationDelta = Math.round(dx / (zoomX * snapTick)) * snapTick;
-      setDragResizeState((prev) => (prev ? { ...prev, durationDelta } : null));
-    } else if (dragDrawState) {
-      setDragDrawState((prev) =>
-        prev ? { ...prev, currentX: e.clientX } : null,
-      );
-    } else if (dragVelocityState) {
-      const dy = dragVelocityState.startY - e.clientY;
-      const velocityDelta = dy / VELOCITY_LANE_HEIGHT;
-      setDragVelocityState((prev) => (prev ? { ...prev, velocityDelta } : null));
-    } else if (sliceState || lassoState) {
-      const gridRect = gridRef.current?.getBoundingClientRect();
-      if (!gridRect) return;
-      const x = e.clientX - gridRect.left;
-      const y = e.clientY - gridRect.top;
-      if (sliceState) {
-        setSliceState((prev) => (prev ? { ...prev, currentX: x, currentY: y } : null));
-      } else {
-        setLassoState((prev) => (prev ? { ...prev, currentX: x, currentY: y } : null));
-      }
+    } else if (panRef.current && scrollRef.current) {
+      const pan = panRef.current;
+      scrollRef.current.scrollLeft = pan.left - (event.clientX - pan.x);
+      scrollRef.current.scrollTop = pan.top - (event.clientY - pan.y);
     } else if (isScrubbingRef.current) {
-      updateScrubPosition(e.clientX);
+      updateScrubPosition(event.clientX);
     }
   };
 
-  const onDragUp = (e: PointerEvent) => {
-    if (e.pointerId !== activePointer.current) return;
-    activePointer.current = null;
-    panRef.current = null;
-    if (loopDragRef.current) {
-      onLoopRegionChange(loopDragRef.current.range);
-      loopDragRef.current = null;
-      setLoopPreview(null);
-      return;
-    }
-    if (isScrubbingRef.current) {
-      isScrubbingRef.current = false;
-      onScrubStateChange(false);
-      updateScrubPosition(e.clientX);
-    }
-
-    if (dragState) {
-      const finished = dragState;
-      commit((prev) => {
-        if (!prev || (finished.tickDelta === 0 && finished.midiDelta === 0)) return prev;
-        const newNotes = [...prev.notes];
-        finished.notes.forEach((dn) => {
-          const newTick = Math.max(0, dn.startTick + finished.tickDelta);
-          const newMidi = clamp(dn.startMidi + finished.midiDelta, 0, MAX_MIDI);
-          newNotes[dn.index] = {
-            ...newNotes[dn.index],
-            timeStart: newTick,
-            midi: newMidi,
-            name: Note.fromMidi(newMidi) || newNotes[dn.index].name,
-          };
-        });
-        return ensureBarsCoverNotes({ ...prev, notes: newNotes });
-      });
-      if (finished.tickDelta !== 0 || finished.midiDelta !== 0) {
-        finished.notes.slice(0, 8).forEach((dn) => {
-          const name = Note.fromMidi(
-            clamp(dn.startMidi + finished.midiDelta, 0, MAX_MIDI),
-          );
-          if (name) playNote(name, 0.25, 0.6);
-        });
+  const finishEdit = (edit: EditGesture) => {
+    if (!progression) return;
+    if (isNoteDrag(edit)) {
+      const finished = draggedNotes(edit, zoomX, rowHeight, snapResolution);
+      if (finished.size) {
+        commit(prev => prev === progression ? replaceDraggedNotes(prev, finished) : prev);
+        if (edit.kind === "move" && finished.get(edit.clicked)?.midi !== progression.notes[edit.clicked].midi)
+          audition(Array.from(finished.values()));
       }
-      setDragState(null);
-    }
-
-    if (dragResizeState) {
-      const finished = dragResizeState;
-      commit((prev) => {
-        if (!prev || finished.durationDelta === 0) return prev;
-        const newNotes = [...prev.notes];
-        finished.notes.forEach((dn) => {
-          newNotes[dn.index] = {
-            ...newNotes[dn.index],
-            duration: Math.max(snapTick, dn.startDuration + finished.durationDelta),
-          };
-        });
-        return ensureBarsCoverNotes({ ...prev, notes: newNotes });
-      });
-      setDragResizeState(null);
-    }
-
-    if (dragVelocityState) {
-      const finished = dragVelocityState;
-      commit((prev) => {
-        if (!prev || finished.velocityDelta === 0) return prev;
-        const newNotes = [...prev.notes];
-        finished.notes.forEach((dn) => {
-          newNotes[dn.index] = {
-            ...newNotes[dn.index],
-            velocity: clamp(
-              dn.startVelocity + finished.velocityDelta,
-              MIN_VELOCITY,
-              MAX_VELOCITY,
-            ),
-          };
-        });
-        return ensureBarsCoverNotes({ ...prev, notes: newNotes });
-      });
-      setDragVelocityState(null);
-    }
-
-    if (sliceState) {
-      const finished = sliceState;
-      commit((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          notes: sliceNotes(prev.notes, finished, zoomX, snapTick, focusedTrack, rowHeight),
-        };
-      });
-      setSliceState(null);
+      const selected = new Set(edit.indices);
+      if (!crossedThreshold(edit) && edit.shift && selectedIndices.has(edit.clicked)) selected.delete(edit.clicked);
+      onSelectionChange(selected);
+      setKeyboardNoteIndex(edit.clicked);
+    } else if (edit.kind === "draw") {
+      const note = drawNote(edit, edit.midi, zoomX, snapResolution, noteLength, edit.track);
+      if (progression.notes.length >= MAX_PROJECT_NOTES) {
+        onStampError?.("The project already contains 60,000 notes.");
+        return;
+      }
+      if (!validPlacement(note)) {
+        onStampError?.("This note extends past bar 512. Choose an earlier beat or a shorter length.");
+        return;
+      }
+      const index = progression.notes.length;
+      commit(prev => prev === progression ? ensureBarsCoverNotes({ ...prev, notes: [...prev.notes, note] }) : prev);
+      onSelectionChange(new Set([index]));
+      setKeyboardNoteIndex(index);
+    } else if (edit.kind === "stamp") {
+      const tick = placementTick(edit.origin.x, zoomX, snapResolution);
+      const result = placeStamp(progression, stampType, edit.midi, tick, noteLength, edit.track);
+      if (!result) {
+        onStampError?.("This stamp cannot fit here. Try an earlier bar or check the project limits.");
+        return;
+      }
+      commit(prev => prev === progression ? result.progression : prev);
+      onSelectionChange(new Set(result.addedNotes.map((_, i) => progression.notes.length + i)));
+      setKeyboardNoteIndex(progression.notes.length);
+      if (result.addedChords.length)
+        audition(result.addedNotes.filter(note => note.timeStart === result.addedChords[0].timeStart));
+    } else if (edit.kind === "slice") {
+      const notes = sliceNotes(progression.notes, edit, zoomX, snapResolution, focusedTrack, rowHeight);
+      if (notes === progression.notes) return;
+      if (notes.length > MAX_PROJECT_NOTES) {
+        onStampError?.("This cut exceeds the project’s 60,000-note limit.");
+        return;
+      }
+      commit(prev => prev === progression ? { ...prev, notes } : prev);
       onSelectionChange(new Set());
-    }
-
-    if (lassoState) {
-      const leftP = Math.min(lassoState.startX, lassoState.currentX);
-      const rightP = Math.max(lassoState.startX, lassoState.currentX);
-      const topP = Math.min(lassoState.startY, lassoState.currentY);
-      const bottomP = Math.max(lassoState.startY, lassoState.currentY);
-
-      const newSelected = new Set<number>(e.shiftKey ? selectedIndices : []);
-      progression?.notes.forEach((n, i) => {
-        if (focusedTrack !== null && trackIndexOf(n) !== focusedTrack) return;
-        const nx = n.timeStart * zoomX;
-        const ny = (MAX_MIDI - n.midi) * rowHeight;
-        const nw = n.duration * zoomX;
-        if (nx < rightP && nx + nw > leftP && ny < bottomP && ny + rowHeight > topP) {
-          newSelected.add(i);
-        }
-      });
-      onSelectionChange(newSelected);
-      setLassoState(null);
-    }
-
-    if (dragDrawState) {
-      const finished = dragDrawState;
-      commit((prev) =>
-        prev
-          ? ensureBarsCoverNotes({ ...prev, notes: [...prev.notes, drawnNote(finished, snapTick, zoomX)] })
-          : prev,
-      );
-      setDragDrawState(null);
+    } else if (edit.kind === "lasso") {
+      onSelectionChange(lassoSelection(progression.notes, edit, edit.initial, zoomX, rowHeight, focusedTrack));
     }
   };
-
-  // Re-point the stable listeners at this render's handlers.
+  const resetPointer = () => {
+    const id = activePointer.current;
+    activePointer.current = null;
+    if (id !== null && captureTarget.current?.hasPointerCapture(id)) captureTarget.current.releasePointerCapture(id);
+    captureTarget.current = null;
+    pointerClient.current = null;
+    if (edgeFrame.current !== null) cancelAnimationFrame(edgeFrame.current);
+    edgeFrame.current = null;
+    if (isScrubbingRef.current) onScrubStateChange(false);
+    isScrubbingRef.current = false;
+    loopDragRef.current = null;
+    panRef.current = null;
+    setLoopPreview(null);
+    updateGesture(null);
+    onLivePreview(null);
+  };
+  const scrollAtEdge = () => {
+    edgeFrame.current = null;
+    const edit = gestureRef.current;
+    const el = scrollRef.current;
+    const client = pointerClient.current;
+    if (!edit || !el || !client || !crossedThreshold(edit) || edit.kind === "velocity" || edit.kind === "stamp") return;
+    const rect = el.getBoundingClientRect();
+    const left = rect.left + KEYBOARD_WIDTH;
+    const top = rect.top + (timelineRef.current?.offsetHeight ?? 0);
+    const right = rect.left + el.clientWidth;
+    const bottom = rect.top + el.clientHeight - VELOCITY_LANE_HEIGHT;
+    // Keep the activation strip inside the canvas: touch cannot travel past a screen edge.
+    const xMargin = Math.min(20, Math.max(0, right - left) / 8);
+    const yMargin = Math.min(20, Math.max(0, bottom - top) / 8);
+    const dx = client.x < left + xMargin ? client.x - left - xMargin : Math.max(0, client.x - right + xMargin);
+    const dy = client.y < top + yMargin ? client.y - top - yMargin : Math.max(0, client.y - bottom + yMargin);
+    const beforeX = el.scrollLeft;
+    const beforeY = el.scrollTop;
+    el.scrollLeft += clamp(Math.round(dx / 2), -18, 18);
+    if (edit.kind === "move" || edit.kind === "lasso" || edit.kind === "slice")
+      el.scrollTop += clamp(Math.round(dy / 2), -18, 18);
+    if (el.scrollLeft !== beforeX || el.scrollTop !== beforeY) {
+      updateGesture({ ...edit, point: pointerPoint({ clientX: client.x, clientY: client.y }) });
+      edgeFrame.current = requestAnimationFrame(scrollAtEdge);
+    }
+  };
+  const onDragMove = (event: PointerEvent) => {
+    if (event.pointerId !== activePointer.current) return;
+    const edit = gestureRef.current;
+    if (edit) {
+      pointerClient.current = { x: event.clientX, y: event.clientY };
+      updateGesture({ ...edit, point: pointerPoint(event, edit.kind === "velocity") });
+      if (edgeFrame.current === null) edgeFrame.current = requestAnimationFrame(scrollAtEdge);
+    } else updateNavigation(event);
+  };
+  const onDragUp = (event: PointerEvent) => {
+    if (event.pointerId !== activePointer.current) return;
+    const edit = gestureRef.current;
+    if (edit) finishEdit({ ...edit, point: pointerPoint(event, edit.kind === "velocity") });
+    else {
+      updateNavigation(event);
+      if (loopDragRef.current) onLoopRegionChange(loopDragRef.current.range);
+    }
+    resetPointer();
+  };
+  // Pointerup can precede React painting the last move. Resolve the final position
+  // directly from the release event and the same origin used for the preview.
+  const handlersRef = useRef({ onDragMove, onDragUp, resetPointer });
+  useLayoutEffect(() => { handlersRef.current = { onDragMove, onDragUp, resetPointer }; });
   useEffect(() => {
-    dragHandlersRef.current.onMove = onDragMove;
-    dragHandlersRef.current.onUp = onDragUp;
-  });
-
-  useEffect(() => {
-    const onMove = (e: PointerEvent) => dragHandlersRef.current.onMove(e);
-    const onUp = (e: PointerEvent) => dragHandlersRef.current.onUp(e);
-    const cancel = () => {
-      activePointer.current = null; panRef.current = null; isScrubbingRef.current = false;
-      loopDragRef.current = null; setLoopPreview(null);
-      setDragState(null); setDragDrawState(null); setDragResizeState(null); setDragVelocityState(null); setLassoState(null); setSliceState(null);
-      onScrubStateChange(false);
-      onLivePreview(null);
+    const move = (event: PointerEvent) => handlersRef.current.onDragMove(event);
+    const up = (event: PointerEvent) => handlersRef.current.onDragUp(event);
+    const cancel = () => { if (activePointer.current !== null) handlersRef.current.resetPointer(); };
+    const cancelPointer = (event: PointerEvent) => { if (event.pointerId === activePointer.current) cancel(); };
+    const key = (event: KeyboardEvent) => {
+      if (activePointer.current === null || event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      cancel();
     };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", cancel);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", cancelPointer);
+    window.addEventListener("lostpointercapture", cancelPointer);
     window.addEventListener("blur", cancel);
+    window.addEventListener("keydown", key, true);
     return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", cancel);
+      if (edgeFrame.current !== null) cancelAnimationFrame(edgeFrame.current);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancelPointer);
+      window.removeEventListener("lostpointercapture", cancelPointer);
       window.removeEventListener("blur", cancel);
+      window.removeEventListener("keydown", key, true);
     };
-  }, [onScrubStateChange, onLivePreview]);
+  }, []);
+  // Undo, a track switch or a layout/tool change invalidates the gesture's original coordinates.
+  useLayoutEffect(() => {
+    if (activePointer.current !== null) handlersRef.current.resetPointer();
+  }, [progression, focusedTrack, toolMode, zoomX, rowHeight, snapResolution, noteLength, stampType, fitRequest]);
 
+  const hoverNote = hover && toolMode === "draw" && !gesture
+    ? { midi: hover.midi, timeStart: hover.beat, duration: noteLength } : null;
+  const drawGhost = drawing ?? hoverNote;
+  const stampBeat = gesture?.kind === "stamp" ? placementTick(gesture.origin.x, zoomX, snapResolution)
+    : toolMode === "stamp" && !gesture ? hover?.beat : undefined;
+  const stampMidi = gesture?.kind === "stamp" ? gesture.midi : hover?.midi;
+  const stampPreview = useMemo(() => progression && stampBeat !== undefined && stampMidi !== undefined
+    ? previewStamp(stampType, stampMidi, stampBeat, noteLength, drawTrackIndex, progression.notes.length) : null,
+  [progression, stampType, stampMidi, stampBeat, noteLength, drawTrackIndex]);
+  const ghosts = stampPreview?.addedNotes ?? (drawGhost && validPlacement(drawGhost) &&
+    (progression?.notes.length ?? 0) < MAX_PROJECT_NOTES ? [drawGhost] : []);
+  const activeEdit = gesture && isNoteDrag(gesture) ? changes.get(gesture.clicked) ?? progression?.notes[gesture.clicked] : null;
+  const readout = stampPreview && stampMidi !== undefined && stampBeat !== undefined
+    ? { midi: stampMidi, timeStart: stampBeat, duration: noteLength }
+    : drawGhost ?? activeEdit;
+  const unavailable = (stampBeat !== undefined && !stampPreview) || (!!drawGhost && !ghosts.length);
+  let readoutText: string | null = null;
+  if (unavailable) {
+    readoutText = "Placement exceeds project limits";
+  } else if (readout) {
+    let detail = Number(readout.duration.toFixed(3)) + (readout.duration === 1 ? " beat" : " beats");
+    if (stampPreview) detail = stampPreview.addedNotes.length + " notes";
+    if (gesture?.kind === "velocity" && activeEdit) detail = Math.round(activeEdit.velocity * 100) + "% velocity";
+    const bar = Math.floor(readout.timeStart / 4) + 1;
+    const beat = Number((readout.timeStart % 4 + 1).toFixed(3));
+    readoutText = (Note.fromMidi(readout.midi) ?? "") + " · Bar " + bar + ", beat " + beat + " · " + detail;
+  }
   // ----- Render -----
   return (
     <section aria-label="Piano roll editor" className="piano-editor">
-        {progression && progression.notes.length > 0 && <NotePrecisionEditor
-          progression={progression} focusedTrack={focusedTrack}
+        {progression && <NotePrecisionEditor
+          progression={progression} visibleIndices={keyboardNoteOrder} trackNames={trackNameByIndex}
+          drawTrackIndex={drawTrackIndex} currentTick={currentTick} noteLength={noteLength} step={snapTick}
           selectedIndices={selectedIndices} onSelectionChange={onSelectionChange} commit={commit} />}
         <p id="piano-note-keyboard-help" className="sr-only">
           Use Tab to focus a note, arrows to navigate notes in the focused track, Enter or Space to select,
@@ -932,7 +782,10 @@ export function PianoRoll({
           left and right brackets to resize, and Delete to remove. Undo and redo use Control or Command Z.
         </p>
         <div className="piano-viewport" ref={scrollRef} tabIndex={0} role="region" aria-label="Piano roll canvas"
-          onContextMenu={e => e.preventDefault()}>
+          onKeyDown={event => {
+            if (event.target === event.currentTarget) nudgeFromKey(event, selectedIndices);
+          }}
+          onContextMenu={e => e.preventDefault()} onScroll={() => setHover(null)}>
           {!progression ? (
             <div className="pattern-empty">
               <h2>Start with a pattern.</h2>
@@ -947,7 +800,8 @@ export function PianoRoll({
               <button className="text-button empty-hint" onClick={() => emptyImportRef.current?.click()}>Or import your own MIDI</button>
             </div>
           ) : (
-            <div className="piano-content">
+            <div className="piano-content" data-has-chords={progression.chords.length > 0}
+              style={{ "--beat-width": zoomX + "px", "--row-height": rowHeight + "px" } as CSSProperties}>
               {/* Top Header Row (Sticky) */}
               <div className="flex sticky top-0 z-50">
                 <div
@@ -970,12 +824,15 @@ export function PianoRoll({
                       style={{ left: `${i * 4 * zoomX}px` }}
                     >
                       {i + 1}
+                      {zoomX >= 42 && [1, 2, 3].map(beat => <span key={beat} className="ruler-beat"
+                        aria-hidden="true" style={{ left: beat * zoomX }}>{beat + 1}</span>)}
                       {progression.arrangementSections?.find(section => section.startBar === i) &&
                         <span className="song-form-marker">
                           {progression.arrangementSections.find(section => section.startBar === i)?.label}
                         </span>}
                     </div>
                   ))}
+                  <div className="ruler-playhead" aria-hidden="true" style={{ left: currentTick * zoomX }} />
                   <div className={"loop-range-band" + (!isLooping ? " inactive" : "")}
                     aria-hidden="true" style={{ left: displayedLoop.start * zoomX, width: (displayedLoop.end - displayedLoop.start) * zoomX }} />
                   {(["in", "out"] as const).map(edge => {
@@ -1016,7 +873,6 @@ export function PianoRoll({
                       : <div key={i} className="chord-chip"
                         style={{ left: chord.timeStart * zoomX, width: chord.duration * zoomX }}>
                         <span className="chord-dot" />{chord.name}</div>)}
-                    {progression.chords.length === 0 && <span className="chord-chip" style={{ left: 0 }}>MIDI pattern</span>}
                   </div>
                 </div>
               </div>
@@ -1040,6 +896,7 @@ export function PianoRoll({
                     return (
                       <div
                         key={`key-${i}`}
+                        data-highlighted={readout?.midi === midi}
                         onPointerDown={async (e) => {
                           if (e.button !== 0) return;
                           try {
@@ -1060,7 +917,7 @@ export function PianoRoll({
                           height: `${rowHeight}px`,
                         }}
                       >
-                        {isC ? `C${Math.floor(midi / 12) - 1}` : !isBlack ? (Note.fromMidi(midi)?.replace(/-?\d+$/, "") ?? "") : ""}
+                        {readout?.midi === midi ? Note.fromMidi(midi) : isC ? `C${Math.floor(midi / 12) - 1}` : !isBlack ? (Note.fromMidi(midi)?.replace(/-?\d+$/, "") ?? "") : ""}
                       </div>
                     );
                   })}
@@ -1070,15 +927,18 @@ export function PianoRoll({
                 <div
                   ref={gridRef}
                   data-testid="piano-grid"
+                  data-tool={toolMode}
                   className="piano-grid relative flex-1"
                   style={{
                     minWidth: `${contentWidth}px`,
                     height: `${(MIDI_RANGE * rowHeight)}px`,
                     touchAction: "none",
                     cursor: toolMode === "pan" ? "grab" : toolMode === "select" ? "default" : "crosshair",
-                    backgroundSize: `100% ${rowHeight}px, ${zoomX * 4}px 100%, ${zoomX}px 100%`,
-                    backgroundPosition: "0 0, 0 0, 0 0",
-                  }}
+                    "--snap-width": snapResolution > 0 && snapResolution < 1 && snapResolution * zoomX >= 6
+                      ? snapResolution * zoomX + "px" : "0px",
+                  } as CSSProperties}
+                  onPointerMove={handleGridHover}
+                  onPointerLeave={() => setHover(null)}
                   onPointerDown={handleGridPointerDown}
                 >
                   {/* Row Background Tracks (black-key shading + diatonic scale tint) */}
@@ -1101,7 +961,7 @@ export function PianoRoll({
                           <div className="absolute inset-0 bg-[var(--accent)]/[0.06]" />
                         )}
                         {isBlackRow && (
-                          <div className="absolute inset-0 bg-black/[0.15]" />
+                          <div className="absolute inset-0 bg-black/[0.065]" />
                         )}
                       </div>
                     );
@@ -1112,51 +972,28 @@ export function PianoRoll({
                     <div
                       className="absolute top-0 bottom-0 w-0 border-l-[2px] border-[#344b5d] z-30 pointer-events-none"
                       style={{ left: `${currentTick * zoomX}px` }}
-                    >
-                      <div className="absolute top-0 left-[-6px] w-[13px] h-[13px] bg-[#344b5d] rounded-b-sm"></div>
-                    </div>
-                  )}
-
-                  {/* Drag Drawing Note Ghost Box */}
-                  {dragDrawState && (
-                    <div
-                      className="absolute z-20 pointer-events-none"
-                      style={{
-                        left: `${dragDrawState.startTick * zoomX}px`,
-                        top: `${(MAX_MIDI - dragDrawState.startMidi) * rowHeight}px`,
-                        width: `${drawnNote(dragDrawState, snapTick, zoomX).duration * zoomX}px`,
-                        height: `${rowHeight}px`,
-                      }}
-                    >
-                      <div className="absolute inset-[1px] bg-[#7995a9]/80 border border-[#3b5265] shadow-sm rounded-[3px]" />
-                    </div>
-                  )}
-
-                  {/* Lasso Box */}
-                  {lassoState && (
-                    <div
-                      className="absolute border border-[#47667e] bg-[#47667e]/20 z-50 pointer-events-none transition-none"
-                      style={{
-                        left: Math.min(lassoState.startX, lassoState.currentX),
-                        top: Math.min(lassoState.startY, lassoState.currentY),
-                        width: Math.abs(lassoState.currentX - lassoState.startX),
-                        height: Math.abs(lassoState.currentY - lassoState.startY),
-                      }}
                     />
                   )}
 
-                  {/* Slice Line */}
-                  {sliceState && (
+                  {ghosts.map((ghost, index) => (
+                    <div key={index} className="placement-ghost absolute z-20 pointer-events-none"
+                      data-testid="placement-ghost" data-active={!!gesture} aria-hidden="true"
+                      style={{ left: ghost.timeStart * zoomX, top: (MAX_MIDI - ghost.midi) * rowHeight,
+                        width: Math.max(6, ghost.duration * zoomX), height: rowHeight }} />
+                  ))}
+
+                  {gesture?.kind === "lasso" && crossedThreshold(gesture) && (
+                    <div className="absolute border border-[#47667e] bg-[#47667e]/20 z-50 pointer-events-none"
+                      style={{
+                        left: Math.min(gesture.origin.x, gesture.point.x), top: Math.min(gesture.origin.y, gesture.point.y),
+                        width: Math.abs(gesture.point.x - gesture.origin.x), height: Math.abs(gesture.point.y - gesture.origin.y),
+                      }} />
+                  )}
+
+                  {gesture?.kind === "slice" && (
                     <svg className="absolute inset-0 w-full h-full pointer-events-none z-50">
-                      <line
-                        x1={sliceState.startX}
-                        y1={sliceState.startY}
-                        x2={sliceState.currentX}
-                        y2={sliceState.currentY}
-                        stroke="#914c4c"
-                        strokeWidth="2"
-                        strokeDasharray="4 2"
-                      />
+                      <line x1={gesture.origin.x} y1={gesture.origin.y} x2={gesture.point.x} y2={gesture.point.y}
+                        stroke="#914c4c" strokeWidth="2" strokeDasharray="4 2" />
                     </svg>
                   )}
 
@@ -1165,40 +1002,27 @@ export function PianoRoll({
                     if (focusedTrack !== null && trackIndexOf(n) !== focusedTrack) {
                       return null;
                     }
-                    const isDragging =
-                      dragState && dragState.notes.some((dn) => dn.index === i);
-                    const isResizing =
-                      dragResizeState &&
-                      dragResizeState.notes.some((dn) => dn.index === i);
-
-                    let renderTick = n.timeStart;
-                    let renderMidi = n.midi;
-                    let renderDuration = n.duration;
-
-                    if (isDragging && dragState) {
-                      renderTick = Math.max(0, n.timeStart + dragState.tickDelta);
-                      renderMidi = clamp(n.midi + dragState.midiDelta, 0, MAX_MIDI);
-                    } else if (isResizing && dragResizeState) {
-                      renderDuration = Math.max(
-                        snapTick,
-                        n.duration + dragResizeState.durationDelta,
-                      );
-                    }
-
-                    const isPlayingNote =
-                      isPlaying &&
-                      currentTick >= renderTick &&
-                      currentTick <= renderTick + renderDuration;
-                    const isSelected = selectedIndices.has(i);
+                    const rendered = changes.get(i) ?? n;
+                    const { timeStart: renderTick, midi: renderMidi, duration: renderDuration } = rendered;
+                    const isEditing = changes.has(i);
+                    const isPlayingNote = isPlaying && currentTick >= renderTick && currentTick < renderTick + renderDuration;
+                    const isSelected = liveSelection.has(i);
                     const boxWidth = Math.max(6, renderDuration * zoomX);
-                    const showLabel = boxWidth >= 34 && !isPlayingNote;
+                    const handleWidth = Math.min(10, boxWidth / 3);
+                    const pitchLabel = Note.fromMidi(renderMidi) ?? n.name;
+                    const showLabel = boxWidth >= pitchLabel.length * 6 + 14;
 
                     return (
                       <div
                         key={i}
                         data-testid="piano-note"
                         data-note-index={i}
-                        data-midi={n.midi}
+                        data-midi={renderMidi}
+                        data-start={renderTick}
+                        data-duration={renderDuration}
+                        data-playing={isPlayingNote}
+                        data-editing={isEditing}
+                        data-track={trackIndexOf(n)}
                         data-selected={isSelected}
                         role="button"
                         tabIndex={tabStopIndex === i ? 0 : -1}
@@ -1210,25 +1034,29 @@ export function PianoRoll({
                           ", duration " + n.duration + " quarter notes, velocity " + Math.round(n.velocity * 100) + " percent"}
                         onFocus={() => setKeyboardNoteIndex(i)}
                         onKeyDown={event => handleNoteKeyDown(event, i)}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleNoteDelete(n, i);
-                        }}
-                        onMouseEnter={(e) => {
-                          if (e.buttons === 2) {
+                        onPointerDown={(e) => {
+                          if (e.pointerType === "mouse" && e.button === 2 && !e.altKey &&
+                            activePointer.current === null && toolMode !== "pan") {
                             e.preventDefault();
                             e.stopPropagation();
                             handleNoteDelete(n, i);
                           }
                         }}
-                        className={`absolute z-10 group transition-none ${isDragging ? "opacity-80" : "opacity-100"} ${toolMode === "stamp" ? "pointer-events-none" : ""}`}
+                        onPointerEnter={(e) => {
+                          if (e.pointerType === "mouse" && e.buttons === 2 && !e.altKey &&
+                            activePointer.current === null && toolMode !== "pan") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleNoteDelete(n, i);
+                          }
+                        }}
+                        className={`roll-note absolute z-10 group transition-none ${toolMode === "stamp" ? "pointer-events-none" : ""}`}
                         style={{
                           left: `${renderTick * zoomX}px`,
                           width: `${boxWidth}px`,
                           top: `${(MAX_MIDI - renderMidi) * rowHeight}px`,
                           height: `${rowHeight}px`,
-                          opacity: isPlayingNote ? 1 : Math.max(0.8, n.velocity),
+                          opacity: isPlayingNote || isSelected || isEditing ? 1 : Math.max(0.8, n.velocity),
                         }}
                       >
                         {/* Visual Box */}
@@ -1245,7 +1073,7 @@ export function PianoRoll({
                         >
                           {showLabel && (
                             <span className="piano-note-label pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 select-none font-mono text-[10px] font-semibold">
-                              {Note.fromMidi(renderMidi) || ""}
+                              {pitchLabel}
                             </span>
                           )}
                         </div>
@@ -1254,14 +1082,15 @@ export function PianoRoll({
                         <div className="absolute inset-0 z-30" style={{ touchAction: "none" }}>
                           <div
                             data-testid="note-move"
-                            onPointerDown={(e) => handleNotePointerDown(e, i)}
-                            className="absolute left-0 top-0 bottom-0 right-[8px] sm:right-[10px] cursor-move"
-                            style={{ minWidth: "4px" }}
+                            onPointerDown={(e) => handleNoteDown(e, i, "move")}
+                            className="absolute left-0 inset-y-0 cursor-move"
+                            style={{ right: handleWidth }}
                           />
                           <div
                             data-testid="note-resize"
-                            onPointerDown={(e) => handleNoteResizePointerDown(e, i)}
-                            className="absolute right-[-6px] w-[14px] sm:w-[16px] top-0 bottom-0 cursor-ew-resize flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            onPointerDown={(e) => handleNoteDown(e, i, "resize")}
+                            className="note-resize-hit absolute right-0 inset-y-0 cursor-ew-resize flex items-center justify-center"
+                            style={{ width: handleWidth }}
                           >
                             <div className="w-[4px] h-[60%] bg-white/80 rounded-[1px] shadow-sm pointer-events-none" />
                           </div>
@@ -1296,26 +1125,11 @@ export function PianoRoll({
                     if (focusedTrack !== null && trackIndexOf(n) !== focusedTrack) {
                       return null;
                     }
-                    const isVelocityDragging =
-                      dragVelocityState &&
-                      dragVelocityState.notes.some((dn) => dn.index === i);
-
-                    let renderVelocity = n.velocity;
-                    if (isVelocityDragging && dragVelocityState) {
-                      const dn = dragVelocityState.notes.find(
-                        (d) => d.index === i,
-                      );
-                      if (dn) {
-                        renderVelocity = clamp(
-                          dn.startVelocity + dragVelocityState.velocityDelta,
-                          MIN_VELOCITY,
-                          MAX_VELOCITY,
-                        );
-                      }
-                    }
-
-                    const isSelected = selectedIndices.has(i);
-                    const barWidth = 18;
+                    const stem = velocityLayout.get(i);
+                    if (!stem) return null;
+                    const renderVelocity = changes.get(i)?.velocity ?? n.velocity;
+                    const isVelocityDragging = gesture?.kind === "velocity" && changes.has(i);
+                    const isSelected = liveSelection.has(i);
                     const barHeight = Math.max(3, renderVelocity * (VELOCITY_LANE_HEIGHT - 12));
 
                     return (
@@ -1332,11 +1146,11 @@ export function PianoRoll({
                             onSelectionChange(new Set([i]));
                           }
                         }}
-                        onPointerDown={(e) => handleVelocityBarPointerDown(e, i)}
+                        onPointerDown={(e) => handleNoteDown(e, i, "velocity")}
                         className="velocity-hit-target absolute inset-y-0 cursor-ns-resize group"
                         style={{
-                          left: `${n.timeStart * zoomX + velocityOffsets[i]}px`,
-                          width: `${barWidth}px`,
+                          left: stem.left + ((changes.get(i)?.timeStart ?? n.timeStart) - n.timeStart) * zoomX,
+                          width: stem.width,
                           touchAction: "none",
                         }}
                       >
@@ -1360,85 +1174,14 @@ export function PianoRoll({
             </div>
           )}
         </div>
-        <footer className="editor-footnote"><span className="editor-active-tool" role="status" aria-live="polite">{TOOL_HINTS[toolMode]}</span><span>{selectedIndices.size > 0 ? <strong>{selectedIndices.size} selected</strong> : progression ? progression.notes.length + " notes" : "No notes yet"} · {statusLabel}</span></footer>
+        <footer className="editor-footnote">
+          {readoutText ? <span className="edit-readout">{readoutText}</span>
+            : <span className="editor-active-tool" role="status" aria-live="polite">{TOOL_HINTS[toolMode]}</span>}
+          <span>{liveSelection.size
+            ? <strong>{liveSelection.size} of {keyboardNoteOrder.length} selected</strong>
+            : progression ? keyboardNoteOrder.length + (keyboardNoteOrder.length === 1 ? " note" : " notes") + " · " + statusLabel
+            : "No notes yet"}</span>
+        </footer>
     </section>
   );
-}
-
-/** Resolve the note produced by a draw-drag (click = default length, drag = snapped width). */
-function drawnNote(
-  draw: DragDrawState,
-  snapTick: number,
-  zoomX: number,
-): NoteEvent {
-  const dx = Math.max(0, draw.currentX - draw.startX);
-  let duration = draw.startDuration;
-  if (Math.abs(dx) > 5) {
-    duration = Math.max(snapTick, Math.round(dx / (zoomX * snapTick)) * snapTick);
-  }
-  return {
-    midi: draw.startMidi,
-    name: Note.fromMidi(draw.startMidi) || "C4",
-    timeStart: draw.startTick,
-    duration,
-    velocity: 0.8,
-    trackIndex: draw.trackIndex,
-  };
-}
-
-/** Split every note intersected by the slice line into two pieces. */
-function sliceNotes(
-  notes: NoteEvent[],
-  slice: BoxState,
-  zoomX: number,
-  snapTick: number,
-  focusedTrack: number | null = null,
-  rowHeight: number = NOTE_HEIGHT,
-): NoteEvent[] {
-  const minLineX = Math.min(slice.startX, slice.currentX);
-  const maxLineX = Math.max(slice.startX, slice.currentX);
-  const minLineY = Math.min(slice.startY, slice.currentY);
-  const maxLineY = Math.max(slice.startY, slice.currentY);
-
-  const result: NoteEvent[] = [];
-  for (const n of notes) {
-    if (focusedTrack !== null && trackIndexOf(n) !== focusedTrack) {
-      result.push(n);
-      continue;
-    }
-    const nx = n.timeStart * zoomX;
-    const ny = (MAX_MIDI - n.midi) * rowHeight;
-    const nw = n.duration * zoomX;
-    const nh = rowHeight;
-
-    const isVerticalCut = Math.abs(maxLineX - minLineX) < 10;
-    // Interpolate the line's x at this note's row for diagonal cuts.
-    const intersectX = isVerticalCut
-      ? slice.startX
-      : slice.startX +
-        ((slice.currentX - slice.startX) * (ny + nh / 2 - minLineY)) /
-          (maxLineY - minLineY + 0.001);
-
-    const horizontallyOverlap = intersectX >= nx && intersectX <= nx + nw;
-    const verticallyOverlap = maxLineY >= ny && minLineY <= ny + nh;
-
-    if (horizontallyOverlap && verticallyOverlap) {
-      const intersectTickRaw = Math.max(0, intersectX / zoomX);
-      const roundedSplit =
-        Math.round((intersectTickRaw - n.timeStart) / snapTick) * snapTick;
-
-      const p1Dur = Math.max(FREE_SNAP, roundedSplit);
-      const p2Dur = Math.max(FREE_SNAP, n.duration - p1Dur);
-
-      if (p1Dur > 0 && p2Dur > 0 && p1Dur < n.duration - 0.001) {
-        result.push({ ...n, duration: p1Dur });
-        result.push({ ...n, timeStart: n.timeStart + p1Dur, duration: p2Dur });
-      } else {
-        result.push(n);
-      }
-    } else {
-      result.push(n);
-    }
-  }
-  return result;
 }

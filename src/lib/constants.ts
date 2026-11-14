@@ -2,6 +2,9 @@
 
 export const MIDI_RANGE = 128;
 export const MAX_MIDI = 127;
+export const MAX_PROJECT_BARS = 512;
+export const MAX_PROJECT_BEATS = MAX_PROJECT_BARS * 4;
+export const MAX_PROJECT_NOTES = 60_000;
 export const NOTE_HEIGHT = 20;
 export const PIANO_ROLL_HEIGHT = MIDI_RANGE * NOTE_HEIGHT;
 export const KEYBOARD_WIDTH = 52;

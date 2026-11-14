@@ -1,4 +1,5 @@
 import { Note } from "@tonaljs/tonal";
+import { MAX_PROJECT_BEATS, MAX_PROJECT_NOTES } from "./constants";
 import type { ChordEvent, NoteEvent, ProgressionData } from "./theory";
 
 /** Every preset is a transposable recipe, not a fixed-key MIDI clip. */
@@ -237,20 +238,17 @@ function symbol(rootMidi: number, suffix: string): string {
   return (tonic?.replace(/-?\d+$/, "") ?? "C") + suffix;
 }
 
-/** One undoable, non-destructive edit. New chord labels replace overlapping
- * user-authored labels only; generated/locked regions and notes are preserved.
- * Hard bounds match project-file limits and prevent corrupt MIDI or autosaves. */
-export function placeStamp(
-  data: ProgressionData, id: string, midi: number, timeStart: number,
-  noteLength: number, trackIndex: number,
-): StampPlacement | null {
+/** Voice just the incoming notes and labels. A pointer preview does not copy the open score. */
+export function previewStamp(
+  id: string, midi: number, timeStart: number, noteLength: number, trackIndex: number, existingNoteCount: number,
+) {
   const preset = getStampPreset(id);
   if (!preset || !Number.isInteger(midi) || midi < 0 || midi > 127 ||
       !Number.isFinite(timeStart) || timeStart < 0 ||
       !Number.isFinite(noteLength) || noteLength <= 0 || noteLength > 16 ||
       !Number.isInteger(trackIndex) || trackIndex < 0) return null;
   const duration = stampDuration(preset, noteLength);
-  if (duration <= 0 || timeStart + duration > 512 * 4 + 1e-8) return null;
+  if (duration <= 0 || timeStart + duration > MAX_PROJECT_BEATS + 1e-8) return null;
 
   const addedNotes: NoteEvent[] = [];
   const addedChords: ChordEvent[] = [];
@@ -287,9 +285,20 @@ export function placeStamp(
       start += quarters;
     }
   }
-  if (!addedNotes.length || data.notes.length + addedNotes.length > 60000) return null;
+  if (!addedNotes.length || existingNoteCount + addedNotes.length > MAX_PROJECT_NOTES) return null;
+  return { addedNotes, addedChords, end: timeStart + duration };
+}
 
-  const end = timeStart + duration;
+/** One undoable, non-destructive edit. New chord labels replace overlapping
+ * user-authored labels only; generated/locked regions and notes are preserved.
+ * Hard bounds match project-file limits and prevent corrupt MIDI or autosaves. */
+export function placeStamp(
+  data: ProgressionData, id: string, midi: number, timeStart: number,
+  noteLength: number, trackIndex: number,
+): StampPlacement | null {
+  const preview = previewStamp(id, midi, timeStart, noteLength, trackIndex, data.notes.length);
+  if (!preview) return null;
+  const { addedNotes, addedChords, end } = preview;
   const survivingChords = data.chords.flatMap(chord => {
     if (!addedChords.length || chord.generatedSourceTrackIndex !== undefined ||
         chord.timeStart >= end || chord.timeStart + chord.duration <= timeStart) return [chord];

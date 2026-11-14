@@ -8,21 +8,31 @@ const GROUPS = [
   { title: "Editor tools", items: [
     ["B / V / S / C / H", "Draw / Select / Stamp / Slice / Hand"],
     ["F", "Fit pattern to view"], ["Alt + U", "Chop selected notes"],
-    ["Drag note edge", "Resize a note"], ["Drag velocity bar", "Adjust note velocity"],
+    ["Drag note body", "Move notes in time or pitch"],
+    ["Drag right edge", "Resize notes"], ["Drag velocity bar", "Adjust note velocity"],
   ] },
   { title: "Timeline & loop", items: [
-    ["Shift + drag ruler", "Set a loop range with a pointer + keyboard"],
+    ["Click or drag ruler", "Set the playhead"],
+    ["Shift + drag ruler", "Set a loop range"],
     ["Drag loop handles", "Adjust loop start or end (also on touch)"],
     ["Arrow keys on loop handle", "Fine-adjust an active loop edge"],
     ["Double-click ruler", "Reset to the full loop"],
     ["Ctrl / ⌘ + wheel", "Zoom near the pointer"],
     ["Shift + wheel", "Scroll timeline horizontally"],
   ] },
+  { title: "With a grid note focused", items: [
+    ["Arrows", "Focus the previous or next note"],
+    ["Enter / Space", "Select the focused note"],
+    ["Shift + arrows", "Extend the selection"],
+    ["Alt + ← / →", "Nudge timing by one grid step"],
+    ["Alt + ↑ / ↓", "Transpose by a semitone"],
+    ["[ / ]", "Shorten or lengthen by one grid step"],
+  ] },
   { title: "Selection & editing", items: [
     ["Ctrl / ⌘ A", "Select notes on the active track"],
     ["Ctrl / ⌘ C / V", "Copy / paste selected notes"],
     ["Delete", "Remove selection"],
-    ["Escape", "Clear selection or dismiss an open panel"],
+    ["Escape", "Cancel a drag, clear selection, or close a panel"],
   ] },
 ];
 
@@ -47,8 +57,7 @@ export function ShortcutHelp({ open, onClose }: { open: boolean; onClose: () => 
     <div className="dialog-content"><header><Keyboard size={20} /><h2 id="shortcut-heading">Shortcuts & gestures</h2><button className="icon-button" aria-label="Close shortcuts" onClick={onClose}><Close size={18} /></button></header>
       <p>Shortcuts work in the editor. Text fields keep their own keyboard behavior.</p>
       {GROUPS.map(group => <section key={group.title}><h3>{group.title}</h3><dl>{group.items.map(([keys, action]) => <div key={keys}><dt>{action}</dt><dd><kbd>{keys}</kbd></dd></div>)}</dl></section>)}
-      <footer>On touch screens, choose Hand to pan. For melody loop selection, use
-        Follow melody → Loop range → From/Through bar, or drag the loop handles directly.</footer>
+      <footer>To place a note with the keyboard, open <strong>Precise note editing</strong> and choose <strong>Add note at playhead</strong>. Adjust its pitch, start, length, and velocity in the fields. On touch screens, choose Hand to pan or drag the ruler handles to set a loop.</footer>
     </div>
   </dialog>;
 }

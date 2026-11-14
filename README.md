@@ -84,11 +84,15 @@ Learn about the search, phrase constraints, seeded behavior, and limits in [Melo
 
 | Tool | What it does |
 | --- | --- |
-| **Draw (B)** | Click or drag to place notes; drag to set a duration |
-| **Select (V)** | Select individual notes or lasso a group, then move or resize them |
+| **Draw (B)** | Point to preview the pitch, start, and length. Click or tap to insert, or drag in either direction to set the length. |
+| **Select (V)** | Click a note to select it, Shift-click to add or remove it, or drag across empty space to select a group. Drag a note body to move the selection or its right edge to resize. |
 | **Stamp (S)** | Choose and place a chord, scale, or complete multi-bar progression from the searchable library |
-| **Slice (C)** | Split notes; **Chop** subdivides notes into shorter pieces |
+| **Slice (C)** | Click inside a note to split it at that beat, or drag through several pitch rows to split the notes the stroke crosses. |
 | **Hand (H)** | Pan the timeline without editing notes |
+
+**Snap** sets the time grid. A click anywhere inside a subdivision starts the note at its left edge. **Length** sets how long a click or tap lasts. With Snap off, placement follows the pointer between grid lines. Press **Escape** during a drag to discard the edit.
+
+For exact entry, open **Precise note editing** above the ruler. **Add note at playhead** inserts a middle C in a blank score or uses the selected pitch. Set its MIDI pitch, start, length, and velocity directly. When several notes have different velocities, the field shows **Mixed**. Enter a value to give them the same velocity, or use the nudge buttons to adjust each one relative to its current value.
 
 ### Chord & progression stamp library
 
@@ -153,11 +157,13 @@ Use **Save MIDI Spark project** or **Export MIDI** before clearing site data or 
 | `Ctrl/⌘ + A` | Select notes in the focused lane |
 | `Ctrl/⌘ + C` / `Ctrl/⌘ + V` | Copy / paste notes at the playhead |
 | `Delete` / `Backspace` | Delete selected notes |
+| `Alt + ← / →` · `Alt + ↑ / ↓` | Move selected notes by a grid step or semitone in the piano roll |
+| `[` / `]` | Shorten or lengthen the selected notes by a grid step |
 | `Alt + U` | Chop notes |
 | `Ctrl/⌘ + wheel` / `Shift + wheel` | Zoom at pointer / horizontal scroll |
 | `Shift + drag ruler` | Define a timeline loop |
 | `?` | Open the in-app shortcuts and gestures guide |
-| `Esc` | Clear selection or close an open panel |
+| `Esc` | Cancel the current drag or field edit, clear selection, or close an open panel |
 
 Shortcuts apply when the editor has focus; typing into a form field preserves normal input behavior.
 
