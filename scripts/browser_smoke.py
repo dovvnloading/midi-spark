@@ -85,8 +85,9 @@ def assert_popup_topmost(page, selector, occluder=None):
  return info
 
 def grid_point(page,midi,quarter):
- grid=page.get_by_test_id('piano-grid').bounding_box(); zoom=snap(page)['zoomX'];height=grid['height']/128
- return grid['x']+quarter*zoom,grid['y']+(127-midi+.5)*height
+ zoom=snap(page)['zoomX']
+ grid=page.get_by_test_id('piano-grid').bounding_box()
+ return grid['x']+quarter*zoom,grid['y']+(127-midi+.5)*grid['height']/128
 with sync_playwright() as p:
  b=p.chromium.launch(headless=True, **({'executable_path': os.environ['CHROMIUM_PATH']} if os.environ.get('CHROMIUM_PATH') else {}))
  page=b.new_page(viewport={'width':1440,'height':900},device_scale_factor=1,has_touch=True)
@@ -1404,6 +1405,8 @@ with sync_playwright() as p:
  expect(stamps.locator('.stamp-picker-menu')).not_to_be_visible()
  x,y=grid_point(stamps,60,1)
  stamps.mouse.click(x,y)
+ expect(stamps.get_by_test_id('piano-note')).to_have_count(12)
+ stamps.wait_for_function("key => JSON.parse(localStorage.getItem(key))?.progression?.chords?.length === 4",arg=KEY)
  score=snap(stamps)['progression']
  assert [c['name'] for c in score['chords']]==['C','G','Am','F'],score['chords']
  assert [c['timeStart'] for c in score['chords']]==[1,5,9,13],score['chords']
