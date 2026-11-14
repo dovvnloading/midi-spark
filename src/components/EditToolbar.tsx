@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ChevronDown, Eye, Hand, MousePointer2, Pencil, Scissors, Stamp, ZoomIn, ZoomOut, Scan, PanelLeft, LocateFixed } from "lucide-react";
+import { ChevronDown, View, Pan, Select, Draw, Slice, Stamp, ZoomIn, ZoomOut, FitPattern, InspectorPanel, Locate } from "./StudioIcons";
 import { CustomDropdown } from "./CustomDropdown";
 import { FloatingMenu } from "./FloatingMenu";
 import { SNAP_OPTIONS, NOTE_LENGTH_OPTIONS, MIN_ZOOM, MAX_ZOOM } from "../lib/constants";
@@ -13,9 +13,9 @@ export interface EditToolbarProps {
   onFit: () => void; onToggleFollow: () => void; onToggleInspector: () => void;
 }
 const TOOLS = [
-  { mode: "draw", label: "Draw", key: "B", Icon: Pencil }, { mode: "select", label: "Select", key: "V", Icon: MousePointer2 },
-  { mode: "stamp", label: "Stamp", key: "S", Icon: Stamp }, { mode: "cut", label: "Slice", key: "C", Icon: Scissors },
-  { mode: "pan", label: "Hand", key: "H", Icon: Hand },
+  { mode: "draw", label: "Draw", key: "B", Icon: Draw }, { mode: "select", label: "Select", key: "V", Icon: Select },
+  { mode: "stamp", label: "Stamp", key: "S", Icon: Stamp }, { mode: "cut", label: "Slice", key: "C", Icon: Slice },
+  { mode: "pan", label: "Hand", key: "H", Icon: Pan },
 ] as const;
 const ACTIVE_TOOL_HELP: Record<ToolMode, string> = {
   draw: "Tap the grid to add a note; drag to set its length.",
@@ -33,7 +33,7 @@ export function EditToolbar(p: EditToolbarProps) {
     setViewOpen(false);
   };
   return <div className="editor-toolbar" aria-label="Editing controls">
-    <div className="tool-cluster"><button className="icon-button inspector-toggle" aria-label="Toggle inspector" aria-pressed={p.inspectorOpen} onClick={p.onToggleInspector} title="Inspector"><PanelLeft size={16} /></button>
+    <div className="tool-cluster"><button className="icon-button inspector-toggle" aria-label="Toggle inspector" aria-pressed={p.inspectorOpen} onClick={p.onToggleInspector} title="Inspector"><InspectorPanel size={16} /></button>
       <span className="control-divider" />
       <div className="tool-segment" role="group" aria-label="Editing tool">
         {TOOLS.map(({ mode, label, key, Icon }) => <button key={mode} onClick={() => p.onToolModeChange(mode)} aria-label={label + " tool"}
@@ -52,7 +52,7 @@ export function EditToolbar(p: EditToolbarProps) {
     </div>
     <div className="view-controls" role="group" aria-label="Canvas view">
       <button className="icon-button fit-button" aria-label="Fit pattern" title="Fit pattern (F)"
-        onClick={p.onFit}><Scan size={16} /><span>Fit</span></button>
+        onClick={p.onFit}><FitPattern size={16} /><span>Fit</span></button>
       <details className="canvas-view-menu" ref={viewRef}
         onToggle={event => setViewOpen(event.currentTarget.open)}
         onKeyDown={event => {
@@ -65,12 +65,12 @@ export function EditToolbar(p: EditToolbarProps) {
         }}>
         <summary role="button" className="secondary-button canvas-view-trigger"
           aria-label="Canvas view options" aria-controls="canvas-view-popup">
-          <Eye size={16} aria-hidden="true" /><span>View</span><ChevronDown size={13} aria-hidden="true" />
+          <View size={16} aria-hidden="true" /><span>View</span><ChevronDown size={13} aria-hidden="true" />
         </summary>
         {viewOpen && <FloatingMenu anchorRef={viewRef} className="canvas-view-menu-content"
           id="canvas-view-popup" label="Canvas view actions" onDismiss={dismissView}>
           <button type="button" aria-pressed={p.followPlayback} onClick={p.onToggleFollow}>
-            <LocateFixed size={16} aria-hidden="true" />Follow playback
+            <Locate size={16} aria-hidden="true" />Follow playback
           </button>
           <button type="button" onClick={() => p.onZoomChange(Math.max(MIN_ZOOM, p.zoomX / 1.25))}>
             <ZoomOut size={16} aria-hidden="true" />Zoom out

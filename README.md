@@ -31,7 +31,7 @@ The UI keeps the essentials in view. **Compose**, **Transform**, and **Tracks** 
 
 ## See the studio
 
-These are **real Chromium captures of the current Slate & Earth interface**, produced by the [browser regression suite](scripts/browser_smoke.py), not concept art. Click any screenshot for its full-size image.
+The [browser regression suite](scripts/browser_smoke.py) captures the studio in Chromium. Click any screenshot to open it at full size.
 
 | Follow a melody | Shape the notes |
 | :---: | :---: |
@@ -206,7 +206,7 @@ Set `CHROMIUM_PATH` if using a system Chrome/Chromium binary. These are automate
 
 ## Tech and further reading
 
-Built with **React 19**, **TypeScript**, **Vite 6**, **Tailwind CSS 4**, **Tone.js 15**, **Tonal**, and **@tonejs/midi**. The UI theme is described in [Slate & Earth](docs/SLATE_EARTH_THEME.md); code is organized into `src/components/`, music/audio/file logic in `src/lib/`, and tests in `tests/`.
+Built with **React 19**, **TypeScript**, **Vite 6**, **Tailwind CSS 4**, **Tone.js 15**, **Tonal**, and **@tonejs/midi**. The UI theme is described in [Studio palette and icons](docs/STUDIO_PALETTE.md). Code is organized into `src/components/`, music/audio/file logic in `src/lib/`, and tests in `tests/`.
 
 - [Adaptive melody engine: behavior and constraints](docs/ADAPTIVE_MELODY.md)
 - [Sound design and synthesis](docs/SOUND_DESIGN.md)

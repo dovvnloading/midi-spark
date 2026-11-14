@@ -1,4 +1,4 @@
-import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "./StudioIcons";
 import { cn } from "../lib/utils";
 
 export type OptionType = { label: string; value: string | number } | string;

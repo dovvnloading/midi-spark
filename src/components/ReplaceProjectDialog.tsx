@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { AlertTriangle, ArrowRight, X } from "lucide-react";
+import { Warning, ArrowRight, Close } from "./StudioIcons";
 
 export interface ReplaceProjectDialogProps {
   operation: "import" | "generate" | "project";
@@ -35,9 +35,9 @@ export function ReplaceProjectDialog({
     aria-labelledby="replace-project-heading" aria-describedby="replace-project-description"
     onCancel={event => { event.preventDefault(); onCancel(); }}>
     <div className="replace-project-heading">
-      <span className="replace-project-warning"><AlertTriangle size={19} aria-hidden="true" /></span>
+      <span className="replace-project-warning"><Warning size={19} aria-hidden="true" /></span>
       <h2 id="replace-project-heading">{importing ? "Replace current composition?" : opening ? "Open native project?" : "Start a new pattern?"}</h2>
-      <button className="icon-button" aria-label="Cancel replacement" onClick={onCancel}><X size={17} /></button>
+      <button className="icon-button" aria-label="Cancel replacement" onClick={onCancel}><Close size={17} /></button>
     </div>
     <p id="replace-project-description">
       {importing ? "The imported MIDI will replace your current composition." :

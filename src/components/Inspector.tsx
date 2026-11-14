@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { PanelLeftClose, X } from "lucide-react";
+import { CollapsePanel, Close } from "./StudioIcons";
 
 export type InspectorTab = "compose" | "transform" | "tracks";
 const tabs = [
@@ -58,9 +58,9 @@ export function Inspector({ tab, onTabChange, mobileOpen, onClose, onToggle, wid
       <div className="inspector-heading">
         <div className="inspector-heading-copy"><strong>Workspace</strong></div>
         <button type="button" className="icon-button inspector-collapse" aria-label="Collapse sidebar"
-          title="Hide studio controls" onClick={onToggle}><PanelLeftClose size={17} /></button>
+          title="Hide studio controls" onClick={onToggle}><CollapsePanel size={17} /></button>
         <button type="button" className="icon-button inspector-close" aria-label="Close inspector"
-          onClick={onClose}><X size={18} /></button>
+          onClick={onClose}><Close size={18} /></button>
       </div>
       <div className="inspector-tabs-row">
         <div role="tablist" aria-label="Studio workspace" className="inspector-tabs">

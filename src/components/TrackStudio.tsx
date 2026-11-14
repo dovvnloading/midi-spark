@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Layers, Eye, Plus, Pencil, Copy, Trash2, Check, X } from "lucide-react";
+import { Layers, View, Plus, Draw, Copy, Trash, Check, Close } from "./StudioIcons";
+import { getTrackColorClasses } from "../lib/constants";
 import type { SynthType } from "../lib/audio";
 import { SoundPicker } from "./SoundPicker";
 import { defaultTrackSettings, type TrackMix, type TrackDescriptor, type TrackSettings } from "../lib/tracks";
@@ -69,17 +70,15 @@ export function TrackStudio(p: TrackStudioProps) {
                   <button type="button" aria-label="Save track name" onClick={finishRename}
                     disabled={!draftName.trim()}><Check size={14} /></button>
                   <button type="button" aria-label="Cancel rename"
-                    onClick={() => setRenaming(null)}><X size={14} /></button>
+                    onClick={() => setRenaming(null)}><Close size={14} /></button>
                 </div> : <button type="button" className="track-name-button"
                   aria-pressed={focused}
                   onClick={() => p.onFocusTrack(focused ? null : track.index)}
                   title="Focus this track in the piano roll">
-                  <span className="track-color" style={{
-                    background: ["#9bc5b5", "#deba86", "#aaa1cf", "#a4c4df"][track.index % 4],
-                  }} />
+                  <span className={`track-color ${getTrackColorClasses(track.index)}`} />
                   <span><strong>{track.name}</strong>
                     <small>{track.noteCount} notes{focused ? " · Focused" : ""}</small></span>
-                  {focused && <Eye size={13} aria-hidden="true" />}
+                  {focused && <View size={13} aria-hidden="true" />}
                 </button>}
                 <div className="track-toggles">
                   <button type="button" aria-label={(setting.muted ? "Unmute " : "Mute ") + track.name}
@@ -112,7 +111,7 @@ export function TrackStudio(p: TrackStudioProps) {
                       setDraftName(track.name);
                       setPendingDelete(null);
                     }} aria-label={"Rename " + track.name}>
-                      <Pencil size={13} />Rename</button>
+                      <Draw size={13} />Rename</button>
                     <button type="button" onClick={() => p.onDuplicateTrack(track.index)}
                       aria-label={"Duplicate " + track.name}>
                       <Copy size={13} />Duplicate</button>
@@ -120,7 +119,7 @@ export function TrackStudio(p: TrackStudioProps) {
                       if (track.noteCount === 0) p.onDeleteTrack(track.index);
                       else { setPendingDelete(track.index); setRenaming(null); }
                     }} aria-label={"Delete " + track.name}>
-                      <Trash2 size={13} />Delete</button>
+                      <Trash size={13} />Delete</button>
                   </div>
                   {pendingDelete === track.index && <div className="track-delete-confirm"
                     role="alertdialog" aria-label={"Delete " + track.name + " confirmation"}

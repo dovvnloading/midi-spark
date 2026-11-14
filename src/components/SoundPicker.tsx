@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, LocateFixed, LoaderCircle, Play, Search, Volume2, SlidersHorizontal, Star, X } from "lucide-react";
+import { Check, ChevronDown, Locate, Loading, Play, Search, Speaker, Sliders, Favorite, Close } from "./StudioIcons";
 import { auditionPreset, cancelPresetAudition } from "../lib/audio";
 import { filterSoundPresets, presetViewCounts, sanitizeFavoriteIds, PRESET_VIEWS, type PresetView } from "../lib/presetBrowser";
 import { PRESET_BY_ID, PRESET_IDS, SOUND_PRESETS, type SynthType, type Wave } from "../lib/presets";
@@ -314,9 +314,9 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
           onClick={() => preview(value)}
         >
           {auditioning === value && previewPhase === "preparing"
-            ? <LoaderCircle className="animate-spin" size={17} aria-hidden="true" />
+            ? <Loading className="animate-spin" size={17} aria-hidden="true" />
             : auditioning === value && previewPhase === "playing"
-              ? <Volume2 size={17} aria-hidden="true" />
+              ? <Speaker size={17} aria-hidden="true" />
               : <Play size={17} fill="currentColor" aria-hidden="true" />}
         </button>
       </div>
@@ -341,7 +341,7 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
           >
             <header className="sound-library-header">
               <div className="sound-library-header-copy">
-                <span className="sound-library-eyebrow"><SlidersHorizontal size={14} aria-hidden="true" /> MIDI SPARK / SOUND COLLECTION</span>
+                <span className="sound-library-eyebrow"><Sliders size={14} aria-hidden="true" /> MIDI SPARK / SOUND COLLECTION</span>
                 <h2>Find your sound<span>.</span></h2>
                 <p id={descriptionId}>Explore, preview, and make it yours. Nothing changes until you apply.</p>
               </div>
@@ -350,13 +350,13 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
                 <span>ORIGINAL<br />PATCHES</span>
               </div>
               <button type="button" className="sound-library-close" aria-label="Close sound library" onClick={close}>
-                <X size={20} aria-hidden="true" />
+                <Close size={20} aria-hidden="true" />
               </button>
             </header>
             {previewError && <div className="sound-library-error" role="alert">
               <span>{previewError}</span>
               <button type="button" aria-label="Dismiss preview error" onClick={() => setPreviewError(null)}>
-                <X size={16} aria-hidden="true" />
+                <Close size={16} aria-hidden="true" />
               </button>
             </div>}
 
@@ -367,7 +367,7 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
                   <button key={name} type="button" className={name === "Favorites" ? "favorite-view" : ""}
                     aria-label={name} aria-pressed={view === name} onClick={() => switchView(name)}>
                     <span className="sound-library-nav-name">
-                      {name === "Favorites" && <Star size={14} aria-hidden="true" />}
+                      {name === "Favorites" && <Favorite size={14} aria-hidden="true" />}
                       {name === "All" ? "All sounds" : name}
                     </span>
                     <span className="sound-library-nav-count" aria-hidden="true">{counts[name]}</span>
@@ -435,7 +435,7 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
                             aria-label={(isFavorite ? "Remove " : "Add ") + preset.label + (isFavorite ? " from favorites" : " to favorites")}
                             aria-pressed={isFavorite} title={isFavorite ? "Remove from favorites" : "Add to favorites"}
                             onClick={() => toggleFavorite(preset.id)}>
-                            <Star size={17} fill={isFavorite ? "currentColor" : "none"} aria-hidden="true" />
+                            <Favorite size={17} fill={isFavorite ? "currentColor" : "none"} aria-hidden="true" />
                           </button>
                           <button type="button" className="sound-library-row-play"
                             aria-busy={auditioning === preset.id && previewPhase === "preparing"}
@@ -443,9 +443,9 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
                             aria-label={(auditioning === preset.id && previewPhase === "playing" ? "Previewing " : "Preview ") + preset.label}
                             title={"Preview " + preset.label + " without applying"} onClick={() => preview(preset.id)}>
                             {auditioning === preset.id && previewPhase === "preparing"
-                              ? <LoaderCircle className="animate-spin" size={16} aria-hidden="true" />
+                              ? <Loading className="animate-spin" size={16} aria-hidden="true" />
                               : auditioning === preset.id && previewPhase === "playing"
-                                ? <Volume2 size={16} aria-hidden="true" />
+                                ? <Speaker size={16} aria-hidden="true" />
                                 : <Play size={16} fill="currentColor" aria-hidden="true" />}
                           </button>
                         </div>
@@ -465,7 +465,7 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
                 title={"Find " + candidate.label + " in the sound collection"}>
                 <span className="sound-library-choice-eyebrow">{draft === value ? "CURRENT SOUND" : "STAGED / NOT YET APPLIED"}</span>
                 <span className="sound-library-choice-title"><strong>{candidate.label}</strong>
-                  <LocateFixed size={15} aria-hidden="true" /></span>
+                  <Locate size={15} aria-hidden="true" /></span>
                 <small>{candidate.category} <span aria-hidden="true">·</span> {draft === value
                   ? "Already in use on this track" : "Currently using " + applied.label}</small>
               </button>
@@ -476,9 +476,9 @@ export function SoundPicker({ value, onChange, label = "Sound", onPreviewError }
                   data-preview-state={auditioning === draft ? previewPhase : undefined}
                   aria-label={(auditioning === draft && previewPhase === "playing" ? "Previewing selected sound: " : "Preview selected sound: ") + candidate.label}>
                   {auditioning === draft && previewPhase === "preparing"
-                    ? <LoaderCircle className="animate-spin" size={17} aria-hidden="true" />
+                    ? <Loading className="animate-spin" size={17} aria-hidden="true" />
                     : auditioning === draft && previewPhase === "playing"
-                      ? <Volume2 size={17} aria-hidden="true" />
+                      ? <Speaker size={17} aria-hidden="true" />
                       : <Play size={16} fill="currentColor" aria-hidden="true" />}
                   <span>{auditioning === draft && previewPhase === "playing" ? "Playing" : "Preview"}</span>
                 </button>
